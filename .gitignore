@@ -1,0 +1,13 @@
+# binarios y artefactos
+/gala
+/gala.exe
+/dist/
+# datos locales de ejecución
+gala.json
+gala.db
+gala.db-wal
+gala.db-shm
+/cache/
+# frontend (cuando exista SvelteKit)
+web/node_modules/
+web/.svelte-kit/

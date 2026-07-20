@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GALA</title>
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#100C09;
+       color:#F4EDE3;font-family:system-ui,sans-serif}
+  .box{text-align:center}
+  h1{font-size:44px;letter-spacing:.06em;margin:0 0 8px;color:#F2A93B}
+  p{color:#A6937E;margin:4px 0}
+  code{background:#1B1510;border:1px solid #332619;border-radius:6px;padding:2px 8px}
+</style>
+</head>
+<body>
+  <div class="box">
+    <h1>▶ GALA</h1>
+    <p>El servidor está funcionando.</p>
+    <p>API: <code id="api">comprobando…</code></p>
+    <p style="margin-top:14px;font-size:13px">Este placeholder será sustituido por la interfaz real (M10).</p>
+  </div>
+  <script>
+    fetch('/api/v1/ping').then(r=>r.json())
+      .then(d=>{document.getElementById('api').textContent = d.app+' v'+d.version+' · '+d.status})
+      .catch(()=>{document.getElementById('api').textContent = 'sin respuesta'});
+  </script>
+</body>
+</html>

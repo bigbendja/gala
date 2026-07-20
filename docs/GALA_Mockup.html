@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GALA — Tu cine, tus fuentes</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#100C09;
+  --surface:#1B1510;
+  --surface-2:#261D14;
+  --line:#332619;
+  --text:#F4EDE3;
+  --muted:#A6937E;
+  --accent:#F2A93B;
+  --accent-deep:#C97E1B;
+  --ok:#6FCF8E;
+  --warn:#F2A93B;
+  --bad:#E1604F;
+  --off:#6E6157;
+  --r:14px;
+  --display:'Bricolage Grotesque',system-ui,sans-serif;
+  --body:'Instrument Sans',system-ui,sans-serif;
+  --mono:'Spline Sans Mono',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-size:15px;line-height:1.5;overflow-x:hidden}
+button{font-family:var(--body);cursor:pointer;border:none;background:none;color:inherit}
+::selection{background:var(--accent);color:#1a1207}
+
+/* ---------- Topbar ---------- */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:22px;
+  padding:14px 28px;background:linear-gradient(180deg,rgba(16,12,9,.97),rgba(16,12,9,.88));
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:.04em}
+.brand svg{display:block}
+.nav{display:flex;gap:4px;margin-left:6px}
+.nav a{color:var(--muted);text-decoration:none;padding:7px 12px;border-radius:9px;font-weight:500;transition:.15s}
+.nav a:hover{color:var(--text);background:var(--surface)}
+.nav a.active{color:var(--text);background:var(--surface-2)}
+.spacer{flex:1}
+.search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);
+  border-radius:10px;padding:8px 14px;color:var(--muted);min-width:220px}
+.lan-pill{display:flex;align-items:center;gap:8px;background:rgba(111,207,142,.1);border:1px solid rgba(111,207,142,.3);
+  border-radius:99px;padding:7px 14px;font-size:13px;color:var(--ok);font-weight:500;transition:.15s}
+.lan-pill:hover{background:rgba(111,207,142,.18)}
+.lan-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.btn-add{display:flex;align-items:center;gap:8px;background:var(--accent);color:#1a1207;font-weight:600;
+  padding:9px 18px;border-radius:10px;font-size:14px;transition:.15s;box-shadow:0 4px 18px rgba(242,169,59,.25)}
+.btn-add:hover{background:#ffbf58;transform:translateY(-1px)}
+
+/* ---------- Hero ---------- */
+.hero{position:relative;padding:64px 28px 40px;overflow:hidden;isolation:isolate}
+.hero::before{content:'';position:absolute;inset:0;z-index:-2;
+  background:radial-gradient(120% 90% at 78% 8%, #3d2a14 0%, #221709 42%, var(--bg) 78%)}
+/* haz de proyector: la firma visual */
+.hero::after{content:'';position:absolute;top:-20%;right:6%;width:60%;height:150%;z-index:-1;pointer-events:none;
+  background:conic-gradient(from 208deg at 100% 0%, transparent 0deg, rgba(242,169,59,.10) 8deg, rgba(242,169,59,.03) 22deg, transparent 34deg);
+  animation:beam 9s ease-in-out infinite alternate}
+@keyframes beam{from{opacity:.7}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.hero::after{animation:none}}
+.hero-inner{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1fr 300px;gap:48px;align-items:center}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--accent);text-transform:uppercase;margin-bottom:14px}
+.hero h1{font-family:var(--display);font-size:clamp(34px,4.6vw,58px);font-weight:800;line-height:1.02;letter-spacing:-.01em;margin-bottom:16px}
+.hero-meta{display:flex;gap:14px;align-items:center;color:var(--muted);font-size:14px;margin-bottom:14px;flex-wrap:wrap}
+.hero-meta .cert{border:1px solid var(--line);border-radius:5px;padding:1px 7px;font-size:12px}
+.hero p{color:var(--muted);max-width:560px;margin-bottom:22px}
+.hero-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.btn-play{display:flex;align-items:center;gap:10px;background:var(--text);color:#17110a;font-weight:600;
+  font-size:15px;padding:13px 26px;border-radius:11px;transition:.15s}
+.btn-play:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(244,237,227,.15)}
+.btn-ghost{padding:13px 20px;border-radius:11px;border:1px solid var(--line);color:var(--text);
+  background:rgba(255,255,255,.03);font-weight:500;transition:.15s}
+.btn-ghost:hover{background:var(--surface)}
+.hero-poster{aspect-ratio:2/3;border-radius:16px;overflow:hidden;position:relative;
+  box-shadow:0 24px 60px rgba(0,0,0,.55),0 0 0 1px var(--line);
+  background:linear-gradient(160deg,#4a3016 0%,#1e1207 55%,#0d0a06 100%)}
+.hero-poster .art{position:absolute;inset:0;display:flex;align-items:flex-end;padding:22px;
+  font-family:var(--display);font-weight:800;font-size:30px;line-height:1.05;
+  background:radial-gradient(90% 60% at 30% 20%, rgba(242,169,59,.35), transparent 60%)}
+
+/* fuentes de la ficha */
+.src-stack{margin-top:26px;border:1px solid var(--line);border-radius:var(--r);background:rgba(0,0,0,.25);overflow:hidden;max-width:560px}
+.src-head{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.src-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(51,38,25,.5);font-size:13.5px}
+.src-row:last-child{border-bottom:none}
+.src-row .h{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.h-ok{background:var(--ok);box-shadow:0 0 7px rgba(111,207,142,.5)}
+.h-warn{background:var(--warn)}
+.h-bad{background:var(--bad)}
+.h-off{background:var(--off)}
+.src-row .tag{font-family:var(--mono);font-size:11px;color:var(--bg);background:var(--muted);
+  border-radius:5px;padding:2px 8px;font-weight:500;flex-shrink:0}
+.src-row .tag.local{background:var(--accent);color:#1a1207}
+.src-row .path{color:var(--muted);font-family:var(--mono);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.src-row .q{color:var(--muted);font-size:12px;flex-shrink:0}
+
+/* ---------- Rows ---------- */
+.section{max-width:1236px;margin:0 auto;padding:34px 28px 0}
+.section:last-of-type{padding-bottom:60px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:16px}
+.sec-head h2{font-family:var(--display);font-size:21px;font-weight:600;letter-spacing:.01em}
+.sec-head .count{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.sec-head .link{margin-left:auto;color:var(--accent);font-size:13.5px;font-weight:500;text-decoration:none}
+.row{display:grid;grid-auto-flow:column;grid-auto-columns:172px;gap:16px;overflow-x:auto;
+  padding:4px 4px 18px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.row.wide{grid-auto-columns:236px}
+
+.card{position:relative;border-radius:12px;overflow:hidden;background:var(--surface);
+  border:1px solid var(--line);transition:.18s;cursor:pointer}
+.card:hover{transform:translateY(-4px);border-color:#4d3a22;box-shadow:0 14px 34px rgba(0,0,0,.5)}
+.card .poster{aspect-ratio:2/3;position:relative;display:flex;align-items:flex-end;padding:14px;
+  font-family:var(--display);font-weight:800;font-size:17px;line-height:1.1}
+.card.wide-card .poster{aspect-ratio:16/10;font-size:18px}
+.card .info{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
+.card .t{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .m{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.dots{display:flex;gap:4px;margin-left:auto}
+.dots span{width:6px;height:6px;border-radius:50%}
+.progress{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(0,0,0,.5)}
+.progress i{display:block;height:100%;background:var(--accent)}
+.badge{position:absolute;top:10px;left:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+  background:rgba(16,12,9,.82);border:1px solid var(--line);border-radius:6px;padding:3px 8px;color:var(--muted)}
+
+/* arte de pósters (placeholders) */
+.p1{background:linear-gradient(150deg,#59331a,#241206 60%,#0e0804)}
+.p2{background:linear-gradient(150deg,#173a33,#0a1a17 60%,#060d0b)}
+.p3{background:linear-gradient(150deg,#3a1f3f,#170b1c 60%,#0a0510)}
+.p4{background:linear-gradient(150deg,#1d3050,#0c1424 60%,#05080f)}
+.p5{background:linear-gradient(150deg,#5c1f1f,#230a0a 60%,#0f0404)}
+.p6{background:linear-gradient(150deg,#4d4416,#1e1a06 60%,#0d0b03)}
+.p7{background:linear-gradient(150deg,#20423b,#0d1d1a 60%,#060f0d)}
+.p8{background:linear-gradient(150deg,#513a5e,#1f1426 60%,#0e0813)}
+.card .poster::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,transparent 40%,rgba(10,7,4,.85));pointer-events:none}
+.card .poster b{position:relative;z-index:1}
+
+/* deseos */
+.card.wish{border-style:dashed;border-color:#42301b;background:rgba(27,21,16,.5)}
+.card.wish .poster{opacity:.55}
+.wish-tag{position:absolute;top:10px;right:10px;z-index:2;font-size:11px;background:rgba(242,169,59,.15);
+  border:1px solid rgba(242,169,59,.4);color:var(--accent);border-radius:6px;padding:3px 8px;font-weight:500}
+
+/* aviso deseos */
+.notice{max-width:1180px;margin:26px auto 0;padding:0 28px}
+.notice-inner{display:flex;align-items:center;gap:14px;background:linear-gradient(90deg,rgba(242,169,59,.12),rgba(242,169,59,.03));
+  border:1px solid rgba(242,169,59,.3);border-radius:var(--r);padding:14px 20px}
+.notice-inner b{color:var(--accent)}
+.notice-inner .cta{margin-left:auto;color:var(--accent);font-weight:600;font-size:13.5px;white-space:nowrap}
+
+/* ---------- Modal ingesta ---------- */
+.overlay{position:fixed;inset:0;background:rgba(8,6,4,.78);backdrop-filter:blur(6px);z-index:100;
+  display:none;align-items:center;justify-content:center;padding:20px}
+.overlay.open{display:flex}
+.modal{width:min(640px,100%);background:var(--surface);border:1px solid #3d2d1a;border-radius:20px;
+  box-shadow:0 40px 100px rgba(0,0,0,.7);overflow:hidden}
+.modal-head{padding:24px 28px 0}
+.modal-head h3{font-family:var(--display);font-size:24px;font-weight:800;margin-bottom:6px}
+.modal-head p{color:var(--muted);font-size:14px}
+.modal-body{padding:20px 28px 28px}
+.paste{width:100%;min-height:150px;background:var(--bg);border:1.5px dashed #4d3a22;border-radius:14px;
+  color:var(--text);font-family:var(--mono);font-size:13px;padding:16px;resize:vertical;outline:none;transition:.15s}
+.paste:focus{border-color:var(--accent);border-style:solid;box-shadow:0 0 0 3px rgba(242,169,59,.14)}
+.paste::placeholder{color:#5f5347}
+.detect{margin-top:16px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.detect-head{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);padding:10px 16px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.2)}
+.detect-row{display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13.5px;border-bottom:1px solid rgba(51,38,25,.5)}
+.detect-row:last-child{border-bottom:none}
+.detect-row .ic{width:22px;text-align:center}
+.detect-row .n{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.detect-row.warn-row{color:var(--warn)}
+.modal-actions{display:flex;gap:12px;margin-top:20px}
+.modal-actions .btn-add{flex:1;justify-content:center;padding:13px}
+.modal-actions .btn-ghost{padding:13px 22px}
+.alt-src{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.alt-src button{font-size:12.5px;color:var(--muted);border:1px solid var(--line);border-radius:99px;
+  padding:7px 14px;transition:.15s}
+.alt-src button:hover{color:var(--text);border-color:#4d3a22;background:var(--surface-2)}
+
+footer{border-top:1px solid var(--line);padding:22px 28px;display:flex;gap:16px;align-items:center;
+  color:var(--muted);font-size:12.5px;max-width:1236px;margin:0 auto}
+footer .f-dot{width:4px;height:4px;border-radius:50%;background:var(--line)}
+footer .right{margin-left:auto;font-family:var(--mono);font-size:11.5px}
+
+@media (max-width:900px){
+  .nav,.search{display:none}
+  .hero-inner{grid-template-columns:1fr;gap:28px}
+  .hero-poster{display:none}
+  .topbar{padding:12px 16px;gap:12px}
+  .hero,.section,.notice{padding-left:16px;padding-right:16px}
+  .row{grid-auto-columns:138px}
+  .row.wide{grid-auto-columns:200px}
+}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+</style>
+</head>
+<body>
+
+<!-- ============ TOPBAR ============ -->
+<header class="topbar">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+      <circle cx="13" cy="13" r="11.5" stroke="#F2A93B" stroke-width="2.4"/>
+      <path d="M10.5 8.5L18 13l-7.5 4.5v-9z" fill="#F2A93B"/>
+    </svg>
+    GALA
+  </div>
+  <nav class="nav" aria-label="Principal">
+    <a href="#" class="active">Inicio</a>
+    <a href="#">Películas</a>
+    <a href="#">Series</a>
+    <a href="#">Listas</a>
+    <a href="#">Deseos</a>
+  </nav>
+  <div class="spacer"></div>
+  <div class="search" role="search">🔍 Buscar en tu galería…</div>
+  <button class="lan-pill" title="Modo LAN activo — pulsa para ver el QR">
+    <span class="lan-dot"></span> LAN · 2 dispositivos
+  </button>
+  <button class="btn-add" onclick="document.getElementById('ingesta').classList.add('open')">＋ Añadir</button>
+</header>
+
+<!-- ============ HERO / FICHA ============ -->
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="eyebrow">Añadida hoy · desde tu disco «WD-Negro»</div>
+      <h1>Cielo de Harmattan</h1>
+      <div class="hero-meta">
+        <span class="cert">12+</span><span>2023</span><span>1 h 58 min</span><span>Drama</span>
+        <span style="color:var(--accent)">★ 7,8</span>
+      </div>
+      <p>Tras diez años fuera, Nadia vuelve a la ciudad costera de su infancia para vender la casa familiar y descubre que el barrio entero guarda una deuda con su padre.</p>
+      <div class="hero-actions">
+        <button class="btn-play">▶ Reproducir</button>
+        <button class="btn-ghost">＋ Mi lista</button>
+        <button class="btn-ghost">Detalles</button>
+      </div>
+
+      <div class="src-stack">
+        <div class="src-head"><span>3 fuentes</span><span>se reproduce la mejor disponible</span></div>
+        <div class="src-row">
+          <span class="h h-ok"></span><span class="tag local">LOCAL</span>
+          <span class="path">E:\Peliculas\Cielo.de.Harmattan.2023.1080p.mkv</span><span class="q">1080p</span>
+        </div>
+        <div class="src-row">
+          <span class="h h-ok"></span><span class="tag">DRIVE</span>
+          <span class="path">drive.google.com/file/d/1xK…9fQ</span><span class="q">720p</span>
+        </div>
+        <div class="src-row">
+          <span class="h h-bad"></span><span class="tag">ENLACE</span>
+          <span class="path">cdn.ejemplo.net/v/harmattan_hd.mp4 · caída hace 2 días</span><span class="q">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-poster">
+      <div class="art">Cielo de<br>Harmattan</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AVISO DESEOS ============ -->
+<div class="notice">
+  <div class="notice-inner">
+    <span>✨</span>
+    <span><b>3 títulos de tus deseos</b> han llegado con el disco «WD-Negro» y ya están en tu galería.</span>
+    <a href="#" class="cta">Ver cuáles →</a>
+  </div>
+</div>
+
+<!-- ============ CONTINUAR VIENDO ============ -->
+<section class="section">
+  <div class="sec-head"><h2>Continuar viendo</h2><span class="count">sigue donde lo dejaste, en cualquier dispositivo</span></div>
+  <div class="row wide">
+    <article class="card wide-card">
+      <div class="poster p2"><b>El Barrio Duerme</b><div class="progress"><i style="width:64%"></i></div></div>
+      <div class="info"><div class="t">El Barrio Duerme</div>
+        <div class="m">Quedan 43 min<div class="dots"><span class="h-ok"></span></div></div></div>
+    </article>
+    <article class="card wide-card">
+      <div class="poster p4"><b>Ruta 3 · T1E4</b><div class="progress"><i style="width:22%"></i></div></div>
+      <div class="info"><div class="t">Ruta 3 — T1 E4</div>
+        <div class="m">Empezada en el móvil<div class="dots"><span class="h-ok"></span><span class="h-ok"></span></div></div></div>
+    </article>
+    <article class="card wide-card">
+      <div class="poster p6"><b>Marea Negra</b><div class="progress"><i style="width:87%"></i></div></div>
+      <div class="info"><div class="t">Marea Negra</div>
+        <div class="m">Quedan 12 min<div class="dots"><span class="h-warn"></span></div></div></div>
+    </article>
+    <article class="card wide-card">
+      <div class="poster p8"><b>La Casa del Puerto</b><div class="progress"><i style="width:41%"></i></div></div>
+      <div class="info"><div class="t">La Casa del Puerto</div>
+        <div class="m">Quedan 1 h 05<div class="dots"><span class="h-ok"></span></div></div></div>
+    </article>
+  </div>
+</section>
+
+<!-- ============ BIBLIOTECA ============ -->
+<section class="section">
+  <div class="sec-head"><h2>Tu galería</h2><span class="count">248 títulos · 3 fuentes conectadas</span>
+    <a href="#" class="link">Ver todo →</a></div>
+  <div class="row">
+    <article class="card"><div class="badge">NUEVO</div>
+      <div class="poster p1"><b>Ébano</b></div>
+      <div class="info"><div class="t">Ébano</div>
+        <div class="m">2024<div class="dots"><span class="h-ok"></span><span class="h-ok"></span></div></div></div>
+    </article>
+    <article class="card">
+      <div class="poster p3"><b>Media Noche</b></div>
+      <div class="info"><div class="t">Media Noche</div>
+        <div class="m">2021<div class="dots"><span class="h-ok"></span></div></div></div>
+    </article>
+    <article class="card">
+      <div class="poster p5"><b>Fuego Cruzado</b></div>
+      <div class="info"><div class="t">Fuego Cruzado</div>
+        <div class="m">2019<div class="dots"><span class="h-warn"></span></div></div></div>
+    </article>
+    <article class="card"><div class="badge">LISTA·M3U</div>
+      <div class="poster p7"><b>Voces del Río</b></div>
+      <div class="info"><div class="t">Voces del Río</div>
+        <div class="m">2022<div class="dots"><span class="h-ok"></span></div></div></div>
+    </article>
+    <article class="card">
+      <div class="poster p4"><b>Kilómetro Cero</b></div>
+      <div class="info"><div class="t">Kilómetro Cero</div>
+        <div class="m">2020<div class="dots"><span class="h-off"></span></div></div></div>
+    </article>
+    <article class="card">
+      <div class="poster p2"><b>La Frontera Verde</b></div>
+      <div class="info"><div class="t">La Frontera Verde</div>
+        <div class="m">2023<div class="dots"><span class="h-ok"></span><span class="h-bad"></span></div></div></div>
+    </article>
+    <article class="card">
+      <div class="poster p6"><b>Sombra y Sal</b></div>
+      <div class="info"><div class="t">Sombra y Sal</div>
+        <div class="m">2018<div class="dots"><span class="h-ok"></span></div></div></div>
+    </article>
+    <article class="card">
+      <div class="poster p8"><b>Tres Lunas</b></div>
+      <div class="info"><div class="t">Tres Lunas</div>
+        <div class="m">2025<div class="dots"><span class="h-ok"></span></div></div></div>
+    </article>
+  </div>
+</section>
+
+<!-- ============ DESEOS ============ -->
+<section class="section">
+  <div class="sec-head"><h2>Deseos</h2><span class="count">se completan solos cuando llega una fuente</span></div>
+  <div class="row">
+    <article class="card wish"><span class="wish-tag">Sin fuente</span>
+      <div class="poster p3"><b>El Último Tren</b></div>
+      <div class="info"><div class="t">El Último Tren</div><div class="m">2024 · buscando…</div></div>
+    </article>
+    <article class="card wish"><span class="wish-tag">Sin fuente</span>
+      <div class="poster p7"><b>Arena Blanca</b></div>
+      <div class="info"><div class="t">Arena Blanca</div><div class="m">2023 · buscando…</div></div>
+    </article>
+    <article class="card wish"><span class="wish-tag">Sin fuente</span>
+      <div class="poster p1"><b>Distrito Sur · T2</b></div>
+      <div class="info"><div class="t">Distrito Sur — T2</div><div class="m">2025 · buscando…</div></div>
+    </article>
+  </div>
+</section>
+
+<footer>
+  <span>GALA v0.1 · código abierto</span><span class="f-dot"></span>
+  <span>Metadatos: TMDB (offline listo)</span><span class="f-dot"></span>
+  <span>Tu contenido nunca sale de tus dispositivos</span>
+  <span class="right">gala.local · 192.168.1.34:7420</span>
+</footer>
+
+<!-- ============ MODAL INGESTA ============ -->
+<div class="overlay" id="ingesta" role="dialog" aria-modal="true" aria-labelledby="ing-t">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="ing-t">Pega lo que sea</h3>
+      <p>Un enlace, veinte enlaces, una lista M3U, un archivo .gala o un texto de WhatsApp con enlaces por medio. GALA detecta, cataloga y descarta el ruido.</p>
+    </div>
+    <div class="modal-body">
+      <textarea class="paste" spellcheck="false" placeholder="Pega aquí… o arrastra un archivo
+
+Ej.:  https://drive.google.com/file/d/…
+      http://lista.ejemplo.com/canales.m3u
+      E:\Peliculas\">🎬 mira lo q me pasaron!!
+https://drive.google.com/file/d/1xK2…/view
+http://ejemplo.net/pack_series.m3u
+https://cdn.ejemplo.net/v/pelicula_hd.mp4 👌👌</textarea>
+
+      <div class="detect">
+        <div class="detect-head">Detectado</div>
+        <div class="detect-row"><span class="ic">◆</span> 1 enlace de Google Drive <span class="n">→ «Cielo de Harmattan» (98%)</span></div>
+        <div class="detect-row"><span class="ic">≣</span> 1 lista M3U · 142 entradas <span class="n">→ 96 nuevas · 31 duplicadas</span></div>
+        <div class="detect-row"><span class="ic">↗</span> 1 enlace directo MP4 <span class="n">→ por confirmar (2 candidatos)</span></div>
+        <div class="detect-row warn-row"><span class="ic">⚠</span> 15 entradas sin identificar <span class="n">→ irán a «Por confirmar»</span></div>
+      </div>
+
+      <div class="alt-src">
+        <button>📁 Elegir carpeta</button>
+        <button>💽 Escanear disco USB</button>
+        <button>📦 Importar .gala</button>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-add">Añadir 98 títulos a mi galería</button>
+        <button class="btn-ghost" onclick="document.getElementById('ingesta').classList.remove('open')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('ingesta').addEventListener('click',e=>{
+  if(e.target===e.currentTarget) e.currentTarget.classList.remove('open');
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') document.getElementById('ingesta').classList.remove('open');
+});
+</script>
+</body>
+</html>
