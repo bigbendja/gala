@@ -19,6 +19,8 @@ type Config struct {
 	MediaFolders []string `json:"media_folders"`
 	// LanPIN, si no está vacío, exige PIN en Modo LAN (M7). Vacío = sin PIN.
 	LanPIN string `json:"lan_pin"`
+	// TMDBAPIKey, si no está vacío, sustituye a identify.DefaultTMDBKey (M3).
+	TMDBAPIKey string `json:"tmdb_api_key"`
 
 	dir string // directorio base (junto al ejecutable), no se serializa
 }

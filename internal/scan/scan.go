@@ -45,6 +45,12 @@ type Scanner struct {
 
 	mu     sync.Mutex
 	status Status
+
+	// AfterScan, si no es nil, se llama al terminar cada escaneo (fin de
+	// escaneo con éxito o no). La usa la cola de identificación de M3 para
+	// despertarse y procesar los items provisionales recién creados
+	// (Brief M3 §4: "fin de escaneo de M2"). Opcional: nil no rompe nada.
+	AfterScan func()
 }
 
 // New crea un Scanner. ctx debe vivir mientras viva la aplicación: los
@@ -85,6 +91,9 @@ func (s *Scanner) run(folders []string) {
 		now := timeNow()
 		s.status.LastFinished = &now
 		s.mu.Unlock()
+		if s.AfterScan != nil {
+			s.AfterScan()
+		}
 	}()
 
 	if folders == nil {

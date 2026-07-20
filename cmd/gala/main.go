@@ -20,6 +20,7 @@ import (
 	"github.com/bigbendja/gala/internal/api"
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
+	"github.com/bigbendja/gala/internal/identify"
 	"github.com/bigbendja/gala/internal/providers/localfs"
 	"github.com/bigbendja/gala/internal/scan"
 	"github.com/bigbendja/gala/internal/store"
@@ -67,9 +68,23 @@ func main() {
 		}
 	}
 
+	cacheDir, err := cfg.CacheDir()
+	if err != nil {
+		log.Error("cache", "err", err)
+		os.Exit(1)
+	}
+
+	tmdbKey := cfg.TMDBAPIKey
+	tmdbClient := identify.NewClient(tmdbKey, cacheDir, repo)
+	idQueue := identify.NewQueue(ctx, repo, tmdbClient, log)
+	go idQueue.Run()
+
 	enum := localfs.NewEnumerator()
 	scanner := scan.New(ctx, cfg, repo, enum, log)
-	apiSrv := api.New(st, repo, cfg, scanner, enum, log)
+	// Fin de escaneo de M2 despierta la cola de identificación de M3
+	// (Brief M3 §4).
+	scanner.AfterScan = idQueue.Enqueue
+	apiSrv := api.New(st, repo, cfg, scanner, enum, idQueue, tmdbClient, cacheDir, log)
 
 	// Poller de volúmenes: detecta conexión/desconexión de discos y dispara
 	// el re-escaneo de las carpetas registradas que vivan en ellos.

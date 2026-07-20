@@ -1,0 +1,71 @@
+# Corpus de referencia para TestCorpusExpected (internal/identify/normalize_test.go).
+# Formato: filename \t folder \t title \t year \t kind \t season \t episode \t absep \t junk \t extra
+# folder vacío ("-") = sin herencia de carpeta. kind: movie|series_episode|unknown.
+# Selección de ~52 líneas de testdata/corpus_nombres.txt cubriendo todas las
+# familias del corpus (Brief M3 §6), incluidas las trampas de "Casos límite".
+filename	folder	title	year	kind	season	episode	absep	junk	extra
+Inception.2010.1080p.BluRay.x264-SPARKS.mkv	-	Inception	2010	movie	0	0	0	false	false
+The.Dark.Knight.2008.720p.BrRip.x264.YIFY.mp4	-	The Dark Knight	2008	movie	0	0	0	false	false
+Joker (2019) [1080p] [BluRay] [5.1] [YTS.MX].mp4	-	Joker	2019	movie	0	0	0	false	false
+The Godfather (1972) [720p] [BluRay] [YTS.AM].mp4	-	The Godfather	1972	movie	0	0	0	false	false
+[www.newpct1.com]La.casa.de.papel.1x05.HDTV.720p.Cap.105.AC3.5.1.Castellano.mkv	-	La casa de papel	0	series_episode	1	5	0	false	false
+La.que.se.avecina.13x08.Cap.171.HDTV.1080p.Castellano.mkv	-	La que se avecina	0	series_episode	13	8	0	false	false
+La Casa de Papel - 1x01 - Efraccion.WEB-DL.Castellano.mkv	-	La Casa de Papel - Efraccion	0	series_episode	1	1	0	false	false
+Coco (2017) [BRRip 1080p] [Latino-Ingles] [MEGA].mkv	-	Coco	2017	movie	0	0	0	false	false
+El Laberinto del Fauno [2006] [DVDRip] [Español Latino].avi	-	El Laberinto del Fauno	2006	movie	0	0	0	false	false
+Lupin.S01E03.FRENCH.WEBRip.x264-EXTREME.mp4	-	Lupin	0	series_episode	1	3	0	false	false
+Dark.S03E01.GERMAN.MULTI.1080p.NF.WEB-DL.DDP5.1.Atmos.x264-TVS.mkv	-	Dark	0	series_episode	3	1	0	false	false
+Breaking.Bad.S01E01.1080p.BluRay.x264-DEMAND.mkv	-	Breaking Bad	0	series_episode	1	1	0	false	false
+game.of.thrones.s01e01.hdtv.xvid-lol.avi	-	game of thrones	0	series_episode	1	1	0	false	false
+friends.1x01.dvdrip.avi	-	friends	0	series_episode	1	1	0	false	false
+E01.mkv	Breaking Bad Temporada 2 [720p][Castellano]	Breaking Bad	0	series_episode	2	1	0	false	false
+GOT.4x01.mkv	Game of Thrones - Season 4 Complete 1080p	GOT	0	series_episode	4	1	0	false	false
+Capitulo 01.avi	Los Soprano T1 DVDRip Esp	Los Soprano	0	series_episode	1	1	0	false	false
+merli_301.mp4	Merli Temporada 3	Merli	0	series_episode	3	1	0	false	false
+Capitulo 03.mp4	La Casa de Papel - Parte 5 [WEB-DL][Castellano]	La Casa de Papel	0	series_episode	5	3	0	false	false
+Better.Call.Saul.S01E05.SPANISH.HDTV.x264.mkv	Breaking Bad Temporada 3 [HDTV][Castellano]	Better Call Saul	0	series_episode	1	5	0	false	false
+Los Simpson - 5x02 - El Especial de Halloween.avi	Breaking Bad Temporada 3 [HDTV][Castellano]	Los Simpson - El Especial de Halloween	0	series_episode	5	2	0	false	false
+[SubsPlease] Jujutsu Kaisen - 05 (1080p) [4C1ECFA2].mkv	-	Jujutsu Kaisen	0	series_episode	0	0	5	false	false
+[Erai-raws] One Piece - 1071 [720p][Multiple Subtitle].mkv	-	One Piece	0	series_episode	0	0	1071	false	false
+Naruto_Shippuden_-_133_[1080p].mkv	-	Naruto Shippuden	0	series_episode	0	0	133	false	false
+Your.Name.2016.JAPANESE.1080p.BluRay.x264.DTS-FGT.mkv	-	Your Name	2016	movie	0	0	0	false	false
+El padrino 2.avi	-	El padrino 2	0	unknown	0	0	0	false	false
+la vida es bella.mkv	-	la vida es bella	0	unknown	0	0	0	false	false
+rapidos y furiosos 9.mp4	-	rapidos y furiosos 9	0	unknown	0	0	0	false	false
+Inception.2010.1080p.BluRay.x264-SPARKS (1).mkv	-	Inception	2010	movie	0	0	0	false	false
+Titanic (1997) (copia).mp4	-	Titanic	1997	movie	0	0	0	false	false
+VID-20230412-WA0012.mp4	-		0	unknown	0	0	0	true	false
+IMG_4032.MOV	-		0	unknown	0	0	0	true	false
+WhatsApp Video 2024-11-02 at 09.14.55.mp4	-		0	unknown	0	0	0	true	false
+video sin titulo.mp4	-		0	unknown	0	0	0	true	false
+grabacion clase contabilidad.mp4	-		0	unknown	0	0	0	true	false
+pelicula.sin.identificar.mkv	-		0	unknown	0	0	0	true	false
+Telegram-cloud-document-2-5199283746502938.mp4	-		0	unknown	0	0	0	true	false
+20230101_123456.mp4	-		0	unknown	0	0	0	true	false
+Inception.2010.1080p.BluRay.x264-SPARKS.sample.mkv	-		0	unknown	0	0	0	false	true
+sample.mkv	-		0	unknown	0	0	0	false	true
+Dune.2021.TRAILER.1080p.mp4	-		0	unknown	0	0	0	false	true
+Making.of.The.Lord.of.the.Rings.mkv	-		0	unknown	0	0	0	false	true
+RARBG.mp4	-		0	unknown	0	0	0	false	true
+Planeta.Tierra.II.E04.Desiertos.1080p.BluRay.Castellano.mkv	-	Planeta Tierra II Desiertos	0	series_episode	0	4	0	false	false
+2012.2009.1080p.BluRay.x264.mkv	-	2012	2009	movie	0	0	0	false	false
+1917.2019.720p.BluRay.x264-YOL0W.mkv	-	1917	2019	movie	0	0	0	false	false
+Blade.Runner.2049.2017.1080p.BluRay.x264.mkv	-	Blade Runner 2049	2017	movie	0	0	0	false	false
+Ocean's.Eleven.2001.1080p.BluRay.x264.mkv	-	Ocean's Eleven	2001	movie	0	0	0	false	false
+WALL-E.2008.1080p.BluRay.x264.mkv	-	WALL-E	2008	movie	0	0	0	false	false
+Se7en.1995.REMASTERED.1080p.BluRay.x264.mkv	-	Se7en	1995	movie	0	0	0	false	false
+Terminator.2.Judgment.Day.1991.SE.1080p.BluRay.x264.DTS-WiKi.mkv	-	Terminator 2 Judgment Day	1991	movie	0	0	0	false	false
+Cars_2006_DVDRip_Xvid.avi	-	Cars	2006	movie	0	0	0	false	false
+1899.S01E01.MULTI.1080p.WEB.H264-CiELOS.mkv	-	1899	0	series_episode	1	1	0	false	false
+1917.(2019).[WEBDL-1080p].[EAC3.5.1].[h264]-CMRG.mkv	-	1917	2019	movie	0	0	0	false	false
+La Reina del Sur - 3x01 - Capitulo 41.mp4	-	La Reina del Sur	0	series_episode	3	1	0	false	false
+Peaky.Blinders.Temporada.5.Episodio.3.ESPAÑOL.1080p.mkv	-	Peaky Blinders	0	series_episode	5	3	0	false	false
+El Padrino (1972) [Trilogia][Español Latino-Ingles][BluRay 1080p].mp4	-	El Padrino	1972	movie	0	0	0	false	false
+Joker.2019.HDRip.XviD.AC3-EVO[TGx].avi	-	Joker	2019	movie	0	0	0	false	false
+Vikings.S06E20.FINAL.720p.HDTV.x264-CRAVERS[eztv].mkv	-	Vikings	0	series_episode	6	20	0	false	false
+La La Land 2016 1080p BluRay REMUX AVC DTS-HD MA 5.1-EPSiLON.mkv	-	La La Land	2016	movie	0	0	0	false	false
+Dune.Part.Two.2024.2160p.WEB-DL.DDP5.1.Atmos.DV.HDR.H265-FLUX.mkv	-	Dune Part Two	2024	movie	0	0	0	false	false
+Cien.Años.de.Soledad.S01E01.MULTI.1080p.NF.WEB-DL.mkv	-	Cien Años de Soledad	0	series_episode	1	1	0	false	false
+Merlí.Sapere.Aude.S01E01.CATALAN.720p.HDTV.x264.mkv	-	Merlí Sapere Aude	0	series_episode	1	1	0	false	false
+Océanos.mp4	-	Océanos	0	unknown	0	0	0	false	false
+Élite.S06E01.SPANISH.1080p.NF.WEB-DL.DDP5.1.x264-TEPES.mkv	-	Élite	0	series_episode	6	1	0	false	false

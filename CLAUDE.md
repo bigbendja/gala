@@ -46,8 +46,18 @@ cultura del disco duro que circula.
       poller de volúmenes (conexión/desconexión, rescaneo dirigido), orquestador
       `internal/scan` (exclusión mutua, estado, lotes de 200), endpoints
       folders/scan/volumes, tests.
-- [ ] M3 Identificación (normalizador + TMDB + caché offline) ← SIGUIENTE
-- [ ] M4 Streaming/reproducción · M5 Ingesta · M6 Salud · M7 LAN · M8 Deseos ·
+- [x] M3 Identificación: normalizador (internal/identify/normalize.go, pipeline
+      completo del brief + corpus de tests), cliente TMDB (búsqueda/detalle/
+      imágenes, rate limit 4 req/s, reintentos con backoff, ErrOffline, caché
+      offline en tmdb_cache/search_cache), matcher (umbrales ALTA/MEDIA/BAJA,
+      similitud Levenshtein/Jaro propia, degradación por contradicción de
+      carpeta, cap MEDIA para packs, dedupe y jerarquía serie→temporada→episodio),
+      cola de enriquecimiento asíncrona (internal/identify/queue.go: engancha
+      fin de escaneo/confirmación manual/arranque, reintento offline cada
+      5 min, se reconstruye de BD), endpoints /pending, /items/{id}/confirm,
+      /identify/status, /img/{archivo}.
+- [ ] M4 Streaming/reproducción ← SIGUIENTE
+- [ ] M5 Ingesta · M6 Salud · M7 LAN · M8 Deseos ·
       M9 .gala · M10 Frontend · M11 Release
 (Actualizar esta lista al completar cada módulo.)
 

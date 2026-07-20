@@ -48,7 +48,8 @@ func (r *Repo) Tx(ctx context.Context, fn func(*Repo) error) error {
 
 const itemCols = `i.id, i.kind, i.parent_id, i.tmdb_id, i.title, i.original_title,
 	i.year, i.overview, i.poster_path, i.backdrop_path, i.genres, i.rating_cert,
-	i.confirmed, i.wished, i.added_at, i.updated_at`
+	i.confirmed, i.wished, i.added_at, i.updated_at, i.season_number,
+	i.episode_number, i.identify_status, i.identify_note`
 
 // List devuelve una página del catálogo según el filtro, con contadores de
 // fuentes y resumen de salud por item (para los puntos de las tarjetas).
@@ -174,14 +175,20 @@ func (r *Repo) InsertItem(ctx context.Context, it *Item, now string) (int64, err
 	if err != nil {
 		return 0, err
 	}
+	status := it.IdentifyStatus
+	if status == "" {
+		status = IdentifyPending
+	}
 	res, err := r.q.ExecContext(ctx, `INSERT INTO items
 		(kind, parent_id, tmdb_id, title, original_title, year, overview,
 		 poster_path, backdrop_path, genres, rating_cert, confirmed, wished,
-		 added_at, updated_at)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		 added_at, updated_at, season_number, episode_number, identify_status,
+		 identify_note)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		it.Kind, it.ParentID, it.TMDBID, it.Title, it.OriginalTitle, it.Year,
 		it.Overview, it.PosterPath, it.BackdropPath, string(genres), it.RatingCert,
-		boolInt(it.Confirmed), boolInt(it.Wished), now, now)
+		boolInt(it.Confirmed), boolInt(it.Wished), now, now, it.SeasonNumber,
+		it.EpisodeNumber, status, it.IdentifyNote)
 	if err != nil {
 		return 0, err
 	}
@@ -263,7 +270,8 @@ func scanItem(s scanner, withCount bool) (Item, error) {
 	var confirmed, wished int
 	dest := []any{&it.ID, &kind, &it.ParentID, &it.TMDBID, &it.Title,
 		&it.OriginalTitle, &it.Year, &it.Overview, &it.PosterPath, &it.BackdropPath,
-		&genres, &it.RatingCert, &confirmed, &wished, &it.AddedAt, &it.UpdatedAt}
+		&genres, &it.RatingCert, &confirmed, &wished, &it.AddedAt, &it.UpdatedAt,
+		&it.SeasonNumber, &it.EpisodeNumber, &it.IdentifyStatus, &it.IdentifyNote}
 	if withCount {
 		dest = append(dest, &it.SourceCount)
 	}

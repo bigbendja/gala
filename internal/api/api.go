@@ -10,6 +10,7 @@ import (
 
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
+	"github.com/bigbendja/gala/internal/identify"
 	"github.com/bigbendja/gala/internal/providers/localfs"
 	"github.com/bigbendja/gala/internal/scan"
 	"github.com/bigbendja/gala/internal/store"
@@ -20,18 +21,24 @@ var Version = "0.1.0-dev"
 
 // Server agrupa las dependencias de los handlers.
 type Server struct {
-	Store   *store.Store
-	Catalog *catalog.Repo
-	Config  *config.Config
-	Scanner *scan.Scanner
-	Enum    localfs.Enumerator
-	Log     *slog.Logger
+	Store    *store.Store
+	Catalog  *catalog.Repo
+	Config   *config.Config
+	Scanner  *scan.Scanner
+	Enum     localfs.Enumerator
+	Identify *identify.Queue  // nil = endpoints de identificación degradan a estado vacío
+	TMDB     *identify.Client // nil solo en tests que no ejercitan M3
+	CacheDir string           // raíz de cache/ (img/ vive dentro), Brief M3 §2
+	Log      *slog.Logger
 }
 
-// New crea el servidor de API con sus dependencias. repo, cfg, sc y enum se
-// comparten con el resto de la aplicación (poller y escaneo inicial en main).
-func New(st *store.Store, repo *catalog.Repo, cfg *config.Config, sc *scan.Scanner, enum localfs.Enumerator, log *slog.Logger) *Server {
-	return &Server{Store: st, Catalog: repo, Config: cfg, Scanner: sc, Enum: enum, Log: log}
+// New crea el servidor de API con sus dependencias. repo, cfg, sc, enum, q
+// y tmdb se comparten con el resto de la aplicación (poller, escaneo
+// inicial y cola de identificación en main).
+func New(st *store.Store, repo *catalog.Repo, cfg *config.Config, sc *scan.Scanner,
+	enum localfs.Enumerator, q *identify.Queue, tmdb *identify.Client, cacheDir string, log *slog.Logger) *Server {
+	return &Server{Store: st, Catalog: repo, Config: cfg, Scanner: sc, Enum: enum,
+		Identify: q, TMDB: tmdb, CacheDir: cacheDir, Log: log}
 }
 
 // Routes registra las rutas de la API en el mux dado (requiere Go >= 1.22).
@@ -46,6 +53,11 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/scan", s.handleStartScan)
 	mux.HandleFunc("GET /api/v1/scan/status", s.handleScanStatus)
 	mux.HandleFunc("GET /api/v1/volumes", s.handleListVolumes)
+
+	mux.HandleFunc("GET /api/v1/pending", s.handleListPending)
+	mux.HandleFunc("POST /api/v1/items/{id}/confirm", s.handleConfirmItem)
+	mux.HandleFunc("GET /api/v1/identify/status", s.handleIdentifyStatus)
+	mux.HandleFunc("GET /api/v1/img/{archivo}", s.handleImg)
 }
 
 func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {

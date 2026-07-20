@@ -41,6 +41,14 @@ type Item struct {
 	AddedAt       string   `json:"added_at"`
 	UpdatedAt     string   `json:"updated_at"`
 
+	// SeasonNumber/EpisodeNumber solo aplican a kind season/episode (M3).
+	SeasonNumber  *int `json:"season_number,omitempty"`
+	EpisodeNumber *int `json:"episode_number,omitempty"`
+	// IdentifyStatus es el estado del pipeline de identificación de M3
+	// (pending/junk/review/error/ok; ver internal/catalog/repo_identify.go).
+	IdentifyStatus string  `json:"identify_status,omitempty"`
+	IdentifyNote   *string `json:"identify_note,omitempty"`
+
 	// Sources solo se rellena en la ficha de detalle.
 	Sources []Source `json:"sources,omitempty"`
 	// SourceCount y HealthSummary se rellenan en listados (para los puntos de la tarjeta).

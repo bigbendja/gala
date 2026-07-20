@@ -1,0 +1,28 @@
+{
+  "results": [
+    {
+      "id": 501,
+      "title": "El Padrino",
+      "original_title": "The Godfather",
+      "release_date": "1972-03-14",
+      "poster_path": "/poster501.jpg",
+      "popularity": 40.0
+    },
+    {
+      "id": 502,
+      "title": "El Padrino: Parte III",
+      "original_title": "The Godfather: Part III",
+      "release_date": "1990-12-25",
+      "poster_path": "/poster502.jpg",
+      "popularity": 15.0
+    },
+    {
+      "id": 503,
+      "title": "El Padrino de la Novia",
+      "original_title": "El Padrino de la Novia",
+      "release_date": "2015-01-01",
+      "poster_path": "/poster503.jpg",
+      "popularity": 5.0
+    }
+  ]
+}
