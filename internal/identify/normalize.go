@@ -35,19 +35,42 @@ type Parsed struct {
 	// la carpeta y el archivo dan señales de temporada distintas. El matcher
 	// lo usa para degradar un nivel la confianza del resultado.
 	folderContradiction bool
+
+	// lowConfidenceGuess es un campo interno: el archivo no aporta ninguna
+	// señal propia fiable (nombre puramente numérico, p. ej. "1017.mkv") y
+	// Season/Episode salen enteros de la carpeta con Episode=0 (desconocido)
+	// — ver seriesEpisodeFromFolder. El matcher nunca debe auto-confirmar
+	// esto (corrección post-entrega de M3, no amplía alcance).
+	lowConfidenceGuess bool
 }
 
 // FolderContradiction expone folderContradiction al paquete identify (match.go).
 func (p Parsed) FolderContradiction() bool { return p.folderContradiction }
+
+// LowConfidenceGuess expone lowConfidenceGuess al paquete identify (match.go).
+func (p Parsed) LowConfidenceGuess() bool { return p.lowConfidenceGuess }
 
 // Parse normaliza filename (con folder como contexto de herencia, puede
 // estar vacío) siguiendo el pipeline del Brief M3 §1. El orden de los pasos
 // importa: basura y extras cortan el pipeline entero (no se intenta más).
 func Parse(filename, folder string) Parsed {
 	base := trimExt(filename)
+	folder = strings.TrimSpace(folder)
 
-	// 1. Junk primero.
+	// 1. Junk primero — salvo un rescate puntual: un nombre puramente
+	// numérico ("1017.mkv", "01.mkv") no dice nada por sí solo, pero si la
+	// carpeta contenedora SÍ se identifica como una serie con temporada,
+	// no es basura: es un episodio de esa serie con número desconocido
+	// (corrección pedida tras la primera entrega de M3). Las señales
+	// "duras" de basura (WhatsApp, timestamps de cámara, IMG_/VID_...)
+	// nunca se rescatan, aunque sean numéricas: siguen siendo Junk pase lo
+	// que pase en la carpeta.
 	if isJunk(base) {
+		if !isHardJunkSignal(base) && isPureNumeric(base) {
+			if p, ok := seriesEpisodeFromFolder(folder); ok {
+				return p
+			}
+		}
 		return Parsed{Junk: true, Kind: KindUnknown}
 	}
 	// 2. Extra (sample/trailer/teaser/making-of): tampoco se cataloga, así
@@ -73,7 +96,6 @@ func Parse(filename, folder string) Parsed {
 	title := finalCleanup(work)
 
 	contradiction := false
-	folder = strings.TrimSpace(folder)
 	if folder != "" {
 		fSeason := folderSeason(folder)
 		if fSeason > 0 && season > 0 && season != fSeason {
@@ -141,6 +163,28 @@ var junkVocab = []string{
 var junkPhrases = []string{"descarga", "sin titulo", "sin identificar"}
 
 func isJunk(base string) bool {
+	if isHardJunkSignal(base) {
+		return true
+	}
+	if hasReleaseStructure(base) {
+		return false
+	}
+	spaced := strings.ToLower(spacify(base))
+	for _, w := range junkVocab {
+		if containsWord(spaced, w) {
+			return true
+		}
+	}
+	// Título resultante de <2 caracteres alfabéticos tras limpiar.
+	return countLetters(spaced) < 2
+}
+
+// isHardJunkSignal son los patrones inequívocos de basura del Brief §1
+// paso 1 (WhatsApp, timestamps de cámara, IMG_/VID_..., frases explícitas):
+// a diferencia del resto de isJunk (vocabulario suelto, título demasiado
+// corto), estos NUNCA se rescatan por contexto de carpeta — ver
+// seriesEpisodeFromFolder y el comentario en Parse.
+func isHardJunkSignal(base string) bool {
 	if rePureTimestamp.MatchString(base) || reDeviceAutoName.MatchString(base) || reWhatsAppVideo.MatchString(base) {
 		return true
 	}
@@ -150,16 +194,47 @@ func isJunk(base string) bool {
 			return true
 		}
 	}
-	if hasReleaseStructure(base) {
-		return false
-	}
-	for _, w := range junkVocab {
-		if containsWord(spaced, w) {
-			return true
+	return false
+}
+
+// isPureNumeric indica si base no contiene NINGUNA letra (solo dígitos y
+// separadores/puntuación), con al menos un dígito: "1017", "01", "1x02"
+// (ojo: si tuviera letras no cuenta). Es la única forma de Junk "blando"
+// que se rescata por carpeta (Brief, corrección post-M3).
+func isPureNumeric(base string) bool {
+	hasDigit := false
+	for _, r := range base {
+		switch {
+		case unicode.IsLetter(r):
+			return false
+		case unicode.IsDigit(r):
+			hasDigit = true
 		}
 	}
-	// Título resultante de <2 caracteres alfabéticos tras limpiar.
-	return countLetters(spaced) < 2
+	return hasDigit
+}
+
+// seriesEpisodeFromFolder rescata un archivo de nombre puramente numérico
+// cuando folder SÍ se identifica como una serie con temporada (aporta
+// season Y título). El número del archivo no es fiable (podría ser
+// episodio absoluto, numeración interna...), así que Episode queda en 0
+// (desconocido) y el resultado se marca lowConfidenceGuess=true: el
+// matcher nunca debe auto-confirmarlo (Por confirmar como mucho, tope
+// MEDIA). Si la carpeta no aporta season+título, no hay rescate: sigue
+// siendo Junk.
+func seriesEpisodeFromFolder(folder string) (Parsed, bool) {
+	if folder == "" {
+		return Parsed{}, false
+	}
+	season := folderSeason(folder)
+	title := folderTitle(folder)
+	if season <= 0 || title == "" {
+		return Parsed{}, false
+	}
+	return Parsed{
+		Title: title, Kind: KindSeriesEpisode, Season: season, Episode: 0,
+		lowConfidenceGuess: true,
+	}, true
 }
 
 // reReleaseHint son marcadores de alta confianza de que el nombre es un
@@ -394,7 +469,7 @@ var TechnicalTokens = []string{
 	`x264`, `x265`, `H[\s._-]*264`, `H[\s._-]*265`, `HEVC`, `XviD`, `\bAVC\b`, `10bit`, `\bHDR\b`, `\bDV\b`,
 	`\bAAC\b`, `\bAC3\b`, `\bEAC3\b`, `DTS[\s._-]*HD[\s._-]*MA`, `\bDTS\b`,
 	`DDP5[\s._-]*1`, `DD5[\s._-]*1`, `TrueHD`, `\bAtmos\b`, `\b7[\s._-]*1\b`, `\b6CH\b`, `\b5[\s._-]*1\b`,
-	`REMASTERED`, `EXTENDED`, `UNRATED`, `COMPLETE`, `PROPER`, `REPACK`, `\bFINAL\b`, `\bIMAX\b`, `\bREMUX\b`,
+	`REMASTERED`, `EXTENDED`, `UNRATED`, `COMPLETE`, `COMPLETA`, `PROPER`, `REPACK`, `\bFINAL\b`, `\bIMAX\b`, `\bREMUX\b`,
 	`YTS[.\w]*`, `YIFY`, `RARBG`,
 	`\bSubs?\b`, `pelicula[\s._-]*completa`, `\bdownload\b`, `\bAudio\b`,
 	`\d+[\s._-]*[MG]B`,

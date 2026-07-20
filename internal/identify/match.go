@@ -108,6 +108,12 @@ func Match(ctx context.Context, client *Client, parsed Parsed, rawName string) (
 	if pack && tier == ConfidenceAlta {
 		tier = ConfidenceMedia
 	}
+	// Episodio adivinado por carpeta (nombre de archivo puramente numérico,
+	// Episode=0 desconocido): nunca se auto-confirma, tope MEDIA (corrección
+	// post-entrega de M3).
+	if parsed.LowConfidenceGuess() && tier == ConfidenceAlta {
+		tier = ConfidenceMedia
+	}
 	if parsed.FolderContradiction() && tier > ConfidenceBaja {
 		tier--
 	}
@@ -116,6 +122,8 @@ func Match(ctx context.Context, client *Client, parsed Parsed, rawName string) (
 	switch {
 	case pack:
 		note = "posible pack/trilogía: nunca se auto-confirma"
+	case parsed.LowConfidenceGuess():
+		note = "número de episodio desconocido: solo se identificó la serie por la carpeta"
 	case parsed.FolderContradiction():
 		note = "la carpeta contradice la temporada del archivo"
 	}

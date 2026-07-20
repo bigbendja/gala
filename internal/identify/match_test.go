@@ -172,6 +172,28 @@ func TestMatchPackNeverAutoConfirms(t *testing.T) {
 	}
 }
 
+// TestMatchNumericGuessNeverAutoConfirms cubre la corrección post-entrega
+// de M3: un archivo puramente numérico rescatado por la temporada de la
+// carpeta (Episode=0 desconocido) no debe auto-confirmarse aunque el
+// título de la carpeta encaje perfectamente con un candidato TMDB.
+func TestMatchNumericGuessNeverAutoConfirms(t *testing.T) {
+	client := tmdbRoutes(t, map[string]string{
+		"/search/tv": "search_tv_breakingbad.json",
+	})
+	parsed := Parse("1017.mkv", "Breaking.Bad.Temporada.1.COMPLETA")
+	if !parsed.LowConfidenceGuess() {
+		t.Fatal("LowConfidenceGuess = false; el fixture de este test asume el rescate por carpeta")
+	}
+
+	res, err := Match(context.Background(), client, parsed, "1017.mkv")
+	if err != nil {
+		t.Fatalf("Match: %v", err)
+	}
+	if res.Confidence == ConfidenceAlta {
+		t.Fatal("Confidence = Alta para un episodio adivinado (Episode=0); nunca debe auto-confirmarse")
+	}
+}
+
 func TestApplyIdentificationDedupe(t *testing.T) {
 	ctx := context.Background()
 	repo := newRepoForTest(t)

@@ -324,6 +324,52 @@ func TestFolderInheritance(t *testing.T) {
 	}
 }
 
+// TestNumericFilenameRescuedByFolderSeason cubre la corrección post-entrega
+// de M3: un nombre de archivo puramente numérico no es basura si la
+// carpeta contenedora se identifica como una serie con temporada.
+func TestNumericFilenameRescuedByFolderSeason(t *testing.T) {
+	// Carpeta con "Temporada N": rescatado, Episode=0 (desconocido), nunca
+	// se debe poder auto-confirmar (lowConfidenceGuess).
+	p := Parse("1017.mkv", "Vikings.Temporada.1.COMPLETA.1080p.Dual")
+	if p.Junk {
+		t.Fatal("Junk = true, esperado false (la carpeta identifica serie+temporada)")
+	}
+	if p.Title != "Vikings" || p.Kind != KindSeriesEpisode || p.Season != 1 || p.Episode != 0 {
+		t.Errorf("got Title=%q Kind=%q Season=%d Episode=%d, esperado 'Vikings'/series_episode/1/0",
+			p.Title, p.Kind, p.Season, p.Episode)
+	}
+	if !p.LowConfidenceGuess() {
+		t.Error("LowConfidenceGuess = false, esperado true (número de episodio desconocido)")
+	}
+
+	// Carpeta con temporada en forma "S03" (bare, solo carpeta): mismo rescate.
+	p2 := Parse("1.mkv", "Peaky Blinders S03 [720p][VOSE]")
+	if p2.Junk || p2.Title != "Peaky Blinders" || p2.Season != 3 || p2.Episode != 0 {
+		t.Errorf("got Junk=%v Title=%q Season=%d Episode=%d, esperado false/'Peaky Blinders'/3/0",
+			p2.Junk, p2.Title, p2.Season, p2.Episode)
+	}
+
+	// Carpeta SIN señal de temporada (aunque sea claramente una serie): no
+	// hay rescate posible, sigue siendo Junk.
+	p3 := Parse("01.mkv", "One Piece [Sub Español] [HDTV]")
+	if !p3.Junk {
+		t.Error("Junk = false, esperado true (la carpeta no aporta número de temporada)")
+	}
+
+	// Sin carpeta en absoluto: tampoco hay rescate.
+	p4 := Parse("01.mkv", "")
+	if !p4.Junk {
+		t.Error("Junk = false, esperado true (sin carpeta no hay rescate posible)")
+	}
+
+	// Las señales "duras" de basura (timestamps de cámara/WhatsApp) NUNCA
+	// se rescatan, aunque la carpeta sea una serie con temporada válida.
+	p5 := Parse("20230101_123456.mp4", "Breaking Bad Temporada 2")
+	if !p5.Junk {
+		t.Error("Junk = false, esperado true (timestamp de cámara: señal dura, no se rescata)")
+	}
+}
+
 func TestYearExtraction(t *testing.T) {
 	cases := []struct {
 		name  string
