@@ -1,0 +1,303 @@
+# Corpus de nombres — SINTÉTICO (v1, fusionado)
+# Construido sobre convenciones reales de nomenclatura de releases. Sustituir/ampliar
+# con corpus real de discos en cuanto se disponga de uno; los casos aquí cubiertos
+# definen el listón mínimo del normalizador de M3.
+# Formato: una línea por archivo. Líneas "DIR: " = nombre de carpeta contenedora.
+# Líneas "## " = familia de patrón (comentario, ignorar en tests o usar como etiqueta).
+
+## Escena inglesa clásica (puntos, año, calidad, grupo)
+Inception.2010.1080p.BluRay.x264-SPARKS.mkv
+The.Dark.Knight.2008.720p.BrRip.x264.YIFY.mp4
+Interstellar.2014.2160p.UHD.BluRay.x265.10bit.HDR.DTS-HD.MA.5.1-SWTYBLZ.mkv
+Mad.Max.Fury.Road.2015.REMASTERED.1080p.BluRay.H264.AAC-RARBG.mp4
+John.Wick.Chapter.4.2023.1080p.WEBRip.1400MB.DD5.1.x264-GalaxyRG.mkv
+Oppenheimer.2023.1080p.WEB-DL.DDP5.1.Atmos.H.264-FLUX.mkv
+Gladiator.2000.EXTENDED.1080p.BluRay.x264-EbP.mkv
+The.Matrix.1999.REMASTERED.1080p.BluRay.X264-AMIABLE.mkv
+Avatar.The.Way.of.Water.2022.1080p.MA.WEB-DL.DDP5.1.Atmos.H.264-FLUX.mkv
+Parasite.2019.KOREAN.1080p.BluRay.H264.AAC-VXT.mp4
+Coraline.2009.BluRay.720p.x264-YIFY.mp4
+Encanto.2021.1080p.DSNP.WEB-DL.DDP5.1.Atmos.H264-PECULATE.mkv
+Everything.Everywhere.All.at.Once.2022.1080p.WEB-DL.DDP5.1.H264-EVO.mkv
+Gladiator.2000.EXTENDED.1080p.BluRay.DD5.1.x264-EbP.mkv
+Inception.2010.1080p.BluRay.x264-GRP.mkv
+Roma.2018.NF.WEB-DL.DDP5.1.Atmos.x264-CMRG.mkv
+Spider-Man.No.Way.Home.2021.EXTENDED.1080p.BluRay.x264-PiGNUS.mkv
+the.batman.2022.imax.2160p.uhd.bluray.x265-terminal.mkv
+The.Matrix.1999.720p.BRRip.XviD.AC3-EVOX.avi
+Titanic.1997.REMASTERED.1080p.BluRay.H264.AAC-RARBG.mp4
+top.gun.maverick.2022.bdrip.x264-sparks.avi
+Whiplash 2014 BRRip 720p x264 AAC-Hon3y.mp4
+Avengers Endgame (2019) 1080p 10bit BluRay 6CH x265 HEVC-PSA.mkv
+
+## Estilo YTS/YIFY con corchetes
+Joker (2019) [1080p] [BluRay] [5.1] [YTS.MX].mp4
+Dune (2021) [2160p] [4K] [WEB] [5.1] [YTS.MX].mkv
+The Godfather (1972) [720p] [BluRay] [YTS.AM].mp4
+Whiplash (2014) [1080p] [YTS.AG].mp4
+Bohemian.Rhapsody.2018.1080p.BluRay.x264-[YTS.AM].mp4
+Parasite (2019) [1080p] [BluRay] [5.1] [YTS.MX].mp4
+
+## Escena española (prefijos de web, castellano, Cap.XXX)
+[www.newpct1.com]La.casa.de.papel.1x05.HDTV.720p.Cap.105.AC3.5.1.Castellano.mkv
+[www.descargas2020.org]El.hoyo.2019.HDRip.XviD.Castellano.avi
+[Torrent9]Campeones.2018.BDRip.x264.Espanol.Castellano.mkv
+La.que.se.avecina.13x08.Cap.171.HDTV.1080p.Castellano.mkv
+Aqui.no.hay.quien.viva.2x14.Cap.032.DVDRip.Spanish.avi
+El.internado.Las.Cumbres.1x03.WEB-DL.1080p.Castellano.SUBS.mkv
+Ocho.apellidos.vascos.2014.BDRip.1080p.ESP.mkv
+Celda.211.2009.HDRip.Spanish.avi
+Better.Call.Saul.6x01.SPANISH.1080p.HDTV.x264.mkv
+El Hoyo.2019.NF.WEB-DL.DDP5.1.x264-NTG.mkv
+El.Cuentakilometros.S01E04.CASTELLANO.720p.HDTV.x264.avi
+La Casa de Papel - 1x01 - Efraccion.WEB-DL.Castellano.mkv
+La Casa de Papel - 1x02 - Efraccion.WEB-DL.Castellano.mkv
+La.Casa.de.Papel.Pelicula.2023.SPANISH.1080p.WEB.h264-EDITH.mp4
+Los Simpson - 4x08 - El Guardaespaldas de Homer.avi
+Los Simpson - 4x09 - Historia de Dos Ciudades.avi
+
+## Releases latinos
+Coco (2017) [BRRip 1080p] [Latino-Ingles] [MEGA].mkv
+Roma.2018.1080p.NF.WEB-DL.Latino.mkv
+El Laberinto del Fauno [2006] [DVDRip] [Español Latino].avi
+Relatos.Salvajes.2014.720p.BluRay.Latino.mp4
+Ya no estoy aqui (2019) WEB-DL 1080p Latino.mkv
+Coco.2017.LATINO.720p.WEB-DL (2).mkv
+Coco.2017.LATINO.720p.WEB-DL.mkv
+El Laberinto del Fauno (2006) DVDRip Español Latino.avi
+Guardianes.de.la.Galaxia.Vol.3.2023.[Latino-Ingles].1080p.mkv
+Los Croods 2 Una Nueva Era (2020) [WEB-DL][1080p][Cast-Eng].mkv
+
+## Francés / VOSTFR (CEMAC)
+Intouchables.2011.FRENCH.1080p.BluRay.x264-LOST.mkv
+Les.Miserables.2019.FRENCH.720p.WEB.H264-PREUMS.mkv
+Lupin.S01E03.FRENCH.WEBRip.x264-EXTREME.mp4
+Parasite.2019.VOSTFR.1080p.BluRay.x264.mkv
+Le.Comte.de.Monte-Cristo.2024.MULTi.1080p.WEB.H264-FW.mkv
+Atlantique.2019.FRENCH.WEBRip.XviD-EXTREME.avi
+Amelie.2001.FRENCH.1080p.BluRay.x264-LOST.mkv
+
+## Dual / MULTi / etiquetas de idioma mezcladas
+Spider-Man.No.Way.Home.2021.1080p.BluRay.DUAL.x264.mkv
+Encanto.2021.1080p.WEB-DL.DUAL.5.1.mkv
+Soul.2020.MULTi.1080p.BluRay.x264-LOST.mkv
+Django.Unchained.2012.Dual.Audio.Hindi.English.720p.BluRay.mkv
+Dark.S03E01.GERMAN.MULTI.1080p.NF.WEB-DL.DDP5.1.Atmos.x264-TVS.mkv
+El Viaje de Chihiro (2001) [BDRip 1080p][Cast-Jap+Subs].mkv
+Pesadilla.antes.de.Navidad.1993.BDRip.1080p.Dual.Lat-Cas-Ing.Sub.mkv
+Ratatouille.2007.MULTi.1080p.BluRay.x264-LOST.mkv
+Spider-Man.No.Way.Home.2021.MULTI.1080p.WEB-DL.H264-EXTREME.mkv
+
+## Series inglesas SxxEyy y variantes
+Breaking.Bad.S02E07.720p.BluRay.x264-REWARD.mkv
+Game.of.Thrones.S08E03.1080p.WEB.H264-MEMENTO.mkv
+The.Office.US.S05E14.HDTV.XviD-LOL.avi
+Stranger.Things.S04E01.1080p.NF.WEB-DL.DDP5.1.x264-TEPES.mkv
+The.Last.of.Us.S01E05.720p.WEB.x265-MiNX.mkv
+Chernobyl.Part.3.Open.Wide.O.Earth.1080p.AMZN.WEB-DL.mkv
+friends.1x01.dvdrip.avi
+The.Wire.3x11.HDTV.XviD-FoV.avi
+Attack.on.Titan.S04E28.1080p.WEB.H264-GGEZ.mkv
+Breaking.Bad.S01E01.1080p.BluRay.x264-DEMAND.mkv
+Breaking.Bad.S01E02.1080p.BluRay.x264-DEMAND.mkv
+Breaking.Bad.S01E03.1080p.BluRay.x264-DEMAND.mkv
+Chernobyl.S01E01.720p.AMZN.WEB-DL.DDP5.1.H264-NTb.mkv
+elite.s06e01.multi.1080p.web-dl.x264-worldmkv (1).mkv
+game.of.thrones.s01e01.hdtv.xvid-lol.avi
+Game.of.Thrones.S08E06.The.Iron.Throne.720p.WEB.H264-MEMENTO.mkv
+narcos.s01e01.multi.1080p.web-dl.x264-morgan.mkv
+Peppa.Pig.S01E01.The.Playgroup.WEBRip.x264.mp4
+The.Office.US.S03E05.720p.WEB-DL.x264.mp4
+
+## Series por carpeta (herencia de carpeta; incluye caso con contradicción)
+DIR: Breaking Bad Temporada 2 [720p][Castellano]
+E01.mkv
+E02.mkv
+E03 (1).mkv
+DIR: Game of Thrones - Season 4 Complete 1080p
+GOT.4x01.mkv
+GOT.4x02.mkv
+DIR: Los Soprano T1 DVDRip Esp
+Capitulo 01.avi
+Capitulo 02.avi
+DIR: Merli Temporada 3
+merli_301.mp4
+merli_302.mp4
+DIR: Breaking Bad Temporada 2 [1080p][Cast-Eng]
+E01.mkv
+E02.mkv
+E03.mkv
+E04.mkv
+DIR: Documentales Naturaleza [Varios]
+Documental_Espacio_Profundo.m4v
+conferencia_apertura.ts
+presentacion_proyecto.ogv
+Planeta.Tierra.II.mp4
+DIR: Home Videos [Backup Externo]
+family_reunion_1998.mpeg
+old_home_movie.mpg
+evento_boda_2020.m2ts
+grabacion_camara_seguridad.m2ts
+MOV_20190512_143022.wmv
+DIR: La Casa de Papel - Parte 5 [WEB-DL][Castellano]
+Capitulo 01.mp4
+Capitulo 02.mp4
+Capitulo 03.mp4
+Capitulo 04.mp4
+Capitulo 05.mp4
+DIR: One Piece [Sub Español] [HDTV]
+01.mkv
+02.mkv
+03.mkv
+DIR: Peaky Blinders S03 [720p][VOSE]
+1.mkv
+2.mkv
+3.mkv
+4.mkv
+5.mkv
+6.mkv
+DIR: Videos Familia 2019
+Cumpleaños Ana.mov
+Vacaciones Playa 2018.mov
+IMG_4521.mov
+IMG_4522.mov
+VID_20190804_120145.mp4
+VIDEO0001.mp4
+DIR: Vikings.Temporada.1.COMPLETA.1080p.Dual
+1017.mkv
+1018.mkv
+## (sintético) contradicción: la carpeta anuncia una serie, los archivos son de otra
+DIR: Breaking Bad Temporada 3 [HDTV][Castellano]
+Better.Call.Saul.S01E05.SPANISH.HDTV.x264.mkv
+Los Simpson - 5x02 - El Especial de Halloween.avi
+
+## Anime (grupos con corchetes, numeración absoluta)
+[SubsPlease] Jujutsu Kaisen - 05 (1080p) [4C1ECFA2].mkv
+[Erai-raws] One Piece - 1071 [720p][Multiple Subtitle].mkv
+[HorribleSubs] Attack on Titan - 25 [480p].mkv
+Naruto_Shippuden_-_133_[1080p].mkv
+[HorribleSubs] Attack on Titan - 01 [1080p].mkv
+Naruto.Shippuden.500.[720p][Multisub].mkv
+One Piece - 1016 [1080p][Subs Español].mkv
+one.piece.1015.720p.web.h264-nanachi.mkv
+Your.Name.2016.JAPANESE.1080p.BluRay.x264.DTS-FGT.mkv
+
+## Nombres "humanos" con espacios y sin metadatos
+El padrino 2.avi
+Titanic pelicula completa español.mp4
+la vida es bella.mkv
+rapidos y furiosos 9.mp4
+Black Panther Wakanda Forever.mkv
+avengers endgame FULL HD.mp4
+película de terror buena.avi
+
+## Duplicados y renombrados de descarga
+Inception.2010.1080p.BluRay.x264-SPARKS (1).mkv
+Inception.2010.1080p.BluRay.x264-SPARKS (2).mkv
+Titanic (1997) (copia).mp4
+The.Batman.2022.download.mkv
+descarga (3).mp4
+Coco (2017) (1).mp4
+Coco (2017).mp4
+video_final_definitivo(1).mp4
+video_final_definitivo(2).mp4
+video_final_definitivo_ULTIMO.mp4
+
+## Basura realista (el normalizador NO debe inventar coincidencias aquí → Por confirmar)
+VID-20230412-WA0012.mp4
+VID-20240103-WA0187.mp4
+video_2024-06-15_18-22-10.mp4
+20230101_123456.mp4
+IMG_4032.MOV
+WhatsApp Video 2024-11-02 at 09.14.55.mp4
+mi video editado final FINAL2.mp4
+video sin titulo.mp4
+grabacion clase contabilidad.mp4
+boda de teo y maria parte 1.mp4
+clip.flv
+animacion_corta.ogv
+clip_antiguo_movil.3gp
+Cortometraje_Animacion_2020.m4v
+tutorial_edicion.webm
+webinar_backup.webm
+recording_2021-03-15.flv
+untitled.wmv
+video_whatsapp_reenviado.3gp
+partido_final_2022.ts
+prueba.mp4
+pelicula.sin.identificar.mkv
+Telegram-cloud-document-2-5199283746502938.mp4
+video_reenviado_telegram_grupo_familia.mp4
+
+## Trampas: samples, trailers, extras (excluir o marcar, nunca catalogar como la película)
+Inception.2010.1080p.BluRay.x264-SPARKS.sample.mkv
+sample.mkv
+Dune.2021.TRAILER.1080p.mp4
+Making.of.The.Lord.of.the.Rings.mkv
+RARBG.mp4
+SAMPLE-Inception.2010.mkv
+sample.avi
+
+## Documentales y contenido no-ficción
+Free.Solo.2018.DOCU.1080p.BluRay.x264.mkv
+Planeta.Tierra.II.E04.Desiertos.1080p.BluRay.Castellano.mkv
+The.Last.Dance.S01E01.1080p.NF.WEB-DL.mkv
+Senna.2010.Documentary.720p.BRRip.mkv
+
+## Casos límite de parsing
+2012.2009.1080p.BluRay.x264.mkv
+1917.2019.720p.BluRay.x264-YOL0W.mkv
+Blade.Runner.2049.2017.1080p.BluRay.x264.mkv
+Ocean's.Eleven.2001.1080p.BluRay.x264.mkv
+WALL-E.2008.1080p.BluRay.x264.mkv
+Spider-Man.Into.the.Spider-Verse.2018.1080p.BluRay.x264.mkv
+Fast.and.Furious.9.2021.mkv
+8.Mile.2002.DVDRip.avi
+300.2006.720p.BluRay.x264.mkv
+Se7en.1995.REMASTERED.1080p.BluRay.x264.mkv
+El.cuento.de.la.criada.The.Handmaids.Tale.3x01.WEB-DL.Castellano.mkv
+Der.Untergang.2004.GERMAN.1080p.BluRay.x264.mkv
+Cars_2006_DVDRip_Xvid.avi
+Interstellar_2014_1080p_BrRip_x264-YIFY.mp4
+Terminator.2.Judgment.Day.1991.SE.1080p.BluRay.x264.DTS-WiKi.mkv
+
+## Título que es un año
+1899.S01E01.MULTI.1080p.WEB.H264-CiELOS.mkv
+1899.S01E01.MULTI.1080p.WEB.H264-CiELOS (1).mkv
+1917.(2019).[WEBDL-1080p].[EAC3.5.1].[h264]-CMRG.mkv
+
+## Numeración doble: relativa (SxN) y absoluta (Capitulo NN) en el mismo nombre
+La Reina del Sur - 3x01 - Capitulo 41.mp4
+La Reina del Sur - 3x02 - Capitulo 42.mp4
+
+## Temporada/Episodio en palabras (sin SxxEyy ni NxNN)
+Peaky.Blinders.Temporada.5.Episodio.3.ESPAÑOL.1080p.mkv
+
+## Packs/trilogías (varios títulos o toda una temporada en un solo release)
+El Padrino (1972) [Trilogia][Español Latino-Ingles][BluRay 1080p].mp4
+Money.Heist.S01.Complete.720p.NF.WEBRip.x264-Shadow.mkv
+
+## Sufijos de tracker ([TGx], [eztv]... tras el nombre de grupo)
+Joker.2019.HDRip.XviD.AC3-EVO[TGx].avi
+Vikings.S06E20.FINAL.720p.HDTV.x264-CRAVERS[eztv].mkv
+
+## Calidad avanzada (REMUX/DV/HDR/10bit)
+Ant-Man.and.the.Wasp.Quantumania.2023.2160p.WEB-DL.DDP5.1.Atmos.DV.HDR.H265-FLUX (1).mkv
+Ant-Man.and.the.Wasp.Quantumania.2023.2160p.WEB-DL.DDP5.1.Atmos.DV.HDR.H265-FLUX.mkv
+Coco.2017.2160p.UHD.BluRay.x265.10bit.HDR.TrueHD.7.1.Atmos-SWTYBLZ.mkv
+Dune.Part.Two.2024.2160p.WEB-DL.DDP5.1.Atmos.DV.HDR.H265-FLUX.mkv
+La La Land 2016 1080p BluRay REMUX AVC DTS-HD MA 5.1-EPSiLON.mkv
+Oppenheimer.2023.2160p.MA.WEB-DL.DDP5.1.Atmos.DV.HDR.H265-FLUX.mkv
+Stranger.Things.S04E09.The.Piggyback.1080p.NF.WEB-DL.DDP5.1.Atmos.HDR.x265-NOSiViD.mkv
+The Dark Knight (2008) [1080p x265 10bit].mkv
+The.Mandalorian.S02E08.2160p.WEB-DL.DDP5.1.Atmos.HDR.HEVC-NOGRP.mkv
+
+## Calidad de cámara/pantalla (CAM/TS/HDTS)
+Barbie.2023.HDTS.x264-CMRG.avi
+Wonka.2023.CAM.XviD-EVO.avi
+
+## Tildes y caracteres especiales en nombres con puntos (ñ, á, é, í, ó, ú)
+Cien.Años.de.Soledad.S01E01.MULTI.1080p.NF.WEB-DL.mkv
+Merlí.Sapere.Aude.S01E01.CATALAN.720p.HDTV.x264.mkv
+Océanos.mp4
+Élite.S06E01.SPANISH.1080p.NF.WEB-DL.DDP5.1.x264-TEPES.mkv
