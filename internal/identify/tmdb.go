@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -49,8 +50,9 @@ type Client struct {
 	CacheDir  string // cache/img/ vive aquí
 	Cache     Cache
 	HTTP      *http.Client
-	BaseURL   string // sobreescribible en tests (httptest)
-	ImageBase string // sobreescribible en tests
+	BaseURL   string       // sobreescribible en tests (httptest)
+	ImageBase string       // sobreescribible en tests
+	Log       *slog.Logger // opcional; nil = sin log (Warn tras agotar reintentos de imagen)
 
 	limiterMu sync.Mutex
 	lastReq   time.Time
@@ -389,6 +391,12 @@ func (c *Client) DownloadBackdrop(ctx context.Context, tmdbPath string) (string,
 	return c.downloadImage(ctx, tmdbPath, backdropSize, "backdrop")
 }
 
+// downloadImage descarga tmdbPath a cache/img/ con el mismo esquema de
+// reintentos+backoff que get() (Brief §2, 4 req/s, hasta maxAttempts). Antes
+// un fallo de red o HTTP transitorio en una sola imagen (429, 5xx, timeout)
+// se devolvía sin reintentar, así que en una misma pasada de la cola unos
+// pósters se guardaban y otros se perdían en silencio según el azar de la
+// red (corrección post-entrega M3, informe de prueba real).
 func (c *Client) downloadImage(ctx context.Context, tmdbPath, size, prefix string) (string, error) {
 	if strings.TrimSpace(tmdbPath) == "" {
 		return "", nil
@@ -408,35 +416,57 @@ func (c *Client) downloadImage(ctx context.Context, tmdbPath, size, prefix strin
 		return name, nil // ya en caché offline
 	}
 
-	c.throttle()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.ImageBase+"/"+size+tmdbPath, nil)
+	url := c.ImageBase + "/" + size + tmdbPath
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		c.throttle()
+		if err := c.fetchImageOnce(ctx, url, full); err != nil {
+			lastErr = err
+			if ctx.Err() != nil {
+				return "", ctx.Err()
+			}
+			c.backoff(ctx, attempt)
+			continue
+		}
+		return name, nil
+	}
+
+	if c.Log != nil {
+		c.Log.Warn("identify: descargar imagen TMDB tras agotar reintentos",
+			"tmdb_path", tmdbPath, "intentos", maxAttempts, "err", lastErr)
+	}
+	return "", fmt.Errorf("descargar imagen TMDB %s: %w: %v", tmdbPath, ErrOffline, lastErr)
+}
+
+// fetchImageOnce es un único intento de descarga+guardado de downloadImage,
+// vía archivo temporal + rename atómico para no dejar ficheros a medias si
+// falla a mitad de copia.
+func (c *Client) fetchImageOnce(ctx context.Context, url, dest string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", err
+		return err
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("%w: %v", ErrOffline, err)
+		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("descargar imagen TMDB: %d", resp.StatusCode)
+		return fmt.Errorf("http %d", resp.StatusCode)
 	}
 
-	tmp := full + ".tmp"
+	tmp := dest + ".tmp"
 	out, err := os.Create(tmp)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if _, cerr := io.Copy(out, resp.Body); cerr != nil {
 		out.Close()
 		os.Remove(tmp)
-		return "", cerr
+		return cerr
 	}
 	out.Close()
-	if err := os.Rename(tmp, full); err != nil {
-		return "", err
-	}
-	return name, nil
+	return os.Rename(tmp, dest)
 }
 
 func imageFileHash(tmdbPath string) string {

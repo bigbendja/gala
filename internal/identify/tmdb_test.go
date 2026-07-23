@@ -1,9 +1,11 @@
 package identify
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -177,6 +179,63 @@ func TestDownloadPosterCachesOnDisk(t *testing.T) {
 	}
 	if got := atomic.LoadInt32(calls); got != 1 {
 		t.Errorf("llamadas HTTP = %d, esperado 1 (segunda debe venir de disco)", got)
+	}
+}
+
+// TestDownloadPosterRetriesTransientFailure cubre la corrección post-entrega
+// de M3: en la prueba real contra TMDB, algunos pósters se guardaban y otros
+// no en la misma pasada, porque downloadImage no reintentaba fallos
+// transitorios (a diferencia de get(), que sí lo hace). Un 503 puntual no
+// debe perder la imagen.
+func TestDownloadPosterRetriesTransientFailure(t *testing.T) {
+	var n int32
+	c, calls := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&n, 1) < 3 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.Write([]byte("fake-jpeg-bytes"))
+	})
+
+	name, err := c.DownloadPoster(context.Background(), "/flaky.jpg")
+	if err != nil {
+		t.Fatalf("DownloadPoster: %v", err)
+	}
+	if name == "" {
+		t.Fatal("nombre de archivo vacío tras reintentar")
+	}
+	full := filepath.Join(c.CacheDir, "img", name)
+	if _, err := os.Stat(full); err != nil {
+		t.Fatalf("no se creó %s pese al reintento: %v", full, err)
+	}
+	if got := atomic.LoadInt32(calls); got < 3 {
+		t.Errorf("llamadas HTTP = %d, esperado >= 3 (reintentos)", got)
+	}
+}
+
+// TestDownloadPosterExhaustsRetriesAndLogs cubre el otro lado del bug: si la
+// imagen falla de forma persistente, DownloadPoster debe devolver un error
+// claro (no una cadena vacía silenciosa) y dejar constancia en el logger del
+// cliente.
+func TestDownloadPosterExhaustsRetriesAndLogs(t *testing.T) {
+	c, calls := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	})
+	var logged bytes.Buffer
+	c.Log = slog.New(slog.NewTextHandler(&logged, nil))
+
+	name, err := c.DownloadPoster(context.Background(), "/siempre-falla.jpg")
+	if err == nil {
+		t.Fatal("err = nil, esperado error tras agotar reintentos")
+	}
+	if name != "" {
+		t.Errorf("name = %q, esperado vacío", name)
+	}
+	if got := atomic.LoadInt32(calls); got != maxAttempts {
+		t.Errorf("llamadas HTTP = %d, esperado %d (maxAttempts)", got, maxAttempts)
+	}
+	if logged.Len() == 0 {
+		t.Error("no se registró ningún log tras agotar los reintentos de la imagen")
 	}
 }
 

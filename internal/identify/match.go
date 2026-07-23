@@ -27,6 +27,20 @@ const (
 	// maxCandidates es el máximo de candidatos que se muestran en "Por
 	// confirmar" (Brief §3).
 	maxCandidates = 5
+
+	// ambiguousScoreGap: por debajo de esta diferencia, los dos primeros
+	// candidatos se consideran empatados a efectos de auto-confirmar y la
+	// popularidad de TMDB entra a desempatar (corrección post-entrega M3:
+	// "Parasite.2019.KOREAN..." se auto-confirmaba como la película oscura
+	// "Parasites" en vez de "Parásitos"/Parasite 2019, porque el título
+	// traducido al español penaliza la similitud de texto frente al título
+	// original en inglés de un candidato homónimo).
+	ambiguousScoreGap = 0.15
+	// popularityDominanceFactor: una popularidad "órdenes de magnitud" mayor
+	// (según el informe del bug) se toma como señal fuerte de cuál es el
+	// título real que la gente busca, por encima de un empate reñido de
+	// similitud de texto.
+	popularityDominanceFactor = 10.0
 )
 
 // Confidence es el nivel de confianza de un resultado del matcher.
@@ -101,8 +115,13 @@ func Match(ctx context.Context, client *Client, parsed Parsed, rawName string) (
 		return MatchResult{Confidence: ConfidenceBaja, Note: "sin resultados en TMDB"}, nil
 	}
 
+	ambiguous := resolveByPopularity(candidates)
+
 	best := candidates[0]
 	tier := confidenceFor(best.score)
+	if ambiguous && tier == ConfidenceAlta {
+		tier = ConfidenceMedia
+	}
 
 	pack := isPackHint(rawName)
 	if pack && tier == ConfidenceAlta {
@@ -126,6 +145,8 @@ func Match(ctx context.Context, client *Client, parsed Parsed, rawName string) (
 		note = "número de episodio desconocido: solo se identificó la serie por la carpeta"
 	case parsed.FolderContradiction():
 		note = "la carpeta contradice la temporada del archivo"
+	case ambiguous:
+		note = "candidatos con puntuación y popularidad muy reñidas: no se auto-confirma"
 	}
 
 	res := MatchResult{Confidence: tier, Kind: best.kind, Note: note}
@@ -147,6 +168,33 @@ func Match(ctx context.Context, client *Client, parsed Parsed, rawName string) (
 		})
 	}
 	return res, nil
+}
+
+// resolveByPopularity resuelve el empate entre los dos primeros candidatos
+// (ya ordenados por score) cuando su diferencia de puntuación es mínima
+// (< ambiguousScoreGap): la similitud de texto por sí sola no es fiable ahí
+// (p. ej. un título traducido al español pierde por poco frente al título en
+// inglés de un homónimo oscuro). Si uno de los dos tiene una popularidad
+// órdenes de magnitud mayor, se le da preferencia (lo reordena a posición 0).
+// Si ninguno domina claramente en popularidad, devuelve true: ni el texto ni
+// la popularidad separan a los candidatos, así que no debe auto-confirmarse.
+func resolveByPopularity(candidates []scoredCandidate) bool {
+	if len(candidates) < 2 {
+		return false
+	}
+	top, runner := candidates[0], candidates[1]
+	if top.score-runner.score >= ambiguousScoreGap {
+		return false
+	}
+	switch {
+	case runner.result.Popularity >= top.result.Popularity*popularityDominanceFactor:
+		candidates[0], candidates[1] = candidates[1], candidates[0]
+		return false
+	case top.result.Popularity >= runner.result.Popularity*popularityDominanceFactor:
+		return false
+	default:
+		return true
+	}
 }
 
 func confidenceFor(score float64) Confidence {

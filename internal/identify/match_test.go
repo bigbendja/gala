@@ -138,6 +138,73 @@ func TestMatchYearOffByOneStillHighConfidence(t *testing.T) {
 	}
 }
 
+// TestMatchTranslatedTitleVsHomonymPopularityTiebreak reproduce el bug
+// detectado en la prueba real contra TMDB: "Parasite.2019.KOREAN..." se
+// auto-confirmaba como la película oscura "Parasites" (id 1493942, sin año
+// coincidente, popularidad ínfima) en vez de "Parásitos"/Parasite 2019 (id
+// 496243), porque con language=es-ES el título viene traducido ("Parásitos")
+// y el original_title en coreano ("기생충") no se parece en nada al nombre de
+// archivo en inglés, mientras que el homónimo oscuro coincide casi letra por
+// letra. La popularidad (órdenes de magnitud mayor en el candidato correcto)
+// debe desempatar y ganar sobre una similitud de texto reñida.
+func TestMatchTranslatedTitleVsHomonymPopularityTiebreak(t *testing.T) {
+	client := tmdbRoutes(t, map[string]string{
+		"/search/movie": "search_movie_parasite.json",
+	})
+	parsed := Parse("Parasite.2019.KOREAN.1080p.BluRay.mkv", "")
+
+	res, err := Match(context.Background(), client, parsed, "Parasite.2019.KOREAN.1080p.BluRay.mkv")
+	if err != nil {
+		t.Fatalf("Match: %v", err)
+	}
+	if res.Confidence == ConfidenceAlta && res.Best.ID != 496243 {
+		t.Fatalf("auto-confirmado tmdb_id=%d (%q); esperado 496243 (Parásitos/Parasite 2019) o degradar a Media, nunca el homónimo oscuro",
+			res.Best.ID, res.Best.EffectiveTitle())
+	}
+	if res.Confidence != ConfidenceAlta {
+		t.Fatalf("Confidence = %v; con la popularidad tan dispar (55.2 vs 4.1) se esperaba ConfidenceAlta sobre el candidato correcto", res.Confidence)
+	}
+	if res.Best.ID != 496243 {
+		t.Fatalf("Best.ID = %d, esperado 496243 (Parásitos)", res.Best.ID)
+	}
+}
+
+// TestMatchTranslatedTitleAnalogs cubre 2-3 análogos de título traducido
+// pedidos en la corrección post-entrega de M3: el nombre de archivo está en
+// inglés (original_title), pero TMDB en es-ES solo trae el título traducido
+// en el campo "title"; el matcher debe seguir comparando también contra
+// original_title y llegar a ConfidenceAlta.
+func TestMatchTranslatedTitleAnalogs(t *testing.T) {
+	cases := []struct {
+		name     string
+		fixture  string
+		filename string
+		wantID   int64
+	}{
+		{"Inception/Origen", "search_movie_inception.json", "Inception.2010.1080p.BluRay.x264-SPARKS.mkv", 27205},
+		{"Godfather II/El Padrino II", "search_movie_godfather2.json", "The.Godfather.Part.II.1974.1080p.BluRay.mkv", 240},
+		{"Avengers Endgame/Vengadores", "search_movie_endgame.json", "Avengers.Endgame.2019.2160p.UHD.BluRay.x265-GROUP.mkv", 299534},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := tmdbRoutes(t, map[string]string{
+				"/search/movie": tc.fixture,
+			})
+			parsed := Parse(tc.filename, "")
+			res, err := Match(context.Background(), client, parsed, tc.filename)
+			if err != nil {
+				t.Fatalf("Match: %v", err)
+			}
+			if res.Confidence != ConfidenceAlta {
+				t.Fatalf("Confidence = %v, esperado ConfidenceAlta (título original coincide vía original_title)", res.Confidence)
+			}
+			if res.Best == nil || res.Best.ID != tc.wantID {
+				t.Fatalf("Best = %+v, esperado tmdb_id %d", res.Best, tc.wantID)
+			}
+		})
+	}
+}
+
 func TestIsPackHint(t *testing.T) {
 	cases := map[string]bool{
 		"El Padrino (1972) [Trilogia][Español Latino-Ingles][BluRay 1080p].mp4": true,

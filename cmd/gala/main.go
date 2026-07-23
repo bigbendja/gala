@@ -76,6 +76,7 @@ func main() {
 
 	tmdbKey := cfg.TMDBAPIKey
 	tmdbClient := identify.NewClient(tmdbKey, cacheDir, repo)
+	tmdbClient.Log = log
 	idQueue := identify.NewQueue(ctx, repo, tmdbClient, log)
 	go idQueue.Run()
 
