@@ -273,3 +273,67 @@ func TestTMDBAndSearchCache(t *testing.T) {
 		t.Fatalf("GetSearch = %q, %v, %v", sPayload, ok, err)
 	}
 }
+
+func strp(s string) *string { return &s }
+
+// TestItemsMissingImagesAndUpdateItemImages cubre el backfill de imágenes
+// (corrección post-entrega M3, caso real "Coco": item confirmado con
+// backdrop_path pero poster_path NULL, porque el CDN de imágenes falló para
+// esa única descarga). ItemsMissingImages debe encontrarlo; UpdateItemImages
+// debe rellenar solo lo que falta sin pisar lo que ya había.
+func TestItemsMissingImagesAndUpdateItemImages(t *testing.T) {
+	ctx := context.Background()
+	r := newTestRepo(t)
+
+	id := insertProvisional(t, ctx, r, "coco.2017.1080p")
+	if err := r.ApplyMovieIdentification(ctx, id, 354912, "Coco", nil, nil, nil, strp("backdrop354912.jpg"), nil,
+		nil, []string{}, ""); err != nil {
+		t.Fatalf("ApplyMovieIdentification: %v", err)
+	}
+
+	// Un item confirmado normal (con las dos imágenes) no debe aparecer.
+	completeID := insertProvisional(t, ctx, r, "inception.2010.1080p")
+	if err := r.ApplyMovieIdentification(ctx, completeID, 27205, "Origen", nil, nil, strp("poster27205.jpg"),
+		strp("backdrop27205.jpg"), nil, nil, []string{}, ""); err != nil {
+		t.Fatalf("ApplyMovieIdentification (completo): %v", err)
+	}
+	// Un provisional sin confirmar tampoco (aún no tiene tmdb_id).
+	_ = insertProvisional(t, ctx, r, "sin.identificar")
+
+	missing, err := r.ItemsMissingImages(ctx)
+	if err != nil {
+		t.Fatalf("ItemsMissingImages: %v", err)
+	}
+	if len(missing) != 1 || missing[0].ID != id {
+		t.Fatalf("ItemsMissingImages = %+v, esperado solo el item de Coco (id=%d)", missing, id)
+	}
+	if missing[0].PosterPath != nil {
+		t.Errorf("PosterPath = %v, esperado nil", missing[0].PosterPath)
+	}
+	if missing[0].BackdropPath == nil {
+		t.Error("BackdropPath = nil, esperado ya guardado")
+	}
+
+	if err := r.UpdateItemImages(ctx, id, strp("poster354912.jpg"), strp("backdrop-que-no-deberia-pisar.jpg")); err != nil {
+		t.Fatalf("UpdateItemImages: %v", err)
+	}
+	it, err := r.Get(ctx, id)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if it.PosterPath == nil || *it.PosterPath != "poster354912.jpg" {
+		t.Fatalf("PosterPath = %v, esperado 'poster354912.jpg' (backfill)", it.PosterPath)
+	}
+	if it.BackdropPath == nil || *it.BackdropPath != "backdrop354912.jpg" {
+		t.Fatalf("BackdropPath = %v, esperado sin cambios (COALESCE no debe pisar un valor ya guardado)", it.BackdropPath)
+	}
+
+	// Tras rellenar el póster, el item ya no debe aparecer en la lista.
+	missing2, err := r.ItemsMissingImages(ctx)
+	if err != nil {
+		t.Fatalf("ItemsMissingImages (tras backfill): %v", err)
+	}
+	if len(missing2) != 0 {
+		t.Fatalf("ItemsMissingImages tras backfill = %+v, esperado vacío", missing2)
+	}
+}

@@ -41,6 +41,16 @@ const (
 	// título real que la gente busca, por encima de un empate reñido de
 	// similitud de texto.
 	popularityDominanceFactor = 10.0
+
+	// popularitySafetyNetFraction: red de seguridad INDEPENDIENTE de
+	// resolveByPopularity (que solo actúa cuando el score está reñido). Si
+	// el ganador, aunque gane claramente por texto, tiene una popularidad
+	// inferior al 5% de la del candidato más popular del propio conjunto de
+	// resultados, es señal de que puede ser un homónimo oscuro y no el
+	// título real (informe de la corrección post-entrega M3: "un título
+	// oscuro que gana por texto a uno masivamente más popular es señal de
+	// riesgo, no de acierto").
+	popularitySafetyNetFraction = 0.05
 )
 
 // Confidence es el nivel de confianza de un resultado del matcher.
@@ -80,9 +90,11 @@ type MatchResult struct {
 }
 
 // Match busca en TMDB según parsed.Kind (unknown prueba ambos) y puntúa los
-// candidatos por similitud de título (sobre title Y original_title) más
-// bonus de año, con desempate por popularidad. rawName es el nombre de
-// archivo ORIGINAL (sin limpiar): solo se usa para detectar packs.
+// candidatos por similitud de título (sobre title es-ES, original_title y
+// title en-US) más bonus de año, con dos redes de seguridad basadas en
+// popularidad (resolveByPopularity, isPopularityRisk) antes de dejar auto-
+// confirmar. rawName es el nombre de archivo ORIGINAL (sin limpiar): solo se
+// usa para detectar packs.
 func Match(ctx context.Context, client *Client, parsed Parsed, rawName string) (MatchResult, error) {
 	var candidates []scoredCandidate
 
@@ -119,7 +131,8 @@ func Match(ctx context.Context, client *Client, parsed Parsed, rawName string) (
 
 	best := candidates[0]
 	tier := confidenceFor(best.score)
-	if ambiguous && tier == ConfidenceAlta {
+	popularityRisk := isPopularityRisk(candidates, best)
+	if (ambiguous || popularityRisk) && tier == ConfidenceAlta {
 		tier = ConfidenceMedia
 	}
 
@@ -147,6 +160,8 @@ func Match(ctx context.Context, client *Client, parsed Parsed, rawName string) (
 		note = "la carpeta contradice la temporada del archivo"
 	case ambiguous:
 		note = "candidatos con puntuación y popularidad muy reñidas: no se auto-confirma"
+	case popularityRisk:
+		note = "el candidato ganador tiene una popularidad muy inferior a otro resultado del mismo conjunto: no se auto-confirma"
 	}
 
 	res := MatchResult{Confidence: tier, Kind: best.kind, Note: note}
@@ -197,6 +212,22 @@ func resolveByPopularity(candidates []scoredCandidate) bool {
 	}
 }
 
+// isPopularityRisk es la red de seguridad independiente de
+// resolveByPopularity (esta última solo entra si el score está reñido, por
+// debajo de ambiguousScoreGap). Aunque el ganador tenga el score muy por
+// delante del resto, si su popularidad es marginal frente al candidato más
+// popular del propio conjunto de resultados, no se auto-confirma: puede ser
+// un homónimo oscuro que ganó por texto.
+func isPopularityRisk(candidates []scoredCandidate, best scoredCandidate) bool {
+	maxPopularity := 0.0
+	for _, c := range candidates {
+		if c.result.Popularity > maxPopularity {
+			maxPopularity = c.result.Popularity
+		}
+	}
+	return maxPopularity > 0 && best.result.Popularity < maxPopularity*popularitySafetyNetFraction
+}
+
 func confidenceFor(score float64) Confidence {
 	switch {
 	case score >= ThresholdAlta:
@@ -219,20 +250,56 @@ func searchScored(ctx context.Context, client *Client, kind string, parsed Parse
 	if err != nil {
 		return nil, err
 	}
+
+	englishTitles := englishTitlesFor(ctx, client, kind, parsed)
+
 	out := make([]scoredCandidate, 0, len(results))
 	for _, r := range results {
-		out = append(out, scoredCandidate{result: r, kind: kind, score: scoreCandidate(parsed, r)})
+		out = append(out, scoredCandidate{result: r, kind: kind, score: scoreCandidate(parsed, r, englishTitles[r.ID])})
 	}
 	return out, nil
 }
 
-// scoreCandidate puntúa un resultado de búsqueda contra parsed: similitud
-// de título (máximo entre title y original_title) más bonus de año exacto
-// o ±1 (Brief §3).
-func scoreCandidate(parsed Parsed, r SearchResult) float64 {
+// englishTitlesFor repite la búsqueda en TMDB con language=en-US (caché
+// propia, misma query) para poder comparar también contra el título en
+// inglés de cada candidato: en es-ES, TMDB devuelve el título TRADUCIDO en
+// "title" y el original en el idioma de origen de la obra (p. ej. coreano),
+// que no acerca nada a un nombre de archivo en inglés (corrección
+// post-entrega M3: "Parasite.2019.KOREAN..." vs "Parásitos"/기생충 en es-ES,
+// "Parasite" en en-US). Un fallo aquí (offline, TMDB caído) no debe tirar
+// todo el matching: se ignora y el candidato se puntúa solo con
+// title/original_title en es-ES, como antes.
+func englishTitlesFor(ctx context.Context, client *Client, kind string, parsed Parsed) map[int64]string {
+	var results []SearchResult
+	var err error
+	if kind == "movie" {
+		results, err = client.SearchMovieEN(ctx, parsed.Title, parsed.Year)
+	} else {
+		results, err = client.SearchTVEN(ctx, parsed.Title, parsed.Year)
+	}
+	if err != nil {
+		return nil
+	}
+	out := make(map[int64]string, len(results))
+	for _, r := range results {
+		out[r.ID] = r.EffectiveTitle()
+	}
+	return out
+}
+
+// scoreCandidate puntúa un resultado de búsqueda contra parsed: similitud de
+// título (máximo entre title es-ES, original_title, y title en-US si se
+// conoce) más bonus de año exacto o ±1 (Brief §3; título en-US añadido en la
+// corrección post-entrega de M3).
+func scoreCandidate(parsed Parsed, r SearchResult, englishTitle string) float64 {
 	titleScore := titleSimilarity(parsed.Title, r.EffectiveTitle())
 	if alt := titleSimilarity(parsed.Title, r.EffectiveOriginalTitle()); alt > titleScore {
 		titleScore = alt
+	}
+	if englishTitle != "" {
+		if alt := titleSimilarity(parsed.Title, englishTitle); alt > titleScore {
+			titleScore = alt
+		}
 	}
 
 	score := titleScore

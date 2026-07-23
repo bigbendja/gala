@@ -31,6 +31,17 @@ const (
 
 	maxAttempts  = 3
 	rateInterval = 250 * time.Millisecond // 4 req/s (Brief §2)
+
+	// imageMaxAttempts: el CDN de imágenes de TMDB (CloudFront) resultó, en
+	// la prueba real, bastante menos fiable que la API (rachas de varios
+	// segundos sin responder en peticiones consecutivas a la misma URL).
+	// maxAttempts (pensado para la API, con backoff corto) no daba margen
+	// suficiente; las imágenes usan su propio presupuesto de reintentos, algo
+	// más generoso, ya que no bloquean nada crítico del usuario. Aun así,
+	// una racha larga del CDN puede agotarlo: el respaldo real es
+	// Queue.backfillImages, que reintenta más tarde las imágenes que se
+	// perdieron incluso en un item ya confirmado (corrección post-entrega M3).
+	imageMaxAttempts = 5
 )
 
 // Cache abstrae la persistencia de tmdb_cache/search_cache; la implementa
@@ -197,20 +208,35 @@ func yearFromDate(date string) int {
 	return y
 }
 
-// SearchMovie busca películas por título (y año, si se conoce).
+// SearchMovie busca películas por título (y año, si se conoce), en es-ES.
 func (c *Client) SearchMovie(ctx context.Context, query string, year int) ([]SearchResult, error) {
-	return c.search(ctx, "movie", query, year)
+	return c.search(ctx, "movie", query, year, "es-ES")
 }
 
-// SearchTV busca series por título (y año de estreno, si se conoce).
+// SearchTV busca series por título (y año de estreno, si se conoce), en es-ES.
 func (c *Client) SearchTV(ctx context.Context, query string, year int) ([]SearchResult, error) {
-	return c.search(ctx, "tv", query, year)
+	return c.search(ctx, "tv", query, year, "es-ES")
 }
 
-func (c *Client) search(ctx context.Context, kind, query string, year int) ([]SearchResult, error) {
+// SearchMovieEN es SearchMovie en language=en-US. El matcher la usa como
+// tercera fuente de comparación de título (Brief M3, corrección
+// post-entrega): en es-ES, TMDB devuelve el título TRADUCIDO en "title" y el
+// original en el idioma de origen de la obra (p. ej. coreano para
+// "Parasite"), que no acerca nada a un nombre de archivo en inglés. El
+// título en-US suele coincidir con el nombre de archivo real.
+func (c *Client) SearchMovieEN(ctx context.Context, query string, year int) ([]SearchResult, error) {
+	return c.search(ctx, "movie", query, year, "en-US")
+}
+
+// SearchTVEN es el equivalente de SearchMovieEN para series.
+func (c *Client) SearchTVEN(ctx context.Context, query string, year int) ([]SearchResult, error) {
+	return c.search(ctx, "tv", query, year, "en-US")
+}
+
+func (c *Client) search(ctx context.Context, kind, query string, year int, lang string) ([]SearchResult, error) {
 	hash := searchHash(kind, query, year)
 	if c.Cache != nil {
-		if payload, ok, err := c.Cache.GetSearch(ctx, hash, kind, "es-ES"); err == nil && ok {
+		if payload, ok, err := c.Cache.GetSearch(ctx, hash, kind, lang); err == nil && ok {
 			var sr searchResponse
 			if jerr := json.Unmarshal([]byte(payload), &sr); jerr == nil {
 				return sr.Results, nil
@@ -218,7 +244,7 @@ func (c *Client) search(ctx context.Context, kind, query string, year int) ([]Se
 		}
 	}
 
-	params := url.Values{"query": {query}, "language": {"es-ES"}}
+	params := url.Values{"query": {query}, "language": {lang}}
 	if year > 0 {
 		if kind == "movie" {
 			params.Set("year", strconv.Itoa(year))
@@ -240,7 +266,7 @@ func (c *Client) search(ctx context.Context, kind, query string, year int) ([]Se
 		return nil, fmt.Errorf("decodificar búsqueda TMDB: %w", err)
 	}
 	if c.Cache != nil {
-		_ = c.Cache.PutSearch(ctx, hash, kind, "es-ES", string(body))
+		_ = c.Cache.PutSearch(ctx, hash, kind, lang, string(body))
 	}
 	return sr.Results, nil
 }
@@ -418,7 +444,7 @@ func (c *Client) downloadImage(ctx context.Context, tmdbPath, size, prefix strin
 
 	url := c.ImageBase + "/" + size + tmdbPath
 	var lastErr error
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
+	for attempt := 1; attempt <= imageMaxAttempts; attempt++ {
 		c.throttle()
 		if err := c.fetchImageOnce(ctx, url, full); err != nil {
 			lastErr = err
@@ -433,7 +459,7 @@ func (c *Client) downloadImage(ctx context.Context, tmdbPath, size, prefix strin
 
 	if c.Log != nil {
 		c.Log.Warn("identify: descargar imagen TMDB tras agotar reintentos",
-			"tmdb_path", tmdbPath, "intentos", maxAttempts, "err", lastErr)
+			"tmdb_path", tmdbPath, "intentos", imageMaxAttempts, "err", lastErr)
 	}
 	return "", fmt.Errorf("descargar imagen TMDB %s: %w: %v", tmdbPath, ErrOffline, lastErr)
 }

@@ -231,8 +231,8 @@ func TestDownloadPosterExhaustsRetriesAndLogs(t *testing.T) {
 	if name != "" {
 		t.Errorf("name = %q, esperado vacío", name)
 	}
-	if got := atomic.LoadInt32(calls); got != maxAttempts {
-		t.Errorf("llamadas HTTP = %d, esperado %d (maxAttempts)", got, maxAttempts)
+	if got := atomic.LoadInt32(calls); got != imageMaxAttempts {
+		t.Errorf("llamadas HTTP = %d, esperado %d (imageMaxAttempts)", got, imageMaxAttempts)
 	}
 	if logged.Len() == 0 {
 		t.Error("no se registró ningún log tras agotar los reintentos de la imagen")

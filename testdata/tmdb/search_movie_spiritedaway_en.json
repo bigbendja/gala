@@ -1,0 +1,20 @@
+{
+  "results": [
+    {
+      "id": 129,
+      "title": "Spirited Away",
+      "original_title": "千と千尋の神隠し",
+      "release_date": "2001-07-20",
+      "poster_path": "/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg",
+      "popularity": 32.5442
+    },
+    {
+      "id": 535075,
+      "title": "The Nippon Television Special of Spirited Away",
+      "original_title": "千と千尋の神隠し 公開直前スペシャル！",
+      "release_date": "2001-07-15",
+      "poster_path": "/uvjE8iVZZ2EbQrP4gIQNHivaTjn.jpg",
+      "popularity": 0.8887
+    }
+  ]
+}

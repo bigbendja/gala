@@ -174,6 +174,88 @@ func TestQueueRebuildsFromDB(t *testing.T) {
 	}
 }
 
+// TestQueueBackfillsMissingImageAfterConfirm reproduce el bug real de
+// "Coco" (tmdb_id 354912 en la prueba real: backdrop_path guardado, poster_
+// path NULL, de forma reproducible). La causa: el CDN de imágenes de TMDB
+// puede fallar de forma persistente para UNA imagen concreta en la misma
+// pasada en que otra (del mismo item) sí se descarga; una vez que
+// ApplyMovieIdentification confirma el item (identificación correcta, solo
+// falta el arte), PendingIdentify ya no vuelve a mirarlo nunca — así que sin
+// backfillImages el póster se pierde para siempre, aunque el CDN se
+// recupere después. Por eso "con reintento ya activo" seguía siendo
+// reproducible: el reintento cubre el momento, no el después.
+func TestQueueBackfillsMissingImageAfterConfirm(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepoForTest(t)
+
+	var posterShouldFail int32 = 1
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/movie/"):
+			w.Write(fixture(t, "movie_27205.json"))
+		case strings.HasPrefix(r.URL.Path, "/search/movie"):
+			w.Write(fixture(t, "search_movie_inception.json"))
+		case strings.Contains(r.URL.Path, "poster27205"):
+			if atomic.LoadInt32(&posterShouldFail) == 1 {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			w.Write([]byte("fake-poster-bytes"))
+		case strings.Contains(r.URL.Path, "backdrop27205"):
+			w.Write([]byte("fake-backdrop-bytes"))
+		default:
+			t.Errorf("ruta inesperada: %s", r.URL.Path)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	client := NewClient("test-key", t.TempDir(), newMemCache())
+	client.BaseURL = srv.URL
+	client.ImageBase = srv.URL
+
+	id := insertProvisionalItem(t, ctx, repo, "Inception.2010.1080p.BluRay.x264-SPARKS")
+
+	q := NewQueue(ctx, repo, client, discardLogger())
+	q.drain()
+
+	it, err := repo.Get(ctx, id)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if !it.Confirmed || it.IdentifyStatus != catalog.IdentifyOK {
+		t.Fatalf("item tras drain = %+v, esperado confirmado/ok pese al fallo de imagen (la identificación en sí fue correcta)", it)
+	}
+	if it.PosterPath != nil {
+		t.Fatalf("PosterPath = %v, esperado nil (el CDN de pósters seguía fallando)", it.PosterPath)
+	}
+	if it.BackdropPath == nil {
+		t.Fatal("BackdropPath = nil, esperado descargado (esa URL nunca falló)")
+	}
+
+	pending, err := repo.PendingIdentify(ctx)
+	if err != nil {
+		t.Fatalf("PendingIdentify: %v", err)
+	}
+	if len(pending) != 0 {
+		t.Fatalf("PendingIdentify = %d, esperado 0: el item ya está confirmado y sin backfillImages nunca se reintentaría", len(pending))
+	}
+
+	// El CDN "se recupera": backfillImages debe rellenar el póster sin
+	// tocar el backdrop ya guardado.
+	atomic.StoreInt32(&posterShouldFail, 0)
+	q.backfillImages()
+
+	it2, err := repo.Get(ctx, id)
+	if err != nil {
+		t.Fatalf("Get (tras backfill): %v", err)
+	}
+	if it2.PosterPath == nil || *it2.PosterPath == "" {
+		t.Fatal("PosterPath sigue vacío tras backfillImages")
+	}
+	if it2.BackdropPath == nil || *it2.BackdropPath != *it.BackdropPath {
+		t.Errorf("BackdropPath cambió tras el backfill (debía quedar intacto): antes=%v, después=%v", it.BackdropPath, it2.BackdropPath)
+	}
+}
+
 func TestQueueEnqueueDoesNotBlock(t *testing.T) {
 	ctx := context.Background()
 	repo := newRepoForTest(t)

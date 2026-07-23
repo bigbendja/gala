@@ -56,6 +56,46 @@ func (r *Repo) PendingIdentify(ctx context.Context) ([]Item, error) {
 	return out, rows.Err()
 }
 
+// ItemsMissingImages devuelve items ya confirmados (movie/series) a los que
+// se les perdió el póster o el fondo: quedaron confirmados sin imagen porque
+// la descarga falló en su momento (CDN de imágenes de TMDB, menos fiable que
+// la API), y al no ser confirmed=0 nunca vuelven a pasar por PendingIdentify
+// (corrección post-entrega M3: "Coco" con backdrop pero sin poster).
+func (r *Repo) ItemsMissingImages(ctx context.Context) ([]Item, error) {
+	rows, err := r.q.QueryContext(ctx, `SELECT `+itemCols+`, 0 FROM items i
+		WHERE i.confirmed = 1 AND i.tmdb_id IS NOT NULL AND i.kind IN (?, ?)
+		  AND (i.poster_path IS NULL OR i.backdrop_path IS NULL)
+		ORDER BY i.added_at ASC`, KindMovie, KindSeries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Item
+	for rows.Next() {
+		it, err := scanItem(rows, true)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
+// UpdateItemImages rellena poster_path/backdrop_path de un item que ya los
+// tenía a NULL (backfill de ItemsMissingImages); nunca pisa un valor ya
+// guardado, así que es seguro llamarla aunque el reintento vuelva a fallar
+// (posterPath/backdropPath nil en ese caso, COALESCE no cambia nada).
+func (r *Repo) UpdateItemImages(ctx context.Context, itemID int64, posterPath, backdropPath *string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := r.q.ExecContext(ctx, `UPDATE items SET
+			poster_path = COALESCE(poster_path, ?),
+			backdrop_path = COALESCE(backdrop_path, ?),
+			updated_at = ?
+		WHERE id = ?`, posterPath, backdropPath, now, itemID)
+	return err
+}
+
 // PendingItem es un item "Por confirmar" con sus candidatos, si los hay
 // (GET /api/v1/pending, Brief §5).
 type PendingItem struct {

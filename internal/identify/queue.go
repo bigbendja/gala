@@ -82,7 +82,10 @@ func (q *Queue) Enqueue() {
 func (q *Queue) Run() {
 	q.Enqueue() // pendientes de sesiones anteriores (Brief §4)
 	for {
-		q.drain()
+		offline := q.drain()
+		if !offline && q.ctx.Err() == nil {
+			q.backfillImages()
+		}
 
 		wait := retryInterval + time.Duration(rand.Int63n(int64(retryJitter)))
 		timer := time.NewTimer(wait)
@@ -98,9 +101,9 @@ func (q *Queue) Run() {
 }
 
 // drain procesa todos los items pendientes que pueda. Si TMDB no responde
-// (ErrOffline), se detiene: los que quedan siguen en BD como pending/error
-// y se reintentan en la siguiente pasada (Brief §4).
-func (q *Queue) drain() {
+// (ErrOffline), se detiene y devuelve true: los que quedan siguen en BD como
+// pending/error y se reintentan en la siguiente pasada (Brief §4).
+func (q *Queue) drain() (offline bool) {
 	q.mu.Lock()
 	q.status.Processing = true
 	q.mu.Unlock()
@@ -112,24 +115,24 @@ func (q *Queue) drain() {
 
 	for {
 		if q.ctx.Err() != nil {
-			return
+			return false
 		}
 		items, err := q.repo.PendingIdentify(q.ctx)
 		if err != nil {
 			q.log.Error("identify: leer pendientes", "err", err)
-			return
+			return false
 		}
 		q.mu.Lock()
 		q.status.Pending = len(items)
 		q.mu.Unlock()
 		if len(items) == 0 {
-			return
+			return false
 		}
 
-		offline := false
+		hitOffline := false
 		for _, it := range items {
 			if q.ctx.Err() != nil {
-				return
+				return false
 			}
 			if err := q.processOne(it); err != nil {
 				if errors.Is(err, ErrOffline) {
@@ -137,7 +140,7 @@ func (q *Queue) drain() {
 					q.status.Online = false
 					q.status.LastError = err.Error()
 					q.mu.Unlock()
-					offline = true
+					hitOffline = true
 					break
 				}
 				q.log.Warn("identify: procesar item", "item_id", it.ID, "err", err)
@@ -147,13 +150,75 @@ func (q *Queue) drain() {
 			q.status.Processed++
 			q.mu.Unlock()
 		}
-		if offline {
-			return
+		if hitOffline {
+			return true
 		}
 		q.mu.Lock()
 		q.status.Online = true
 		q.status.LastError = ""
 		q.mu.Unlock()
+	}
+}
+
+// backfillImages reintenta el póster/fondo de items YA confirmados a los que
+// se les perdió la imagen (Brief M3, corrección post-entrega: el CDN de
+// imágenes de TMDB es menos fiable que su API; un fallo ahí no debe perderse
+// para siempre solo porque el item ya salió de "pendientes" y por tanto
+// nunca vuelve a pasar por processOne). El detalle viene de tmdb_cache (ya
+// se pidió al confirmar), así que esto no repite la búsqueda ni el matching,
+// solo reintenta la descarga de la imagen que faltó.
+func (q *Queue) backfillImages() {
+	items, err := q.repo.ItemsMissingImages(q.ctx)
+	if err != nil {
+		q.log.Error("identify: leer items sin imagen", "err", err)
+		return
+	}
+	for _, it := range items {
+		if q.ctx.Err() != nil {
+			return
+		}
+		if it.TMDBID == nil {
+			continue
+		}
+
+		var posterSrc, backdropSrc string
+		if it.Kind == catalog.KindSeries {
+			d, err := q.client.TVDetail(q.ctx, *it.TMDBID)
+			if err != nil {
+				q.log.Warn("identify: reintentar imagen (detalle serie)", "item_id", it.ID, "err", err)
+				continue
+			}
+			posterSrc, backdropSrc = d.PosterPath, d.BackdropPath
+		} else {
+			d, err := q.client.MovieDetail(q.ctx, *it.TMDBID)
+			if err != nil {
+				q.log.Warn("identify: reintentar imagen (detalle película)", "item_id", it.ID, "err", err)
+				continue
+			}
+			posterSrc, backdropSrc = d.PosterPath, d.BackdropPath
+		}
+
+		var poster, backdrop *string
+		if it.PosterPath == nil {
+			if name, err := q.client.DownloadPoster(q.ctx, posterSrc); err != nil {
+				q.log.Warn("identify: reintentar póster", "item_id", it.ID, "err", err)
+			} else if name != "" {
+				poster = &name
+			}
+		}
+		if it.BackdropPath == nil {
+			if name, err := q.client.DownloadBackdrop(q.ctx, backdropSrc); err != nil {
+				q.log.Warn("identify: reintentar fondo", "item_id", it.ID, "err", err)
+			} else if name != "" {
+				backdrop = &name
+			}
+		}
+		if poster == nil && backdrop == nil {
+			continue
+		}
+		if err := q.repo.UpdateItemImages(q.ctx, it.ID, poster, backdrop); err != nil {
+			q.log.Error("identify: guardar imagen reintentada", "item_id", it.ID, "err", err)
+		}
 	}
 }
 
