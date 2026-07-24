@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"path/filepath"
 	"regexp"
@@ -36,6 +38,10 @@ type playSourceView struct {
 	URL          string         `json:"url"`
 	Reason       *string        `json:"reason,omitempty"`
 	Media        *playMediaView `json:"media,omitempty"`
+	// Path es la ruta local del archivo, SOLO si la fuente es localfs y la
+	// petición viene de localhost (Brief M4 addendum §3: "Copiar ruta del
+	// archivo"). Nunca se expone a clientes remotos (Modo LAN, M7).
+	Path *string `json:"path,omitempty"`
 }
 
 type playResponse struct {
@@ -103,11 +109,12 @@ func (s *Server) handlePlay(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type scored struct {
-		view   playSourceView
-		reject bool
-		src    catalog.Source
+		view     playSourceView
+		notReady bool // Reject o Analyzing: nunca elegible como chosen_source_id por delante de una fuente lista
+		src      catalog.Source
 	}
 	out := make([]scored, 0, len(item.Sources))
+	local := isLocalRequest(r)
 
 	for _, src := range item.Sources {
 		view := playSourceView{
@@ -115,25 +122,18 @@ func (s *Server) handlePlay(w http.ResponseWriter, r *http.Request) {
 			QualityLabel: src.QualityLabel, Health: src.Health,
 			URL: "/api/v1/stream/" + strconv.FormatInt(src.ID, 10),
 		}
+		if src.Provider == localfs.ProviderID && local {
+			locator := src.Locator
+			view.Path = &locator
+		}
 
 		switch src.Provider {
 		case localfs.ProviderID:
-			var info *media.MediaInfo
-			if mi, ok, err := s.Catalog.GetMediaInfo(r.Context(), src.ID); err != nil {
+			decision, info, err := s.decideForSource(r.Context(), src)
+			if err != nil {
 				s.fail(w, err)
 				return
-			} else if ok {
-				info = &media.MediaInfo{Container: mi.Container, DurationS: mi.DurationS,
-					VideoCodec: mi.VideoCodec, AudioCodec: mi.AudioCodec,
-					Width: mi.Width, Height: mi.Height, Bitrate: mi.Bitrate}
-			} else if s.FFmpeg.Available() {
-				// Sonda bajo demanda (Brief §2): si falla (archivo ilegible,
-				// disco desconectado...), se decide igualmente por extensión.
-				if probed, perr := media.ProbeAndStore(r.Context(), s.Catalog, s.FFmpeg, src); perr == nil {
-					info = probed
-				}
 			}
-			decision := media.Decide(info, filepath.Ext(src.Locator), s.FFmpeg.Available())
 			view.Mode = decision.Mode
 			if decision.Reason != "" {
 				view.Reason = &decision.Reason
@@ -157,13 +157,14 @@ func (s *Server) handlePlay(w http.ResponseWriter, r *http.Request) {
 			view.Reason = &reason
 		}
 
-		out = append(out, scored{view: view, reject: view.Mode == media.ModeReject, src: src})
+		notReady := view.Mode == media.ModeReject || view.Mode == media.ModeAnalyzing
+		out = append(out, scored{view: view, notReady: notReady, src: src})
 	}
 
 	sort.SliceStable(out, func(i, j int) bool {
 		a, b := out[i], out[j]
-		if a.reject != b.reject {
-			return !a.reject // no-reject primero; reject al final (Brief §5) pero incluidas
+		if a.notReady != b.notReady {
+			return !a.notReady // listas primero; reject/analyzing al final (Brief §5) pero incluidas
 		}
 		if hr := rankOf(healthRank, a.src.Health) - rankOf(healthRank, b.src.Health); hr != 0 {
 			return hr < 0
@@ -186,6 +187,47 @@ func (s *Server) handlePlay(w http.ResponseWriter, r *http.Request) {
 		res.ChosenSourceID = &id
 	}
 	writeJSON(w, http.StatusOK, res)
+}
+
+// decideForSource sondea bajo demanda si falta media_info y decide el modo
+// de reproducción para UNA fuente localfs (Brief M4 §3 y su addendum
+// post-entrega). Compartido por handlePlay (todas las fuentes del item) y
+// handleHLSStart (una fuente concreta, para saber si el remux debe
+// recodificar audio: Decision.AudioTranscode).
+func (s *Server) decideForSource(ctx context.Context, src catalog.Source) (media.Decision, *media.MediaInfo, error) {
+	var info *media.MediaInfo
+	mi, ok, err := s.Catalog.GetMediaInfo(ctx, src.ID)
+	if err != nil {
+		return media.Decision{}, nil, err
+	}
+	if ok {
+		info = &media.MediaInfo{Container: mi.Container, DurationS: mi.DurationS,
+			VideoCodec: mi.VideoCodec, AudioCodec: mi.AudioCodec,
+			Width: mi.Width, Height: mi.Height, Bitrate: mi.Bitrate}
+	} else if s.FFmpeg.Available() {
+		// Sonda bajo demanda (Brief §2): si falla (archivo ilegible, disco
+		// desconectado, tiempo agotado...) info queda nil y Decide() lo
+		// trata como ModeAnalyzing (nunca Reject solo por falta de
+		// análisis; corrección del addendum post-entrega).
+		if probed, perr := media.ProbeAndStore(ctx, s.Catalog, s.FFmpeg, src); perr == nil {
+			info = probed
+		}
+	}
+	decision := media.Decide(info, filepath.Ext(src.Locator), s.FFmpeg.Available())
+	return decision, info, nil
+}
+
+// isLocalRequest indica si la petición viene del propio host (127.0.0.1/::1),
+// a diferencia de otro dispositivo en Modo LAN (M7). Base de "Copiar ruta
+// del archivo" (Brief M4 addendum §3): la ruta local del servidor no tiene
+// sentido —y no debería exponerse— a un cliente remoto.
+func isLocalRequest(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // --- /api/v1/stream/{source_id} (Brief M4 §4) --------------------------
@@ -238,6 +280,20 @@ func (s *Server) handleHLSStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	decision, _, err := s.decideForSource(r.Context(), *src)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	if decision.Mode != media.ModeRemux {
+		// Ni el propio /play habría ofrecido esta URL para una fuente que
+		// no está en modo remux (direct no lo necesita; reject/analyzing
+		// todavía no se pueden convertir) — 409 más claro que lanzar un
+		// ffmpeg que no debería correr.
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "esta fuente no está en modo remux"})
+		return
+	}
+
 	start := 0.0
 	if t := r.URL.Query().Get("t"); t != "" {
 		if v, err := strconv.ParseFloat(t, 64); err == nil && v >= 0 {
@@ -245,7 +301,7 @@ func (s *Server) handleHLSStart(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sess, err := s.HLS.StartSession(r.Context(), src.ID, src.Locator, start)
+	sess, err := s.HLS.StartSession(r.Context(), src.ID, src.Locator, start, decision.AudioTranscode)
 	if err != nil {
 		switch {
 		case errors.Is(err, stream.ErrTooManySessions):

@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/bigbendja/gala/internal/api"
@@ -30,6 +31,7 @@ type playTestServer struct {
 	*httptest.Server
 	repo      *catalog.Repo
 	mediaRoot string
+	mux       http.Handler // acceso directo, para tests que necesitan fijar RemoteAddr a mano (p. ej. simular un cliente LAN)
 }
 
 func newPlayTestServer(t *testing.T, ffmpeg *media.FFmpeg, hls *stream.Manager) *playTestServer {
@@ -57,7 +59,7 @@ func newPlayTestServer(t *testing.T, ffmpeg *media.FFmpeg, hls *stream.Manager) 
 	srv.Routes(mux)
 	hts := httptest.NewServer(mux)
 	t.Cleanup(func() { hts.Close(); cancel(); st.Close() })
-	return &playTestServer{Server: hts, repo: repo, mediaRoot: mediaRoot}
+	return &playTestServer{Server: hts, repo: repo, mediaRoot: mediaRoot, mux: mux}
 }
 
 func (ps *playTestServer) writeMediaFile(t *testing.T, name string, size int) string {
@@ -108,6 +110,7 @@ type playSourceDTO struct {
 	Mode         string  `json:"mode"`
 	URL          string  `json:"url"`
 	Reason       *string `json:"reason"`
+	Path         *string `json:"path"`
 	Media        *struct {
 		DurationS float64 `json:"duration_s"`
 	} `json:"media"`
@@ -196,6 +199,133 @@ func TestHandlePlayUnknownItem404(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status = %d, esperado 404", resp.StatusCode)
+	}
+}
+
+// --- path solo para localhost (addendum §3: "Copiar ruta del archivo") ---
+
+// TestHandlePlayPathOnlyForLocalRequests cubre que la ruta local del
+// archivo solo se expone a quien pregunta desde el propio host, nunca a un
+// cliente remoto en Modo LAN (M7) — se simula fijando RemoteAddr a mano,
+// ya que un round-trip HTTP real en el test siempre vendría de 127.0.0.1.
+func TestHandlePlayPathOnlyForLocalRequests(t *testing.T) {
+	ps := newPlayTestServer(t, nil, nil)
+	itemID := ps.insertMovie(t, "Peli local")
+	locator := ps.writeMediaFile(t, "peli.mp4", 100)
+	ps.insertSource(t, itemID, locator, "", catalog.HealthAlive, 0, "")
+
+	doPlay := func(remoteAddr string) playResponseDTO {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/play/"+strconv.FormatInt(itemID, 10), nil)
+		req.RemoteAddr = remoteAddr
+		w := httptest.NewRecorder()
+		ps.mux.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status = %d, body=%s", w.Code, w.Body.String())
+		}
+		var got playResponseDTO
+		if err := json.NewDecoder(w.Body).Decode(&got); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return got
+	}
+
+	local := doPlay("127.0.0.1:54321")
+	if local.Sources[0].Path == nil || *local.Sources[0].Path != locator {
+		t.Fatalf("Path = %v desde localhost, esperado %q", local.Sources[0].Path, locator)
+	}
+
+	localV6 := doPlay("[::1]:54321")
+	if localV6.Sources[0].Path == nil || *localV6.Sources[0].Path != locator {
+		t.Fatalf("Path = %v desde ::1, esperado %q", localV6.Sources[0].Path, locator)
+	}
+
+	lan := doPlay("192.168.1.50:54321")
+	if lan.Sources[0].Path != nil {
+		t.Fatalf("Path = %q desde un cliente LAN remoto, esperado nil (no se expone la ruta del servidor)", *lan.Sources[0].Path)
+	}
+}
+
+// --- ModeAnalyzing: análisis pendiente/fallido ≠ rechazo (addendum §1) ----
+
+// TestHandlePlayAnalyzingWhenProbeFailsWithFFmpeg cubre la corrección del
+// addendum post-entrega: si hay ffmpeg pero la sonda bajo demanda falla
+// (aquí, un ffprobe falso que sale con error), un contenedor no directo
+// nunca debe presentarse como Reject — es un estado transitorio.
+func TestHandlePlayAnalyzingWhenProbeFailsWithFFmpeg(t *testing.T) {
+	fake := buildFakeBinary(t)
+	t.Setenv("HELPER_STDOUT", "")
+	t.Setenv("HELPER_EXIT", "1") // ffprobe "falla" (archivo ilegible, etc.)
+	ffmpeg := &media.FFmpeg{FFmpegPath: fake, FFprobePath: fake}
+
+	ps := newPlayTestServer(t, ffmpeg, nil)
+	itemID := ps.insertMovie(t, "Peli MKV sin analizar")
+	locator := ps.writeMediaFile(t, "peli.mkv", 1000)
+	ps.insertSource(t, itemID, locator, "", catalog.HealthAlive, 0, "")
+
+	got := getPlay(t, ps, itemID)
+	if got.Sources[0].Mode != "analyzing" {
+		t.Fatalf("Mode = %q, esperado analyzing (nunca reject solo por no haber podido analizar)", got.Sources[0].Mode)
+	}
+	if got.Sources[0].Reason == nil || *got.Sources[0].Reason == "" {
+		t.Error("Reason vacío en modo analyzing (la UI necesita un texto de espera)")
+	}
+}
+
+// TestHandlePlayAnalyzingSortsAfterReadySources: una fuente en análisis no
+// debe elegirse como chosen_source_id por delante de una fuente ya lista,
+// igual que reject (Brief §5: "al final pero incluidas").
+func TestHandlePlayAnalyzingSortsAfterReadySources(t *testing.T) {
+	fake := buildFakeBinary(t)
+	t.Setenv("HELPER_STDOUT", "")
+	t.Setenv("HELPER_EXIT", "1")
+	ffmpeg := &media.FFmpeg{FFmpegPath: fake, FFprobePath: fake}
+
+	ps := newPlayTestServer(t, ffmpeg, nil)
+	itemID := ps.insertMovie(t, "Dos fuentes")
+	locMkv := ps.writeMediaFile(t, "sin-analizar.mkv", 100)
+	locMp4 := ps.writeMediaFile(t, "lista.mp4", 100)
+	idAnalyzing := ps.insertSource(t, itemID, locMkv, "", catalog.HealthAlive, 10, "") // prioridad más alta
+	idReady := ps.insertSource(t, itemID, locMp4, "", catalog.HealthUnverified, 0, "")
+
+	got := getPlay(t, ps, itemID)
+	if len(got.Sources) != 2 {
+		t.Fatalf("Sources = %d, esperado 2", len(got.Sources))
+	}
+	if got.Sources[0].SourceID != idReady || got.Sources[0].Mode != "direct" {
+		t.Fatalf("primera fuente = %+v, esperada la lista (direct) primero pese a menor prioridad", got.Sources[0])
+	}
+	if got.Sources[1].SourceID != idAnalyzing || got.Sources[1].Mode != "analyzing" {
+		t.Fatalf("segunda fuente = %+v, esperada la de análisis pendiente al final", got.Sources[1])
+	}
+	if got.ChosenSourceID == nil || *got.ChosenSourceID != idReady {
+		t.Fatalf("ChosenSourceID = %v, esperado %d (la lista, no la pendiente de analizar)", got.ChosenSourceID, idReady)
+	}
+}
+
+// TestHandleHLSStartRejectsNonRemuxSource: /hls/start debe negarse (409) si
+// la fuente no está en modo remux — p. ej. mientras sigue en analyzing.
+func TestHandleHLSStartRejectsNonRemuxSource(t *testing.T) {
+	fake := buildFakeBinary(t)
+	t.Setenv("HELPER_STDOUT", "")
+	t.Setenv("HELPER_EXIT", "1")
+	ffmpeg := &media.FFmpeg{FFmpegPath: fake, FFprobePath: fake}
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	hlsMgr := stream.NewManager(ctx, fake, t.TempDir(), discardTestLogger())
+
+	ps := newPlayTestServer(t, ffmpeg, hlsMgr)
+	itemID := ps.insertMovie(t, "Peli sin analizar")
+	locator := ps.writeMediaFile(t, "peli.mkv", 1000)
+	srcID := ps.insertSource(t, itemID, locator, "", catalog.HealthAlive, 0, "")
+
+	resp, err := http.Get(ps.URL + "/api/v1/stream/" + strconv.FormatInt(srcID, 10) + "/hls/start")
+	if err != nil {
+		t.Fatalf("GET /hls/start: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status = %d, esperado 409 (fuente en analyzing, no remux)", resp.StatusCode)
 	}
 }
 
@@ -494,7 +624,7 @@ func TestHandlePlaybackUnknownItem404(t *testing.T) {
 
 func TestHandleHLSStartAndServeFile(t *testing.T) {
 	fake := buildFakeBinary(t)
-	t.Setenv("HELPER_MODE", "hls")
+	setFakeProbeResponse(t, "h264", "aac", "matroska,webm")
 	ffmpeg := &media.FFmpeg{FFmpegPath: fake, FFprobePath: fake}
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -537,6 +667,75 @@ func TestHandleHLSStartAndServeFile(t *testing.T) {
 	if len(plBody) == 0 {
 		t.Fatal("playlist vacía")
 	}
+
+	// Audio ya compatible (aac): el remux no debe recodificarlo.
+	sess, ok := hlsMgr.Session(out.SessionID)
+	if !ok {
+		t.Fatalf("Session(%q) no encontrada tras /hls/start", out.SessionID)
+	}
+	argsBody, err := os.ReadFile(filepath.Join(sess.Dir, "args.txt"))
+	if err != nil {
+		t.Fatalf("leer args.txt: %v", err)
+	}
+	if strings.Contains(string(argsBody), "-c:a") {
+		t.Errorf("args de ffmpeg = %q; no debería recodificar el audio (ya es aac)", argsBody)
+	}
+}
+
+// TestHandleHLSStartAudioTranscode cubre la corrección del addendum
+// post-entrega (§2): vídeo compatible + audio incompatible (AC3) ya no
+// rechaza — remuxea con -c:v copy -c:a aac. Verifica de punta a punta: la
+// decisión en /play, el 200 en /hls/start (antes 503/reject), y que el
+// ffmpeg lanzado de verdad pide -c:a aac (no -c copy a secas).
+func TestHandleHLSStartAudioTranscode(t *testing.T) {
+	fake := buildFakeBinary(t)
+	setFakeProbeResponse(t, "h264", "ac3", "matroska,webm")
+	ffmpeg := &media.FFmpeg{FFmpegPath: fake, FFprobePath: fake}
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	hlsMgr := stream.NewManager(ctx, fake, t.TempDir(), discardTestLogger())
+
+	ps := newPlayTestServer(t, ffmpeg, hlsMgr)
+	itemID := ps.insertMovie(t, "Peli AC3")
+	locator := ps.writeMediaFile(t, "peli.mkv", 1000)
+	srcID := ps.insertSource(t, itemID, locator, "", catalog.HealthAlive, 0, "")
+
+	play := getPlay(t, ps, itemID)
+	if play.Sources[0].Mode != "remux" {
+		t.Fatalf("Mode = %q, esperado remux (vídeo compatible, audio AC3 recodificable)", play.Sources[0].Mode)
+	}
+
+	resp, err := http.Get(ps.URL + "/api/v1/stream/" + strconv.FormatInt(srcID, 10) + "/hls/start")
+	if err != nil {
+		t.Fatalf("GET /hls/start: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		data, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status = %d, body=%s", resp.StatusCode, data)
+	}
+	var out struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	sess, ok := hlsMgr.Session(out.SessionID)
+	if !ok {
+		t.Fatalf("Session(%q) no encontrada", out.SessionID)
+	}
+	argsBody, err := os.ReadFile(filepath.Join(sess.Dir, "args.txt"))
+	if err != nil {
+		t.Fatalf("leer args.txt: %v", err)
+	}
+	args := string(argsBody)
+	if !strings.Contains(args, "-c:a\naac") && !strings.Contains(args, "-c:a") {
+		t.Errorf("args de ffmpeg = %q; esperado -c:a aac (recodificar audio AC3)", args)
+	}
+	if !strings.Contains(args, "-c:v\ncopy") && !strings.Contains(args, "-c:v") {
+		t.Errorf("args de ffmpeg = %q; esperado -c:v copy (el vídeo NUNCA se recodifica en MVP1)", args)
+	}
 }
 
 func TestHandleHLSStartWithoutFFmpeg503(t *testing.T) {
@@ -557,7 +756,7 @@ func TestHandleHLSStartWithoutFFmpeg503(t *testing.T) {
 
 func TestHandleHLSStartTooManySessions503(t *testing.T) {
 	fake := buildFakeBinary(t)
-	t.Setenv("HELPER_MODE", "hls")
+	setFakeProbeResponse(t, "h264", "aac", "matroska,webm")
 	t.Setenv("HELPER_SLEEP_MS", "2000") // mantener las sesiones vivas durante el test
 	ffmpeg := &media.FFmpeg{FFmpegPath: fake, FFprobePath: fake}
 	ctx, cancel := context.WithCancel(context.Background())

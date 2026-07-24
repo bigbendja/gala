@@ -117,7 +117,7 @@ new_clip() {
 new_clip "direct_h264_aac.mp4" 10  libx264 aac 12000
 new_clip "remux_h264_aac.mkv"  10  libx264 aac 12000
 new_clip "reject_hevc_aac.mkv" 10  libx265 aac 12000
-new_clip "reject_h264_ac3.mkv" 10  libx264 ac3 12000
+new_clip "audiotranscode_h264_ac3.mkv" 10  libx264 ac3 12000
 
 # --- Clips largos (180 s): seeking en direct y en remux (Brief §7) --------------
 new_clip "seek_h264_aac_long.mp4" 180 libx264 aac 600

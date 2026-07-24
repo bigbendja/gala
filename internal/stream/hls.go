@@ -95,7 +95,10 @@ func NewManager(ctx context.Context, ffmpegPath, cacheDir string, log *slog.Logg
 // corta mientras se está preparando), la sesión recién creada se aborta
 // (Brief §4, "cancelación... contexto del request"); una vez lista, la
 // sesión sigue viva de forma independiente (ver Manager).
-func (m *Manager) StartSession(requestCtx context.Context, sourceID int64, srcPath string, startSeconds float64) (*Session, error) {
+// audioTranscode recodifica el audio a AAC (-c:v copy -c:a aac) en vez de
+// copiar ambos streams: caso de vídeo compatible con audio que no lo es
+// (AC3/EAC3/DTS...), Brief M4 addendum §2. Sigue sin tocar el vídeo.
+func (m *Manager) StartSession(requestCtx context.Context, sourceID int64, srcPath string, startSeconds float64, audioTranscode bool) (*Session, error) {
 	if m.ffmpegPath == "" {
 		return nil, ErrFFmpegUnavailable
 	}
@@ -124,7 +127,7 @@ func (m *Manager) StartSession(requestCtx context.Context, sourceID int64, srcPa
 	}
 
 	procCtx, cancel := context.WithCancel(m.ctx)
-	cmd := exec.CommandContext(procCtx, m.ffmpegPath, buildHLSArgs(srcPath, dir, startSeconds)...)
+	cmd := exec.CommandContext(procCtx, m.ffmpegPath, buildHLSArgs(srcPath, dir, startSeconds, audioTranscode)...)
 
 	if err := cmd.Start(); err != nil {
 		cancel()
@@ -156,17 +159,23 @@ func (m *Manager) StartSession(requestCtx context.Context, sourceID int64, srcPa
 	return sess, nil
 }
 
-// buildHLSArgs construye los argumentos de ffmpeg para remux -c copy a HLS
-// (Brief M4 §4). Sin transcode: solo copia de streams, coste de CPU casi
-// nulo (CLAUDE.md/Brief: "sin transcode de vídeo en MVP1").
-func buildHLSArgs(srcPath, dir string, startSeconds float64) []string {
+// buildHLSArgs construye los argumentos de ffmpeg para remux a HLS (Brief M4
+// §4). Sin transcode de VÍDEO nunca (CLAUDE.md/Brief: "sin transcode de
+// vídeo en MVP1"): audioTranscode recodifica solo el audio a AAC cuando el
+// original no es reproducible en el navegador (Brief M4 addendum §2), coste
+// de CPU bajo porque el vídeo se sigue copiando tal cual.
+func buildHLSArgs(srcPath, dir string, startSeconds float64, audioTranscode bool) []string {
 	args := []string{"-y"}
 	if startSeconds > 0 {
 		args = append(args, "-ss", strconv.FormatFloat(startSeconds, 'f', 3, 64))
 	}
+	args = append(args, "-i", srcPath)
+	if audioTranscode {
+		args = append(args, "-c:v", "copy", "-c:a", "aac", "-b:a", "192k")
+	} else {
+		args = append(args, "-c", "copy")
+	}
 	return append(args,
-		"-i", srcPath,
-		"-c", "copy",
 		"-f", "hls",
 		"-hls_time", strconv.Itoa(hlsSegmentSeconds),
 		"-hls_playlist_type", "event",

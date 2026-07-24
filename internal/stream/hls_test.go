@@ -27,7 +27,7 @@ func TestStartSessionCreatesFilesAndTracksSession(t *testing.T) {
 	ctx := context.Background()
 	m := newManagerForTest(t, ctx, ffmpeg)
 
-	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0)
+	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false)
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestStartSessionSeekPassesStartSeconds(t *testing.T) {
 	ffmpeg := buildFakeFFmpeg(t, 0, 0)
 	m := newManagerForTest(t, context.Background(), ffmpeg)
 
-	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 123.5)
+	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 123.5, false)
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestStartSessionPerSourceLimitClosesOldest(t *testing.T) {
 
 	var sessions []*Session
 	for i := 0; i < maxSessionsPerSource; i++ {
-		sess, err := m.StartSession(context.Background(), 42, "video.mkv", float64(i*10))
+		sess, err := m.StartSession(context.Background(), 42, "video.mkv", float64(i*10), false)
 		if err != nil {
 			t.Fatalf("StartSession #%d: %v", i, err)
 		}
@@ -82,7 +82,7 @@ func TestStartSessionPerSourceLimitClosesOldest(t *testing.T) {
 	}
 
 	// Una sesión más para la misma fuente: debe cerrar sessions[0] (la más vieja).
-	newest, err := m.StartSession(context.Background(), 42, "video.mkv", 999)
+	newest, err := m.StartSession(context.Background(), 42, "video.mkv", 999, false)
 	if err != nil {
 		t.Fatalf("StartSession (extra): %v", err)
 	}
@@ -117,12 +117,12 @@ func TestStartSessionGlobalLimitReturns503Equivalent(t *testing.T) {
 	// maxGlobalSessions sesiones en fuentes DISTINTAS: el límite por fuente
 	// no debería interferir.
 	for i := int64(1); i <= maxGlobalSessions; i++ {
-		if _, err := m.StartSession(context.Background(), i, "video.mkv", 0); err != nil {
+		if _, err := m.StartSession(context.Background(), i, "video.mkv", 0, false); err != nil {
 			t.Fatalf("StartSession fuente %d: %v", i, err)
 		}
 	}
 
-	_, err := m.StartSession(context.Background(), maxGlobalSessions+1, "video.mkv", 0)
+	_, err := m.StartSession(context.Background(), maxGlobalSessions+1, "video.mkv", 0, false)
 	if !errors.Is(err, ErrTooManySessions) {
 		t.Fatalf("err = %v, esperado ErrTooManySessions", err)
 	}
@@ -140,7 +140,7 @@ func TestStartSessionCancelledByRequestContext(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	_, err := m.StartSession(reqCtx, 1, "video.mkv", 0)
+	_, err := m.StartSession(reqCtx, 1, "video.mkv", 0, false)
 	elapsed := time.Since(start)
 
 	if err == nil {
@@ -164,7 +164,7 @@ func TestCleanupOrphansRemovesInactiveSessions(t *testing.T) {
 	ffmpeg := buildFakeFFmpeg(t, 0, 0)
 	m := newManagerForTest(t, context.Background(), ffmpeg)
 
-	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0)
+	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false)
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestCleanupOrphansKeepsActiveSessions(t *testing.T) {
 	ffmpeg := buildFakeFFmpeg(t, 0, 0)
 	m := newManagerForTest(t, context.Background(), ffmpeg)
 
-	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0)
+	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false)
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestCleanupOrphanDirsRemovesUntrackedOldDirs(t *testing.T) {
 func TestServeFileServesPlaylistAndRejectsUnknownSession(t *testing.T) {
 	ffmpeg := buildFakeFFmpeg(t, 0, 0)
 	m := newManagerForTest(t, context.Background(), ffmpeg)
-	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0)
+	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false)
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
 	}
@@ -267,7 +267,7 @@ func TestServeFileServesPlaylistAndRejectsUnknownSession(t *testing.T) {
 func TestStopSessionRemovesDirAndTracking(t *testing.T) {
 	ffmpeg := buildFakeFFmpeg(t, 0, 0)
 	m := newManagerForTest(t, context.Background(), ffmpeg)
-	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0)
+	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false)
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
 	}

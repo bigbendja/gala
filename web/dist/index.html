@@ -20,8 +20,14 @@
       <video id="video" controls playsinline></video>
       <div id="rejectPanel" class="panel" hidden>
         <p id="rejectReason"></p>
-        <a id="vlcLink" class="btn">Abrir en VLC</a>
-        <p class="hint">Este navegador no puede reproducir este archivo directamente.</p>
+        <div class="copy-actions">
+          <button id="copyLinkBtn" class="btn-secondary">Copiar enlace</button>
+          <button id="copyPathBtn" class="btn-secondary" hidden>Copiar ruta del archivo</button>
+        </div>
+        <p class="hint">Pégalo en un reproductor externo (Medio &rarr; Abrir ubicación de red).</p>
+      </div>
+      <div id="analyzingPanel" class="panel" hidden>
+        <p>Analizando el archivo&hellip;</p>
       </div>
       <div id="sourceList" class="sources"></div>
     </section>

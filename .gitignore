@@ -14,3 +14,7 @@ web/.svelte-kit/
 # matriz de prueba de M4: clips generados por scripts/make_testmedia.(ps1|sh),
 # no se versionan los binarios (Brief M4 §7)
 /testdata/media/
+# ffmpeg/ffprobe de desarrollo (ver README "ffmpeg (desarrollo)"): M11 los
+# empaquetará; hasta entonces se colocan a mano y no se versionan (binarios
+# de ~100 MB cada uno).
+/ffmpeg/

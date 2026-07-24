@@ -61,19 +61,25 @@ cultura del disco duro que circula.
       /identify/status, /img/{archivo}.
 - [x] M4 Streaming y reproducción: `internal/media` (localización de ffmpeg/ffprobe
       sin abortar el arranque si faltan, sonda ffprobe con timeout+caché en
-      `media_info`, cola de sondeo en segundo plano + bajo demanda en /play,
-      `Decide` direct/remux/reject por contenedor+códecs con motivo en español),
-      `internal/stream` (direct play con range requests/ETag/416 vía
-      `http.ServeContent`, remux `-c copy` a HLS con sesiones — límite global 3,
-      máx. 2 por fuente, barrido de huérfanas cada 10 min, cancelación por
-      contexto), API `/play` (orden de fuentes salud→provider→prioridad→calidad,
-      reject incluidas al final), `/stream/{source_id}[/hls/...]`,
-      `/sources/{id}/failed`, `/playback/{item_id}` (cookie `gala_device`,
-      umbral watched 92%), `progress` en /items, reproductor web mínimo
-      (`web/dist/`: galería + `<video>` + hls.js vendorizado en `vendor/`),
-      script `scripts/make_testmedia.(ps1|sh)` para la matriz de prueba, tests
-      (con ffmpeg/ffprobe falsos compilados en caliente para no depender de
-      tener ffmpeg real en CI).
+      `media_info`, cola de sondeo en segundo plano + bajo demanda SÍNCRONA en
+      /play, `Decide` direct/remux/reject/analyzing por contenedor+códecs con
+      motivo en español — análisis pendiente o fallido NUNCA es reject, es
+      analyzing transitorio; audio incompatible con vídeo compatible ya no es
+      reject, es remux con `AudioTranscode`), `internal/stream` (direct play
+      con range requests/ETag/416 vía `http.ServeContent`, remux a HLS con
+      sesiones —`-c copy`, o `-c:v copy -c:a aac` si hace falta recodificar
+      audio— límite global 3, máx. 2 por fuente, barrido de huérfanas cada
+      10 min, cancelación por contexto), API `/play` (orden de fuentes
+      salud→provider→prioridad→calidad; reject/analyzing incluidas al final,
+      `path` del archivo solo si la petición es de localhost),
+      `/stream/{source_id}[/hls/...]`, `/sources/{id}/failed`,
+      `/playback/{item_id}` (cookie `gala_device`, umbral watched 92%),
+      `progress` en /items, reproductor web mínimo (`web/dist/`: galería +
+      `<video>` + hls.js vendorizado en `vendor/`; sin botón vlc://, mensaje
+      honesto + "Copiar enlace"/"Copiar ruta del archivo"), script
+      `scripts/make_testmedia.(ps1|sh)` para la matriz de prueba, tests (con
+      ffmpeg/ffprobe falsos compilados en caliente para no depender de tener
+      ffmpeg real en CI).
 - [ ] M5 Ingesta ← SIGUIENTE
 - [ ] M6 Salud · M7 LAN · M8 Deseos ·
       M9 .gala · M10 Frontend · M11 Release

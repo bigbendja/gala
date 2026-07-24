@@ -132,7 +132,7 @@ $results = @()
 $results += New-Clip -Name "direct_h264_aac.mp4" -DurationSeconds 10 -VideoCodec libx264 -AudioCodec aac -VideoBitrateKbps 12000
 $results += New-Clip -Name "remux_h264_aac.mkv"  -DurationSeconds 10 -VideoCodec libx264 -AudioCodec aac -VideoBitrateKbps 12000
 $results += New-Clip -Name "reject_hevc_aac.mkv" -DurationSeconds 10 -VideoCodec libx265 -AudioCodec aac -VideoBitrateKbps 12000
-$results += New-Clip -Name "reject_h264_ac3.mkv" -DurationSeconds 10 -VideoCodec libx264 -AudioCodec ac3 -VideoBitrateKbps 12000
+$results += New-Clip -Name "audiotranscode_h264_ac3.mkv" -DurationSeconds 10 -VideoCodec libx264 -AudioCodec ac3 -VideoBitrateKbps 12000
 
 # --- Clips largos (180 s): seeking en direct y en remux (Brief §7) --------------
 $results += New-Clip -Name "seek_h264_aac_long.mp4" -DurationSeconds 180 -VideoCodec libx264 -AudioCodec aac -VideoBitrateKbps 600

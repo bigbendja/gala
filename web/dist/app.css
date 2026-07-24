@@ -61,10 +61,12 @@ video { width: 100%; max-height: 70vh; background: #000; border-radius: 6px; }
   padding: 20px; text-align: center;
 }
 .panel .hint { margin-top: 10px; }
-.btn {
-  display: inline-block; background: var(--accent); color: #100C09; font-weight: 600;
-  padding: 8px 18px; border-radius: 6px; text-decoration: none; margin-top: 8px;
+.copy-actions { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.btn-secondary {
+  background: none; border: 1px solid var(--border); color: var(--text);
+  padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
 }
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
 
 .sources { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .source-btn {

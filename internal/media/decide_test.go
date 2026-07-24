@@ -5,29 +5,42 @@ import (
 	"testing"
 )
 
-// TestDecideNoMediaInfo cubre el caso "sonda pendiente o sin ffmpeg": modo
-// optimista por extensión (Brief M4 §3).
-func TestDecideNoMediaInfo(t *testing.T) {
-	cases := []struct {
-		ext      string
-		wantMode PlayMode
-	}{
-		{"mp4", ModeDirect},
-		{".mp4", ModeDirect}, // con o sin punto, indiferente
-		{"m4v", ModeDirect},
-		{"webm", ModeDirect},
-		{"mkv", ModeReject},
-		{"avi", ModeReject},
-		{"ts", ModeReject},
-		{"", ModeReject},
-	}
-	for _, tc := range cases {
-		t.Run(tc.ext, func(t *testing.T) {
-			got := Decide(nil, tc.ext, true)
-			if got.Mode != tc.wantMode {
-				t.Fatalf("Decide(nil, %q, true) = %v, esperado %v", tc.ext, got.Mode, tc.wantMode)
+// TestDecideNoMediaInfoDirectExtensions: sin sonda, los contenedores
+// directos siguen siendo optimistas independientemente de si hay ffmpeg
+// (Brief M4 §3).
+func TestDecideNoMediaInfoDirectExtensions(t *testing.T) {
+	for _, ext := range []string{"mp4", ".mp4", "m4v", "webm"} {
+		for _, ffmpegAvailable := range []bool{true, false} {
+			got := Decide(nil, ext, ffmpegAvailable)
+			if got.Mode != ModeDirect {
+				t.Errorf("Decide(nil, %q, %v) = %v, esperado ModeDirect", ext, ffmpegAvailable, got.Mode)
 			}
-			if got.Mode == ModeReject && got.Reason == "" {
+		}
+	}
+}
+
+// TestDecideNoMediaInfoNonDirectExtensions cubre la corrección del addendum
+// post-entrega: sin sonda todavía (o tras un fallo transitorio), un
+// contenedor no directo NUNCA se presenta como rechazado si hay ffmpeg — es
+// un estado transitorio (ModeAnalyzing), no una incompatibilidad. Solo sin
+// ffmpeg (permanente, nada va a analizarlo nunca) es Reject de verdad.
+func TestDecideNoMediaInfoNonDirectExtensions(t *testing.T) {
+	for _, ext := range []string{"mkv", "avi", "ts", ""} {
+		t.Run(ext+"/ffmpeg=true", func(t *testing.T) {
+			got := Decide(nil, ext, true)
+			if got.Mode != ModeAnalyzing {
+				t.Fatalf("Decide(nil, %q, true) = %v, esperado ModeAnalyzing (nunca Reject por falta de análisis)", ext, got.Mode)
+			}
+			if got.Reason == "" {
+				t.Error("ModeAnalyzing sin Reason: la UI necesita un texto de espera")
+			}
+		})
+		t.Run(ext+"/ffmpeg=false", func(t *testing.T) {
+			got := Decide(nil, ext, false)
+			if got.Mode != ModeReject {
+				t.Fatalf("Decide(nil, %q, false) = %v, esperado ModeReject (sin ffmpeg nunca se podrá analizar)", ext, got.Mode)
+			}
+			if got.Reason == "" {
 				t.Error("Reject sin Reason")
 			}
 		})
@@ -35,7 +48,9 @@ func TestDecideNoMediaInfo(t *testing.T) {
 }
 
 // TestDecideMatrix es la tabla exhaustiva contenedor × vídeo × audio ×
-// ffmpeg disponible/no pedida por el Brief M4 §8.
+// ffmpeg disponible/no (Brief M4 §8, actualizada por el addendum: audio
+// incompatible con vídeo compatible ya no es Reject, es Remux con
+// AudioTranscode=true).
 func TestDecideMatrix(t *testing.T) {
 	videoCodecs := []string{"h264", "vp8", "vp9", "av1", "hevc", "mpeg2video", "wmv3"}
 	audioCodecs := []string{"aac", "mp3", "opus", "vorbis", "flac", "ac3", "eac3", "dts"}
@@ -49,16 +64,22 @@ func TestDecideMatrix(t *testing.T) {
 					t.Run(name, func(t *testing.T) {
 						info := &MediaInfo{Container: container, VideoCodec: vcodec, AudioCodec: acodec}
 						got := Decide(info, container, ffmpegAvailable)
-						want := expectedMode(container, vcodec, acodec, ffmpegAvailable)
-						if got.Mode != want {
+						wantMode, wantAudioTranscode := expectedDecision(container, vcodec, acodec, ffmpegAvailable)
+						if got.Mode != wantMode {
 							t.Fatalf("Decide(%+v, %q, %v) = %v, esperado %v (reason=%q)",
-								info, container, ffmpegAvailable, got.Mode, want, got.Reason)
+								info, container, ffmpegAvailable, got.Mode, wantMode, got.Reason)
+						}
+						if got.AudioTranscode != wantAudioTranscode {
+							t.Fatalf("AudioTranscode = %v, esperado %v", got.AudioTranscode, wantAudioTranscode)
 						}
 						if got.Mode == ModeReject && got.Reason == "" {
 							t.Error("Reject sin Reason (la UI necesita un motivo legible)")
 						}
-						if got.Mode != ModeReject && got.Reason != "" {
-							t.Errorf("Reason = %q en modo %v; solo debería rellenarse en Reject", got.Reason, got.Mode)
+						if got.Mode == ModeDirect && got.Reason != "" {
+							t.Errorf("Reason = %q en modo Direct; no debería rellenarse", got.Reason)
+						}
+						if got.AudioTranscode && got.Mode != ModeRemux {
+							t.Errorf("AudioTranscode=true fuera de ModeRemux (Mode=%v)", got.Mode)
 						}
 					})
 				}
@@ -67,23 +88,25 @@ func TestDecideMatrix(t *testing.T) {
 	}
 }
 
-// expectedMode reimplementa las reglas del Brief M4 §3 de forma
-// independiente (sin llamar a Decide) para comparar contra el resultado
-// real: vídeo/audio compatibles, contenedor directo por extensión, remux si
-// hay ffmpeg, reject si no.
-func expectedMode(container, vcodec, acodec string, ffmpegAvailable bool) PlayMode {
+// expectedDecision reimplementa las reglas del Brief M4 §3 (+ addendum) de
+// forma independiente (sin llamar a Decide) para comparar contra el
+// resultado real.
+func expectedDecision(container, vcodec, acodec string, ffmpegAvailable bool) (PlayMode, bool) {
 	videoOK := compatibleVideoCodecs[vcodec]
 	audioOK := compatibleAudioCodecs[acodec]
-	if !videoOK || !audioOK {
-		return ModeReject
+	if !videoOK {
+		return ModeReject, false
 	}
-	if directExtensions[container] {
-		return ModeDirect
+	if directExtensions[container] && audioOK {
+		return ModeDirect, false
 	}
+	// Vídeo compatible, y o el contenedor no es directo o el audio no lo es
+	// (o ambos): hace falta ffmpeg, para remux del contenedor y/o
+	// recodificar el audio.
 	if !ffmpegAvailable {
-		return ModeReject
+		return ModeReject, false
 	}
-	return ModeRemux
+	return ModeRemux, !audioOK
 }
 
 // TestDecideMissingTracks cubre archivos sin pista de vídeo o de audio
@@ -100,7 +123,8 @@ func TestDecideMissingTracks(t *testing.T) {
 	}
 }
 
-// TestDecideReasonMentionsCodec: los ejemplos exactos del Brief M4 §3.
+// TestDecideReasonMentionsCodec: HEVC sigue siendo Reject (vídeo
+// incompatible, sin remedio en MVP1); el ejemplo del Brief M4 §3.
 func TestDecideReasonMentionsCodec(t *testing.T) {
 	hevc := Decide(&MediaInfo{VideoCodec: "hevc", AudioCodec: "aac"}, "mkv", true)
 	if hevc.Mode != ModeReject {
@@ -109,13 +133,46 @@ func TestDecideReasonMentionsCodec(t *testing.T) {
 	if !contains(hevc.Reason, "HEVC") {
 		t.Errorf("Reason = %q, esperado que mencione HEVC", hevc.Reason)
 	}
+}
 
-	ac3 := Decide(&MediaInfo{VideoCodec: "h264", AudioCodec: "ac3"}, "mkv", true)
-	if ac3.Mode != ModeReject {
-		t.Fatalf("AC3 debería ser Reject, got %v", ac3.Mode)
+// TestDecideAudioTranscode cubre la corrección del addendum post-entrega:
+// vídeo compatible + audio incompatible (AC3/EAC3/DTS) ya no es Reject,
+// es Remux con recodificación de audio — tanto en un contenedor ya directo
+// (mp4+ac3) como en uno que además necesitaba remux (mkv+ac3).
+func TestDecideAudioTranscode(t *testing.T) {
+	cases := []struct {
+		name      string
+		container string
+	}{
+		{"mkv (contenedor también necesitaba remux)", "mkv"},
+		{"mp4 (contenedor ya era directo)", "mp4"},
 	}
-	if !contains(ac3.Reason, "AC3") {
-		t.Errorf("Reason = %q, esperado que mencione AC3", ac3.Reason)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			info := &MediaInfo{Container: tc.container, VideoCodec: "h264", AudioCodec: "ac3"}
+			got := Decide(info, tc.container, true)
+			if got.Mode != ModeRemux {
+				t.Fatalf("Mode = %v, esperado ModeRemux (audio recodificable, vídeo compatible)", got.Mode)
+			}
+			if !got.AudioTranscode {
+				t.Error("AudioTranscode = false, esperado true (el audio no es reproducible tal cual)")
+			}
+		})
+	}
+
+	// Sin ffmpeg no hay forma de recodificar el audio: Reject.
+	withoutFFmpeg := Decide(&MediaInfo{Container: "mp4", VideoCodec: "h264", AudioCodec: "ac3"}, "mp4", false)
+	if withoutFFmpeg.Mode != ModeReject {
+		t.Fatalf("sin ffmpeg = %v, esperado Reject", withoutFFmpeg.Mode)
+	}
+	if !contains(withoutFFmpeg.Reason, "ffmpeg") {
+		t.Errorf("Reason = %q, esperado que mencione la falta de ffmpeg", withoutFFmpeg.Reason)
+	}
+
+	// Vídeo y audio compatibles: sigue sin recodificar nada (AudioTranscode=false).
+	clean := Decide(&MediaInfo{Container: "mkv", VideoCodec: "h264", AudioCodec: "aac"}, "mkv", true)
+	if clean.AudioTranscode {
+		t.Error("AudioTranscode = true con audio ya compatible; no debería recodificarse")
 	}
 }
 
