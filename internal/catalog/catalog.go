@@ -54,6 +54,19 @@ type Item struct {
 	// SourceCount y HealthSummary se rellenan en listados (para los puntos de la tarjeta).
 	SourceCount   int            `json:"source_count"`
 	HealthSummary map[string]int `json:"health_summary,omitempty"`
+	// Progress es el progreso de reproducción del dispositivo actual (cookie
+	// gala_device), cuando existe; lo rellena la capa de API (M4 §5, "Continuar
+	// viendo"). nil si el dispositivo nunca reprodujo este item.
+	Progress *Progress `json:"progress,omitempty"`
+}
+
+// Progress es el progreso de reproducción de un item para UN dispositivo
+// (tabla playback, clave item_id+device_id; Brief M4 §5).
+type Progress struct {
+	PositionS float64  `json:"position_s"`
+	DurationS *float64 `json:"duration_s,omitempty"`
+	Watched   bool     `json:"watched"`
+	UpdatedAt string   `json:"updated_at"`
 }
 
 // Source es una fuente concreta de un item (archivo local, enlace, entrada de lista...).

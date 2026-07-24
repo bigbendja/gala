@@ -11,3 +11,6 @@ gala.db-shm
 # frontend (cuando exista SvelteKit)
 web/node_modules/
 web/.svelte-kit/
+# matriz de prueba de M4: clips generados por scripts/make_testmedia.(ps1|sh),
+# no se versionan los binarios (Brief M4 §7)
+/testdata/media/

@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -21,9 +22,11 @@ import (
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
 	"github.com/bigbendja/gala/internal/identify"
+	"github.com/bigbendja/gala/internal/media"
 	"github.com/bigbendja/gala/internal/providers/localfs"
 	"github.com/bigbendja/gala/internal/scan"
 	"github.com/bigbendja/gala/internal/store"
+	"github.com/bigbendja/gala/internal/stream"
 	"github.com/bigbendja/gala/web"
 )
 
@@ -80,12 +83,28 @@ func main() {
 	idQueue := identify.NewQueue(ctx, repo, tmdbClient, log)
 	go idQueue.Run()
 
+	// ffmpeg/ffprobe: nunca aborta el arranque si faltan (Brief M4 §1); ver
+	// README para colocarlos a mano en desarrollo (M11 los empaquetará).
+	exeDir, err := config.BaseDir()
+	if err != nil {
+		log.Error("directorio base", "err", err)
+		os.Exit(1)
+	}
+	ffmpeg := media.Locate(exeDir, log)
+	mediaQueue := media.NewQueue(ctx, repo, ffmpeg, log)
+	go mediaQueue.Run()
+	hlsManager := stream.NewManager(ctx, ffmpeg.FFmpegPath, filepath.Join(cacheDir, "hls"), log)
+	go hlsManager.RunSweeper()
+
 	enum := localfs.NewEnumerator()
 	scanner := scan.New(ctx, cfg, repo, enum, log)
-	// Fin de escaneo de M2 despierta la cola de identificación de M3
-	// (Brief M3 §4).
-	scanner.AfterScan = idQueue.Enqueue
-	apiSrv := api.New(st, repo, cfg, scanner, enum, idQueue, tmdbClient, cacheDir, log)
+	// Fin de escaneo de M2 despierta la cola de identificación de M3 y la de
+	// sondeo de medios de M4 (Brief M3 §4 / M4 §2).
+	scanner.AfterScan = func() {
+		idQueue.Enqueue()
+		mediaQueue.Enqueue()
+	}
+	apiSrv := api.New(st, repo, cfg, scanner, enum, idQueue, tmdbClient, cacheDir, log, ffmpeg, hlsManager)
 
 	// Poller de volúmenes: detecta conexión/desconexión de discos y dispara
 	// el re-escaneo de las carpetas registradas que vivan en ellos.

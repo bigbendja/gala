@@ -21,3 +21,19 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   un endpoint adicional (/movie/{id}/release_dates o /tv/{id}/content_ratings)
   no contemplado en el alcance cerrado de M3 (Brief M3 §2 solo lista 5
   endpoints); rating_cert queda sin rellenar tras M3.
+- 2026-07-24: transcode real de vídeo/audio (más allá del remux -c copy de M4)
+  para HEVC/AC3/DTS/etc. sin soporte nativo del navegador. M4 los deja en
+  Reject + "Abrir en VLC" a propósito (Brief M4, decisión de producto cerrada:
+  "Sin transcode de vídeo en MVP1").
+- 2026-07-24: transcodificar SOLO el audio cuando el vídeo ya es compatible
+  pero el audio no (p. ej. h264+AC3): hoy internal/media/decide.go manda
+  directo a Reject aunque remuxear el vídeo y transcodificar solo el audio
+  sería técnicamente resoluble con coste de CPU bajo. Anotado también como
+  comentario en decide.go.
+- 2026-07-24: subtítulos, pistas de audio múltiples, capítulos, miniaturas de
+  preview en la barra de progreso, Chromecast, y ajuste de calidad adaptativo
+  del reproductor web. Excluidos explícitamente del alcance de M4 (Brief M4
+  "NO", ver CLAUDE.md).
+- 2026-07-24: sondeo de fuentes `http` con ffprobe (M4 solo sonda localfs;
+  los enlaces directos se sirven siempre en modo direct vía redirect 302, sin
+  comprobar contenedor/códecs real).

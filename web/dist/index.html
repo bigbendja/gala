@@ -4,26 +4,31 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GALA</title>
-<style>
-  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#100C09;
-       color:#F4EDE3;font-family:system-ui,sans-serif}
-  .box{text-align:center}
-  h1{font-size:44px;letter-spacing:.06em;margin:0 0 8px;color:#F2A93B}
-  p{color:#A6937E;margin:4px 0}
-  code{background:#1B1510;border:1px solid #332619;border-radius:6px;padding:2px 8px}
-</style>
+<link rel="stylesheet" href="/app.css">
 </head>
 <body>
-  <div class="box">
+  <header>
     <h1>▶ GALA</h1>
-    <p>El servidor está funcionando.</p>
-    <p>API: <code id="api">comprobando…</code></p>
-    <p style="margin-top:14px;font-size:13px">Este placeholder será sustituido por la interfaz real (M10).</p>
-  </div>
-  <script>
-    fetch('/api/v1/ping').then(r=>r.json())
-      .then(d=>{document.getElementById('api').textContent = d.app+' v'+d.version+' · '+d.status})
-      .catch(()=>{document.getElementById('api').textContent = 'sin respuesta'});
-  </script>
+    <span id="ffmpegBadge" class="badge" hidden>ffmpeg no disponible: sin conversión de formatos</span>
+  </header>
+  <main>
+    <section id="gallery" class="grid"></section>
+
+    <section id="playerView" hidden>
+      <button id="backBtn">&larr; Volver a la galería</button>
+      <h2 id="playerTitle"></h2>
+      <video id="video" controls playsinline></video>
+      <div id="rejectPanel" class="panel" hidden>
+        <p id="rejectReason"></p>
+        <a id="vlcLink" class="btn">Abrir en VLC</a>
+        <p class="hint">Este navegador no puede reproducir este archivo directamente.</p>
+      </div>
+      <div id="sourceList" class="sources"></div>
+    </section>
+  </main>
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/vendor/hls.min.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>

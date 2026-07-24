@@ -27,13 +27,16 @@ cultura del disco duro que circula.
   en `internal/store/migrations/` (orden lexicográfico, nunca editar una aplicada;
   siempre añadir migración nueva).
 - Frontend: SvelteKit con adapter-static, build volcada a `web/dist/`, embebida
-  con `go:embed`. Hasta M10, `web/dist/` contiene un placeholder estático.
+  con `go:embed`. Hasta M10, `web/dist/` contiene un reproductor mínimo sin
+  framework (M4: galería + `<video>` + hls.js vendorizado localmente).
 - Todo lo persistente vive JUNTO al ejecutable (`gala.json`, `gala.db`, `cache/`).
   Nada en AppData/registro. Config = JSON con escritura atómica.
 - Router: `net/http` estándar de Go 1.22 (patrones con método y {param}). Sin
   frameworks web. Minimizar dependencias: cada `require` nuevo se justifica.
-- ffmpeg: empaquetado junto al binario (build LGPL), invocado con exec y argumentos
-  construidos, jamás shell. Llega en M4.
+- ffmpeg: NO se empaqueta hasta M11 (build LGPL recortada por plataforma). M4
+  solo lo LOCALIZA en disco (carpeta `ffmpeg/` junto al binario, junto al
+  binario, o PATH; ver README) e invoca con exec y argumentos construidos,
+  jamás shell. Su ausencia nunca aborta el arranque: degrada a direct play.
 - Puerto por defecto 7420. Bind 127.0.0.1; 0.0.0.0 solo con Modo LAN (M7).
 - API bajo `/api/v1`. Errores JSON `{"error": "..."}`. Mensajes de usuario en español.
 
@@ -56,8 +59,23 @@ cultura del disco duro que circula.
       fin de escaneo/confirmación manual/arranque, reintento offline cada
       5 min, se reconstruye de BD), endpoints /pending, /items/{id}/confirm,
       /identify/status, /img/{archivo}.
-- [ ] M4 Streaming/reproducción ← SIGUIENTE
-- [ ] M5 Ingesta · M6 Salud · M7 LAN · M8 Deseos ·
+- [x] M4 Streaming y reproducción: `internal/media` (localización de ffmpeg/ffprobe
+      sin abortar el arranque si faltan, sonda ffprobe con timeout+caché en
+      `media_info`, cola de sondeo en segundo plano + bajo demanda en /play,
+      `Decide` direct/remux/reject por contenedor+códecs con motivo en español),
+      `internal/stream` (direct play con range requests/ETag/416 vía
+      `http.ServeContent`, remux `-c copy` a HLS con sesiones — límite global 3,
+      máx. 2 por fuente, barrido de huérfanas cada 10 min, cancelación por
+      contexto), API `/play` (orden de fuentes salud→provider→prioridad→calidad,
+      reject incluidas al final), `/stream/{source_id}[/hls/...]`,
+      `/sources/{id}/failed`, `/playback/{item_id}` (cookie `gala_device`,
+      umbral watched 92%), `progress` en /items, reproductor web mínimo
+      (`web/dist/`: galería + `<video>` + hls.js vendorizado en `vendor/`),
+      script `scripts/make_testmedia.(ps1|sh)` para la matriz de prueba, tests
+      (con ffmpeg/ffprobe falsos compilados en caliente para no depender de
+      tener ffmpeg real en CI).
+- [ ] M5 Ingesta ← SIGUIENTE
+- [ ] M6 Salud · M7 LAN · M8 Deseos ·
       M9 .gala · M10 Frontend · M11 Release
 (Actualizar esta lista al completar cada módulo.)
 
@@ -71,9 +89,12 @@ internal/api/        handlers REST /api/v1
 internal/providers/  interfaz Provider + localfs/, m3u/, http/  (desde M2)
 internal/scan/       orquestador de escaneo: estado, exclusión mutua (M2)
 internal/identify/   normalizador, TMDB, caché                  (desde M3)
-web/                 frontend embebido (web.go + dist/)
+internal/media/      ffmpeg/ffprobe: localización, sonda, decide  (desde M4)
+internal/stream/     direct play + remux HLS con sesiones         (desde M4)
+web/                 frontend embebido (web.go + dist/: reproductor mínimo M4)
 docs/                especificación, plan, mockup
-testdata/            corpus de nombres reales, M3U, matriz de vídeos
+testdata/            corpus de nombres reales, M3U, matriz de vídeos (media/ generado, no versionado)
+scripts/             generación de datos de prueba (make_testmedia.ps1/.sh)
 ```
 
 ## Convenciones

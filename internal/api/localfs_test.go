@@ -63,7 +63,7 @@ func newTestServer(t *testing.T) *testServer {
 	ctx, cancel := context.WithCancel(context.Background())
 	sc := scan.New(ctx, cfg, repo, fakeEnum{}, log)
 
-	srv := api.New(st, repo, cfg, sc, fakeEnum{}, nil, nil, dir, log)
+	srv := api.New(st, repo, cfg, sc, fakeEnum{}, nil, nil, dir, log, nil, nil)
 	mux := http.NewServeMux()
 	srv.Routes(mux)
 

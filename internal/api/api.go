@@ -11,9 +11,11 @@ import (
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
 	"github.com/bigbendja/gala/internal/identify"
+	"github.com/bigbendja/gala/internal/media"
 	"github.com/bigbendja/gala/internal/providers/localfs"
 	"github.com/bigbendja/gala/internal/scan"
 	"github.com/bigbendja/gala/internal/store"
+	"github.com/bigbendja/gala/internal/stream"
 )
 
 // Version de la aplicación; se sobreescribe en build con -ldflags.
@@ -28,17 +30,21 @@ type Server struct {
 	Enum     localfs.Enumerator
 	Identify *identify.Queue  // nil = endpoints de identificación degradan a estado vacío
 	TMDB     *identify.Client // nil solo en tests que no ejercitan M3
-	CacheDir string           // raíz de cache/ (img/ vive dentro), Brief M3 §2
+	CacheDir string           // raíz de cache/ (img/ y hls/ viven dentro), Brief M3 §2 / M4 §4
 	Log      *slog.Logger
+
+	FFmpeg *media.FFmpeg   // nunca nil (Locate() siempre devuelve algo); Available() puede ser false
+	HLS    *stream.Manager // nil solo en tests que no ejercitan streaming/remux (M4)
 }
 
-// New crea el servidor de API con sus dependencias. repo, cfg, sc, enum, q
-// y tmdb se comparten con el resto de la aplicación (poller, escaneo
-// inicial y cola de identificación en main).
+// New crea el servidor de API con sus dependencias. repo, cfg, sc, enum, q,
+// tmdb, ffmpeg y hls se comparten con el resto de la aplicación (poller,
+// escaneo inicial, cola de identificación y cola de sondeo de medios en main).
 func New(st *store.Store, repo *catalog.Repo, cfg *config.Config, sc *scan.Scanner,
-	enum localfs.Enumerator, q *identify.Queue, tmdb *identify.Client, cacheDir string, log *slog.Logger) *Server {
+	enum localfs.Enumerator, q *identify.Queue, tmdb *identify.Client, cacheDir string, log *slog.Logger,
+	ffmpeg *media.FFmpeg, hls *stream.Manager) *Server {
 	return &Server{Store: st, Catalog: repo, Config: cfg, Scanner: sc, Enum: enum,
-		Identify: q, TMDB: tmdb, CacheDir: cacheDir, Log: log}
+		Identify: q, TMDB: tmdb, CacheDir: cacheDir, Log: log, FFmpeg: ffmpeg, HLS: hls}
 }
 
 // Routes registra las rutas de la API en el mux dado (requiere Go >= 1.22).
@@ -58,6 +64,14 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/items/{id}/confirm", s.handleConfirmItem)
 	mux.HandleFunc("GET /api/v1/identify/status", s.handleIdentifyStatus)
 	mux.HandleFunc("GET /api/v1/img/{archivo}", s.handleImg)
+
+	mux.HandleFunc("GET /api/v1/play/{item_id}", s.handlePlay)
+	mux.HandleFunc("GET /api/v1/stream/{source_id}", s.handleStreamDirect)
+	mux.HandleFunc("GET /api/v1/stream/{source_id}/hls/start", s.handleHLSStart)
+	mux.HandleFunc("GET /api/v1/stream/{source_id}/hls/{session_id}/{file}", s.handleHLSFile)
+	mux.HandleFunc("POST /api/v1/sources/{id}/failed", s.handleSourceFailed)
+	mux.HandleFunc("GET /api/v1/playback/{item_id}", s.handleGetPlayback)
+	mux.HandleFunc("PUT /api/v1/playback/{item_id}", s.handlePutPlayback)
 }
 
 func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +117,13 @@ func (s *Server) handleListItems(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
+	// "Continuar viendo" (Brief M4 §5): solo LEE la cookie si ya existe, sin
+	// crearla en un listado de solo lectura; se crea la primera vez que el
+	// dispositivo reproduce algo de verdad (PUT /playback).
+	if err := s.Catalog.AttachProgress(r.Context(), res.Items, readDeviceID(r)); err != nil {
+		s.fail(w, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, res)
 }
 
@@ -121,7 +142,12 @@ func (s *Server) handleGetItem(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, it)
+	items := []catalog.Item{*it}
+	if err := s.Catalog.AttachProgress(r.Context(), items, readDeviceID(r)); err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, items[0])
 }
 
 func intParam(v string, def int) (int, error) {
