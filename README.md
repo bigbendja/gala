@@ -12,6 +12,33 @@ con los móviles de casa sin instalar nada en ellos.
 2. Todo funciona offline una vez catalogado.
 3. Ninguna función exige entender servidores, puertos o "bibliotecas".
 
+## Arranque rápido (Windows)
+Dos scripts en la raíz del repo para no tener que levantar GALA a mano:
+
+- **`gala.bat`** — uso diario. Se sitúa en la carpeta del repo, mata
+  cualquier `gala.exe` anterior (evita el error de puerto ocupado), añade
+  `ffmpeg\` al PATH de la sesión, compila `gala.exe` si no existe (avisando)
+  y lo arranca — el propio binario abre el navegador solo. Si algo falla, la
+  ventana NO se cierra de golpe: se queda en pausa para que puedas leer el
+  error.
+  ```
+  gala.bat
+  ```
+- **`gala-build.bat`** — recompilar tras cambios de código. Mata instancias
+  previas, reconstruye el frontend (`cd web && npm run build`) SOLO si algo
+  bajo `web/src`, `web/static` o su configuración es más reciente que el
+  último build (o si se lo pides explícitamente), y compila `gala.exe`.
+  Al terminar, ya puedes lanzar `gala.bat`.
+  ```
+  gala-build.bat          # build del frontend solo si hace falta
+  gala-build.bat --web    # fuerza reconstruir el frontend siempre
+  ```
+
+Ambos requieren Go y, la primera vez (o tras tocar el frontend), Node.js —
+ver "Compilar" y "Frontend (desarrollo)" más abajo. `ffmpeg/` es opcional
+(ver sección "ffmpeg" más abajo); sin él, GALA arranca igual y degrada a
+direct play.
+
 ## Compilar
 Requisitos: Go >= 1.22, Node.js >= 20.
 
