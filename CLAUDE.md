@@ -108,8 +108,36 @@ cultura del disco duro que circula.
       por límite, o menor si una M3U se expande en N entradas); un error de
       BD real al dar de alta cae en `sin_clasificar`, nunca fuera de los
       seis resultados.
-- [ ] M6 Salud ← SIGUIENTE
-- [ ] M7 LAN · M8 Deseos ·
+- [x] M6 Salud de fuentes: `internal/health` (interfaz `Checker` —
+      `Check(ctx, source) (health, detail string)`—, `LocalfsChecker`: stat +
+      legibilidad, consulta `VolumeConnected` ANTES de tocar disco —un volumen
+      desconectado nunca se marca caída, respeta la semántica de M2—, y
+      umbral de lentitud inyectable para tests; `HTTPChecker`: HEAD con
+      respaldo GET Range parcial, SSRF de M5 antes de cualquier petición,
+      Content-Type text/html cuenta como caída, latencia alta cuenta como
+      lenta; `UnverifiableChecker` para drive/mega/desconocidos — no poder
+      verificar nunca es caída, siempre sin_verificar), `Worker` con el mismo
+      patrón de cola que M3/M4 (`internal/health/worker.go`: `Enqueue`/
+      `Run`/`drain` con concurrencia acotada a 4 verificaciones simultáneas,
+      ventana mínima de 30 min entre chequeos de una misma fuente salvo
+      forzado, re-chequeo periódico completo cada 24h, `TriggerFull` con
+      `ErrAlreadyRunning` simétrico a `scan.ErrAlreadyRunning`, `CheckNow`
+      síncrono para la reconciliación de fallos, reconstrucción desde BD vía
+      `SourcesDueForHealthCheck` — nunca de memoria), migración
+      `0004_health.sql` (columna `sources.health_detail` + índice sobre
+      `last_checked`), API `GET /health/summary` (agregado global, `total`
+      derivado de la suma de los cinco estados — mismo principio que
+      `ResumenIngesta` de M5), `POST /health/check` (409 si ya hay una
+      verificación en curso) y `GET /health/status`; `POST
+      /sources/{id}/failed` (M4) ahora reconcilia: marca caída de inmediato
+      y dispara un `CheckNow` real, corrigiendo a viva si el fallo fue
+      transitorio; la ingesta de M5 despierta el worker tras altas nuevas
+      vía la interfaz mínima `ingest.HealthNotifier` (evita que M5 dependa
+      del paquete internal/health); tests (incl. presupuesto de
+      concurrencia, ventana mínima, reconstrucción desde BD tras "apagado",
+      cancelación por context, reconciliación transitoria/real, SSRF).
+- [ ] M7 LAN ← SIGUIENTE
+- [ ] M8 Deseos ·
       M9 .gala · M10 Frontend · M11 Release
 (Actualizar esta lista al completar cada módulo.)
 
@@ -126,6 +154,7 @@ internal/identify/   normalizador, TMDB, caché                  (desde M3)
 internal/media/      ffmpeg/ffprobe: localización, sonda, decide  (desde M4)
 internal/stream/     direct play + remux HLS con sesiones         (desde M4)
 internal/ingest/     detector, clasificador, parsers M3U/CSV, pipeline (M5)
+internal/health/     checkers por provider + worker con presupuesto  (M6)
 web/                 frontend embebido (web.go + dist/: reproductor mínimo M4)
 docs/                especificación, plan, mockup
 testdata/            corpus de nombres reales, M3U, matriz de vídeos (media/ generado, no versionado)

@@ -69,6 +69,13 @@ type ResumenIngesta struct {
 	ListID int64 `json:"list_id"`
 }
 
+// HealthNotifier despierta al worker de salud de M6 tras una ingesta con
+// altas nuevas (Brief M6 §3, disparador "a": "al ingerir/escanear una
+// fuente nueva"). Interfaz mínima (satisfecha por *health.Worker) en vez de
+// depender directamente del paquete internal/health, para no acoplar M5 a
+// M6 más de lo necesario.
+type HealthNotifier interface{ Enqueue() }
+
 // Pipeline orquesta la ingesta universal (Brief M5 §4).
 type Pipeline struct {
 	repo     *catalog.Repo
@@ -79,6 +86,12 @@ type Pipeline struct {
 	// ingesta; exportado (como identify.Client.BaseURL) para poder
 	// sustituirlo por un Transport de prueba en tests, sin red real.
 	HTTPClient *http.Client
+
+	// Health, si no es nil, se despierta al terminar una ingesta con altas
+	// nuevas (Brief M6 §3). Campo público asignable tras NewPipeline, como
+	// HTTPClient: mantiene sin cambios todos los call sites existentes de
+	// NewPipeline (tests de M5 incluidos).
+	Health HealthNotifier
 }
 
 // NewPipeline crea el pipeline de ingesta. idQueue puede ser nil (tests que
@@ -170,8 +183,13 @@ func (p *Pipeline) Run(ctx context.Context, blob, filename, now string) (*Resume
 	res.Total = res.Anadidos + res.Duplicados + res.PendientesConector +
 		res.OmitidosNoSoportados + res.SinClasificar + res.Basura
 
-	if p.identify != nil && res.Anadidos > 0 {
-		p.identify.Enqueue()
+	if res.Anadidos > 0 {
+		if p.identify != nil {
+			p.identify.Enqueue()
+		}
+		if p.Health != nil {
+			p.Health.Enqueue()
+		}
 	}
 	return res, nil
 }

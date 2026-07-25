@@ -476,3 +476,36 @@ func TestPipelineDBErrorCountsAsSinClasificar(t *testing.T) {
 		t.Fatalf("Detalles = %v, esperado 1 entrada explicando el error de BD", res.Detalles)
 	}
 }
+
+// --- Aviso al worker de salud de M6 (disparador "a": altas de una ingesta) --
+
+type fakeHealthNotifier struct{ enqueued int }
+
+func (f *fakeHealthNotifier) Enqueue() { f.enqueued++ }
+
+func TestPipelineWakesHealthWorkerOnNewSources(t *testing.T) {
+	p, _ := newPipelineForTest(t, nil)
+	notifier := &fakeHealthNotifier{}
+	p.Health = notifier
+
+	if _, err := p.Run(context.Background(), "https://cdn.ejemplo.net/v/pelicula.mp4\n", "", testNow); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if notifier.enqueued != 1 {
+		t.Fatalf("Health.Enqueue() llamado %d veces, esperado 1 (hubo altas nuevas)", notifier.enqueued)
+	}
+}
+
+func TestPipelineDoesNotWakeHealthWorkerWithoutNewSources(t *testing.T) {
+	p, _ := newPipelineForTest(t, nil)
+	notifier := &fakeHealthNotifier{}
+	p.Health = notifier
+
+	// Solo basura: sin altas, no hay nada nuevo que verificar.
+	if _, err := p.Run(context.Background(), "https://cdn.ejemplo.net/v/VID-20230412-WA0012.mp4\n", "", testNow); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if notifier.enqueued != 0 {
+		t.Fatalf("Health.Enqueue() llamado %d veces, esperado 0 (sin altas nuevas)", notifier.enqueued)
+	}
+}

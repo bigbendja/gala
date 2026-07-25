@@ -7,7 +7,7 @@ import (
 )
 
 const sourceCols = `id, item_id, provider, locator, volume_id, quality_label,
-	health, last_checked, priority, added_at, origin_list_id`
+	health, last_checked, priority, added_at, origin_list_id, health_detail`
 
 // SourceByLocator devuelve la fuente con ese provider+locator, o ErrNotFound.
 // Base de la idempotencia del escaneo localfs (UNIQUE(provider, locator)).
@@ -110,6 +110,23 @@ func scanSource(s scanner) (Source, error) {
 	var src Source
 	err := s.Scan(&src.ID, &src.ItemID, &src.Provider, &src.Locator, &src.VolumeID,
 		&src.QualityLabel, &src.Health, &src.LastChecked, &src.Priority, &src.AddedAt,
-		&src.OriginListID)
+		&src.OriginListID, &src.HealthDetail)
 	return src, err
+}
+
+// VolumeConnected indica si el volumen id está conectado ahora mismo. Un
+// volumen desconocido (nunca visto por el poller) se asume conectado: no hay
+// evidencia de lo contrario, y negarlo por defecto marcaría "desconectada"
+// una fuente cuyo volumen simplemente no se ha enumerado todavía (Brief M6
+// §2, checker localfs).
+func (r *Repo) VolumeConnected(ctx context.Context, id string) (bool, error) {
+	var connected int
+	err := r.q.QueryRowContext(ctx, `SELECT connected FROM volumes WHERE id = ?`, id).Scan(&connected)
+	if errors.Is(err, sql.ErrNoRows) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return connected != 0, nil
 }

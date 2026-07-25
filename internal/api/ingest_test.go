@@ -40,7 +40,7 @@ func newIngestTestServer(t *testing.T) *ingestTestServer {
 
 	pipeline := ingest.NewPipeline(repo, nil, log)
 
-	srv := api.New(st, repo, cfg, sc, fakeEnum{}, nil, nil, dir, log, nil, nil, pipeline)
+	srv := api.New(st, repo, cfg, sc, fakeEnum{}, nil, nil, dir, log, nil, nil, pipeline, nil)
 	mux := http.NewServeMux()
 	srv.Routes(mux)
 	hts := httptest.NewServer(mux)

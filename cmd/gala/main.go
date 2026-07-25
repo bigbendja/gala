@@ -21,9 +21,11 @@ import (
 	"github.com/bigbendja/gala/internal/api"
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
+	"github.com/bigbendja/gala/internal/health"
 	"github.com/bigbendja/gala/internal/identify"
 	"github.com/bigbendja/gala/internal/ingest"
 	"github.com/bigbendja/gala/internal/media"
+	"github.com/bigbendja/gala/internal/providers/httpprovider"
 	"github.com/bigbendja/gala/internal/providers/localfs"
 	"github.com/bigbendja/gala/internal/scan"
 	"github.com/bigbendja/gala/internal/store"
@@ -101,15 +103,30 @@ func main() {
 	// la MISMA cola de identificación de M3, sin lógica de matching propia.
 	ingestPipeline := ingest.NewPipeline(repo, idQueue, log)
 
+	// Salud de fuentes (M6): un checker por provider; drive/mega y
+	// cualquier provider desconocido caen al fallback de Worker
+	// (sin_verificar, nunca caída — no poder verificar no es estar caído).
+	healthCheckers := map[string]health.Checker{
+		localfs.ProviderID:      &health.LocalfsChecker{Repo: repo},
+		httpprovider.ProviderID: health.NewHTTPChecker(),
+		"drive":                 health.UnverifiableChecker{Detail: "pendiente de conector"},
+		"mega":                  health.UnverifiableChecker{Detail: "pendiente de conector"},
+	}
+	healthWorker := health.NewWorker(ctx, repo, healthCheckers, log)
+	go healthWorker.Run()
+	ingestPipeline.Health = healthWorker
+
 	enum := localfs.NewEnumerator()
 	scanner := scan.New(ctx, cfg, repo, enum, log)
-	// Fin de escaneo de M2 despierta la cola de identificación de M3 y la de
-	// sondeo de medios de M4 (Brief M3 §4 / M4 §2).
+	// Fin de escaneo de M2 despierta la cola de identificación de M3, la de
+	// sondeo de medios de M4 y el worker de salud de M6 (fuentes recién
+	// dadas de alta, aún sin_verificar).
 	scanner.AfterScan = func() {
 		idQueue.Enqueue()
 		mediaQueue.Enqueue()
+		healthWorker.Enqueue()
 	}
-	apiSrv := api.New(st, repo, cfg, scanner, enum, idQueue, tmdbClient, cacheDir, log, ffmpeg, hlsManager, ingestPipeline)
+	apiSrv := api.New(st, repo, cfg, scanner, enum, idQueue, tmdbClient, cacheDir, log, ffmpeg, hlsManager, ingestPipeline, healthWorker)
 
 	// Poller de volúmenes: detecta conexión/desconexión de discos y dispara
 	// el re-escaneo de las carpetas registradas que vivan en ellos.

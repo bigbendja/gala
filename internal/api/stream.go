@@ -370,11 +370,16 @@ func (s *Server) mustSource(w http.ResponseWriter, r *http.Request, param string
 	return src, true
 }
 
-// --- /api/v1/sources/{id}/failed (Brief M4 §5, anticipo mínimo de M6) --
+// --- /api/v1/sources/{id}/failed (Brief M4 §5; reconciliación en M6 §4) --
 
 // handleSourceFailed: POST /api/v1/sources/{id}/failed — el reproductor la
 // llama cuando el elemento <video> dispara "error"; marca la fuente caída
-// para que el siguiente /play la mande al final.
+// de inmediato para que el siguiente /play la mande al final, y dispara un
+// re-check real (Brief M6 §4: reconciliación). Un fallo de reproducción
+// puede ser transitorio (hipo de red, blip del cliente) en vez de que la
+// fuente esté de verdad caída: si el re-check dice viva, se corrige aquí
+// mismo antes de responder, en vez de dejarla marcada caída por error hasta
+// el siguiente ciclo del worker de salud.
 func (s *Server) handleSourceFailed(w http.ResponseWriter, r *http.Request) {
 	src, ok := s.mustSource(w, r, "id")
 	if !ok {
@@ -385,7 +390,17 @@ func (s *Server) handleSourceFailed(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "health": catalog.HealthDead})
+
+	finalHealth := catalog.HealthDead
+	if s.Health != nil {
+		checked, _, err := s.Health.CheckNow(r.Context(), *src)
+		if err != nil {
+			s.fail(w, err)
+			return
+		}
+		finalHealth = checked
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "health": finalHealth})
 }
 
 // --- /api/v1/playback/{item_id} (Brief M4 §5) ---------------------------

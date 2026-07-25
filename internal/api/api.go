@@ -10,6 +10,7 @@ import (
 
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
+	"github.com/bigbendja/gala/internal/health"
 	"github.com/bigbendja/gala/internal/identify"
 	"github.com/bigbendja/gala/internal/ingest"
 	"github.com/bigbendja/gala/internal/media"
@@ -38,18 +39,19 @@ type Server struct {
 	HLS    *stream.Manager // nil solo en tests que no ejercitan streaming/remux (M4)
 
 	Ingest *ingest.Pipeline // nil solo en tests que no ejercitan la ingesta (M5)
+	Health *health.Worker   // nil solo en tests que no ejercitan la salud de fuentes (M6)
 }
 
 // New crea el servidor de API con sus dependencias. repo, cfg, sc, enum, q,
-// tmdb, ffmpeg, hls e ingestPipeline se comparten con el resto de la
-// aplicación (poller, escaneo inicial, cola de identificación, cola de
-// sondeo de medios, pipeline de ingesta en main).
+// tmdb, ffmpeg, hls, ingestPipeline y healthWorker se comparten con el resto
+// de la aplicación (poller, escaneo inicial, cola de identificación, cola de
+// sondeo de medios, pipeline de ingesta, worker de salud en main).
 func New(st *store.Store, repo *catalog.Repo, cfg *config.Config, sc *scan.Scanner,
 	enum localfs.Enumerator, q *identify.Queue, tmdb *identify.Client, cacheDir string, log *slog.Logger,
-	ffmpeg *media.FFmpeg, hls *stream.Manager, ingestPipeline *ingest.Pipeline) *Server {
+	ffmpeg *media.FFmpeg, hls *stream.Manager, ingestPipeline *ingest.Pipeline, healthWorker *health.Worker) *Server {
 	return &Server{Store: st, Catalog: repo, Config: cfg, Scanner: sc, Enum: enum,
 		Identify: q, TMDB: tmdb, CacheDir: cacheDir, Log: log, FFmpeg: ffmpeg, HLS: hls,
-		Ingest: ingestPipeline}
+		Ingest: ingestPipeline, Health: healthWorker}
 }
 
 // Routes registra las rutas de la API en el mux dado (requiere Go >= 1.22).
@@ -80,6 +82,10 @@ func (s *Server) Routes(mux *http.ServeMux) {
 
 	mux.HandleFunc("POST /api/v1/ingest", s.handleIngest)
 	mux.HandleFunc("GET /api/v1/ingest/lists", s.handleIngestLists)
+
+	mux.HandleFunc("GET /api/v1/health/summary", s.handleHealthSummary)
+	mux.HandleFunc("POST /api/v1/health/check", s.handleHealthCheck)
+	mux.HandleFunc("GET /api/v1/health/status", s.handleHealthStatus)
 }
 
 func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {

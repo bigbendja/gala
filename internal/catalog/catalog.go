@@ -85,6 +85,10 @@ type Source struct {
 	// ingesta (M5, Brief M5 §4: trazabilidad). nil para fuentes de M2 (scan
 	// local) o creadas a mano.
 	OriginListID *int64 `json:"origin_list_id,omitempty"`
+	// HealthDetail es el motivo legible del último chequeo de salud (Brief
+	// M6 §3: "por qué" además del estado) — p. ej. "http 404", "archivo no
+	// encontrado", "pendiente de conector". nil hasta el primer chequeo.
+	HealthDetail *string `json:"health_detail,omitempty"`
 }
 
 // Estados de salud de una fuente.

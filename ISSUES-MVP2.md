@@ -76,3 +76,21 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   descarga directa (a diferencia de unsupportedHosts, el Brief no da
   ejemplos concretos y inventar una lista sin criterio claro parecía más
   arriesgado que útil).
+- 2026-07-25: reintentos inteligentes por horario para el worker de salud
+  (Brief M6, alcance "NO" explícito). M6 solo tiene el re-chequeo periódico
+  fijo de 24h y la ventana mínima de 30 min entre chequeos de una misma
+  fuente; no hay lógica de "reintenta de madrugada" ni similar.
+- 2026-07-25: notificaciones al usuario de cambios de salud (Brief M6,
+  alcance "NO" explícito). El estado se expone vía API
+  (`/health/summary`, `health_summary` por item) pero nada empuja un aviso
+  activo cuando una fuente cambia de estado.
+- 2026-07-25: medición fina de ancho de banda para el checker http (Brief
+  M6, alcance "NO" explícito). `HTTPChecker` solo mide latencia de
+  respuesta (umbral "lenta"), no throughput real.
+- 2026-07-25: re-verificación proactiva de listas M3U remotas COMPLETAS
+  (Brief M6, alcance "NO" explícito: "solo lo que ya esté como source"). El
+  worker de M6 verifica las fuentes ya dadas de alta (una por una, incluida
+  cada entrada expandida de una M3U remota); no vuelve a descargar ni
+  re-parsear la lista M3U en sí para detectar canales añadidos/quitados
+  (eso es la re-sincronización ya anotada en la entrada de M5 sobre
+  `ingest_lists.source_url`).
