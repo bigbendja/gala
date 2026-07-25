@@ -5,21 +5,39 @@ listas M3U, enlaces — en una sola galería. Sin configuración: doble clic y y
 Funciona sin internet una vez catalogado, y comparte tu galería por wifi local
 con los móviles de casa sin instalar nada en ellos.
 
-> Estado: **M4 — Streaming y reproducción**. Ver `docs/` para la especificación y el plan de desarrollo.
+> Estado: **M10a — Frontend: esqueleto + Galería + Ficha**. Ver `docs/` para la especificación y el plan de desarrollo.
 
 ## Reglas de hierro del proyecto
 1. GALA nunca incluye, enlaza ni sugiere contenido o listas. Es una herramienta neutral: el usuario aporta su contenido (modelo VLC).
 2. Todo funciona offline una vez catalogado.
 3. Ninguna función exige entender servidores, puertos o "bibliotecas".
 
-## Compilar (F0)
-Requisitos: Go >= 1.22.
+## Compilar
+Requisitos: Go >= 1.22, Node.js >= 20.
+
+El frontend (SvelteKit, `web/`) se compila a `web/dist/`, que **no se
+versiona**: `go:embed` lo incorpora al binario, así que hay que construirlo
+ANTES de cualquier `go build`/`go vet`/`go test` (si no, el build de Go falla
+con "pattern all:dist: no matching files found").
 ```
-go build -o gala ./cmd/gala        # Linux/macOS
-go build -o gala.exe ./cmd/gala    # Windows
+cd web && npm ci && npm run build   # vuelca a web/dist/
+cd ..
+go build -o gala ./cmd/gala         # Linux/macOS
+go build -o gala.exe ./cmd/gala     # Windows
 ```
 Al ejecutarlo crea `gala.json` y `gala.db` junto al binario (portable) y abre
 el navegador en `http://127.0.0.1:7420`. Flag útil: `--no-browser`.
+
+## Frontend (desarrollo)
+Ver `web/README.md` para el detalle completo (arranque con proxy a la API,
+tests, sistema de diseño). Resumen rápido:
+```
+# Terminal 1: el backend real, sirviendo la API en :7420
+go run ./cmd/gala
+
+# Terminal 2: el frontend con recarga en caliente, proxy de /api/v1/* a :7420
+cd web && npm install && npm run dev
+```
 
 ## ffmpeg (desarrollo)
 GALA usa ffmpeg/ffprobe para sondear contenedores/códecs y remuxear a HLS
@@ -47,10 +65,10 @@ depender de contenido real):
 Los clips se generan en `testdata/media/` (no se versionan; el script sí).
 
 ## Estructura
-Ver `GALA_Plan_Desarrollo_MVP1.md` §4. El frontend real (SvelteKit) sustituirá
-al reproductor mínimo de `web/dist/` en M10; el build de SvelteKit
-(adapter-static) se vuelca a ese mismo directorio y `go:embed` lo incorpora
-al binario.
+Ver `GALA_Plan_Desarrollo_MVP1.md` §4. El frontend (`web/`) es un proyecto
+SvelteKit real (Svelte 5, `adapter-static` en modo SPA — sin SSR, fallback a
+`index.html` para el enrutado del lado cliente). Su build se vuelca a
+`web/dist/` y `go:embed` (`web/web.go`) lo incorpora al binario.
 
 ## Licencia
 AGPL-3.0. Añade el texto completo de la licencia en `LICENSE` antes del primer

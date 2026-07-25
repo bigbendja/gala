@@ -14,12 +14,22 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.22"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # web/dist/ no se versiona (M10a): go:embed necesita que exista y
+      # tenga contenido para que CUALQUIER go build/vet/test compile, así
+      # que el frontend se construye antes de tocar nada de Go.
+      - name: Build frontend (web/dist)
+        run: cd web && npm ci && npm run build
       - name: Formato
         run: test -z "$(gofmt -l .)"
       - name: Vet
         run: go vet ./...
       - name: Tests
         run: go test ./...
+      - name: Tests frontend
+        run: cd web && npm test
 
   build:
     needs: test
@@ -36,10 +46,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.22"
-      # Cuando exista el proyecto SvelteKit real:
-      # - uses: actions/setup-node@v4
-      #   with: { node-version: "20" }
-      # - run: cd web && npm ci && npm run build   # vuelca a web/dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build frontend (web/dist)
+        run: cd web && npm ci && npm run build
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}

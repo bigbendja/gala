@@ -1,0 +1,33 @@
+/* Tokens EXACTOS del mockup (docs/GALA_Mockup.html) — referencia visual
+   vinculante, no se reinterpretan. */
+:root {
+	--bg: #100c09;
+	--surface: #1b1510;
+	--surface-2: #261d14;
+	--line: #332619;
+	--text: #f4ede3;
+	--muted: #a6937e;
+	--accent: #f2a93b;
+	--accent-deep: #c97e1b;
+	--ok: #6fcf8e;
+	--warn: #f2a93b;
+	--bad: #e1604f;
+	--off: #6e6157;
+	--r: 14px;
+
+	--display: 'Bricolage Grotesque', system-ui, sans-serif;
+	--body: 'Instrument Sans', system-ui, sans-serif;
+	--mono: 'Spline Sans Mono', ui-monospace, monospace;
+}
+
+/* Mapa de salud→color (Brief M10a §2). Nombres de variable en ASCII a
+   propósito (evitar tildes en identificadores CSS); la traducción desde el
+   string real de la API ("viva"/"lenta"/"caída"/"desconectada"/
+   "sin_verificar") vive en $lib/health.ts, no aquí. */
+:root {
+	--health-alive: var(--ok);
+	--health-slow: var(--warn);
+	--health-dead: var(--bad);
+	--health-disconnected: var(--off);
+	--health-unverified: var(--muted);
+}

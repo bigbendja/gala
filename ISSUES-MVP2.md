@@ -94,3 +94,35 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   re-parsear la lista M3U en sí para detectar canales añadidos/quitados
   (eso es la re-sincronización ya anotada en la entrada de M5 sobre
   `ingest_lists.source_url`).
+- 2026-07-25: filtro `parent_id` (o endpoint dedicado) en `GET /items` para
+  listar los hijos directos de un item (temporadas de una serie, episodios
+  de una temporada). Brief M10a: "si es serie, mostrar temporadas y
+  episodios" — sin este filtro, la ficha de una serie no puede pedir su
+  jerarquía sin traerse el catálogo entero; se anotó en la ficha en vez de
+  inventar el filtro.
+- 2026-07-25: endpoint de alta/baja en deseos (`POST /wishlist` de la
+  especificación §5, o equivalente). M10a deja "+ Mi lista" visual/inerte
+  tanto en el hero como en la ficha (Brief M10a §5/§6: "puede ser funcional
+  si hay endpoint; si no, visual") — no existe todavía (es M8).
+  `GET /items?wished=` sí filtra, pero no hay forma de ESCRIBIR wished=1.
+- 2026-07-25: filtro "items con progreso" en `GET /items` (o endpoint
+  dedicado tipo `GET /continue-watching`). La fila "Continuar viendo" de
+  M10a solo mira la página ya cargada de "Tu galería" (donde `progress` SÍ
+  viaja, desde M4) para no escanear todo el catálogo solo para esta fila;
+  un item en curso que no esté entre los más recientes no aparece ahí. Con
+  un filtro dedicado dejaría de ser una limitación.
+- 2026-07-25: procedencia M3U de una fuente visible sin petición extra. El
+  badge "LISTA·M3U" del mockup no se implementó en M10a: `Source.Provider`
+  no distingue "vino de una M3U" de "enlace directo" (ambos son
+  provider="http"); esa distinción solo consta en `ingest_lists.type`, y
+  cruzarla exigiría una petición por fuente. Si en algún momento importa
+  mostrarlo, lo más barato sería que M5 guardase el origen en la propia
+  fuente en vez de derivarlo.
+- 2026-07-25: puntuación TMDB (`vote_average`) y duración (`media_info`) en
+  la ficha/hero. Brief M10a menciona "★ 7,8" y "duración si existe en
+  media_info" como en el mockup; ninguno de los dos viaja hoy en
+  `GET /items`/`GET /items/{id}` (M3 no persiste vote_average; duration_s
+  vive en `media_info`, que solo expone `GET /play/{item_id}` — un endpoint
+  de decisión de reproducción, fuera de alcance para una ficha de solo
+  lectura en M10a). Se omitieron ambos campos en vez de inventarlos o
+  acoplar la ficha a `/play` antes de que exista el reproductor (M10b).

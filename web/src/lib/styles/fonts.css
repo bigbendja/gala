@@ -1,0 +1,29 @@
+/* Fuentes empaquetadas (self-hosted), NO Google Fonts en producción — regla
+   de hierro de CLAUDE.md: "todo funciona offline". Los .woff2 son variable
+   fonts (un solo archivo cubre el rango de pesos usado en el mockup);
+   subconjunto "latin" únicamente (suficiente para español: incluye
+   ñ/Ñ, acentos, ¿¡ — todos dentro de U+0000-00FF). */
+
+@font-face {
+	font-family: 'Bricolage Grotesque';
+	font-style: normal;
+	font-weight: 400 800;
+	font-display: swap;
+	src: url('./fonts/bricolage-grotesque.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Instrument Sans';
+	font-style: normal;
+	font-weight: 400 600;
+	font-display: swap;
+	src: url('./fonts/instrument-sans.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Spline Sans Mono';
+	font-style: normal;
+	font-weight: 400 500;
+	font-display: swap;
+	src: url('./fonts/spline-sans-mono.woff2') format('woff2');
+}

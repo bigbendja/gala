@@ -26,9 +26,14 @@ cultura del disco duro que circula.
 - SQLite vía `modernc.org/sqlite` (driver "sqlite"). Migraciones SQL embebidas
   en `internal/store/migrations/` (orden lexicográfico, nunca editar una aplicada;
   siempre añadir migración nueva).
-- Frontend: SvelteKit con adapter-static, build volcada a `web/dist/`, embebida
-  con `go:embed`. Hasta M10, `web/dist/` contiene un reproductor mínimo sin
-  framework (M4: galería + `<video>` + hls.js vendorizado localmente).
+- Frontend: SvelteKit (Svelte 5 + TypeScript) con `adapter-static` en modo SPA
+  (sin SSR — `export const ssr = false` en el layout raíz; fallback a
+  `index.html` para el enrutado del lado cliente). Build volcada a
+  `web/dist/`, embebida con `go:embed` (`web/web.go`). `web/dist/` NO se
+  versiona desde M10a (se regenera con `npm ci && npm run build`, que la CI
+  ejecuta antes de cualquier `go build`/`go vet`/`go test` — `go:embed`
+  exige que el directorio exista y tenga contenido). Sin librerías de
+  componentes UI: CSS propio con los tokens exactos del mockup.
 - Todo lo persistente vive JUNTO al ejecutable (`gala.json`, `gala.db`, `cache/`).
   Nada en AppData/registro. Config = JSON con escritura atómica.
 - Router: `net/http` estándar de Go 1.22 (patrones con método y {param}). Sin
@@ -136,9 +141,40 @@ cultura del disco duro que circula.
       del paquete internal/health); tests (incl. presupuesto de
       concurrencia, ventana mínima, reconstrucción desde BD tras "apagado",
       cancelación por context, reconciliación transitoria/real, SSRF).
+- [x] M10a Frontend — esqueleto + Galería + Ficha: proyecto SvelteKit real en
+      `web/` (Svelte 5 + TS, `sv create`), sustituye al placeholder de
+      `web/dist/`. Sistema de diseño (`web/src/lib/styles/`: tokens EXACTOS
+      del mockup, fuentes empaquetadas — Bricolage Grotesque/Instrument
+      Sans/Spline Sans Mono como `.woff2` propios, self-hosted, NUNCA Google
+      Fonts — y `prefers-reduced-motion` respetado). Cliente de API tipado
+      (`web/src/lib/api/`: tipos que reflejan el JSON real, `ApiError` con
+      mensajes en español para fallos de red/HTTP). Componentes:
+      `HealthDot`/`Card`/`Row`/`Hero`/`SourceStack`/`Topbar`/`Footer`. Rutas
+      `/` (galería: hero opcional con item real que tenga backdrop,
+      "Continuar viendo"/"Tu galería"/"Deseos") y `/item/{id}` (ficha: hero +
+      stack de fuentes + metadatos); ambas sin SSR (`ssr=false`). Galería
+      virtualizada SIN librerías (`Row.svelte`: `grid-auto-flow:column` +
+      `grid-auto-columns` fijo reserva el ancho de scroll aunque solo se
+      rendericen las tarjetas visibles, con `grid-column` explícito por
+      índice) + paginación perezosa sobre `GET /items`; probado con 3.000
+      items sintéticos. Estados de carga (skeletons)/vacío/error por
+      sección. Tests: Vitest + `@testing-library/svelte` (jsdom) para
+      componentes y cliente de API; `svelte-check` limpio. CI actualizada:
+      `npm ci && npm run build` antes de cualquier paso de Go (`go:embed`
+      exige `web/dist/` con contenido). `web/dist/` deja de versionarse.
+      Endpoints que faltaron (anotados, no inventados — ver también
+      ISSUES-MVP2.md): sin filtro `parent_id` en `GET /items` (no se pueden
+      listar temporadas/episodios de una serie desde la ficha); sin endpoint
+      para alta/baja en deseos (M8, "+ Mi lista" queda visual); sin filtro
+      "items con progreso" (fila "Continuar viendo" solo mira la página ya
+      cargada de "Tu galería", no escanea todo el catálogo); el origen M3U
+      de una fuente no es visible sin cruzar `ingest_lists` (badge
+      "LISTA·M3U" omitido). Reproductor, modal de ingesta, "Por confirmar",
+      ajustes y búsqueda funcional quedan fuera a propósito (M10b/M10c).
 - [ ] M7 LAN ← SIGUIENTE
 - [ ] M8 Deseos ·
-      M9 .gala · M10 Frontend · M11 Release
+      M9 .gala · M10b/M10c Frontend (reproductor, ingesta, ajustes) ·
+      M11 Release
 (Actualizar esta lista al completar cada módulo.)
 
 ## Estructura
@@ -155,7 +191,8 @@ internal/media/      ffmpeg/ffprobe: localización, sonda, decide  (desde M4)
 internal/stream/     direct play + remux HLS con sesiones         (desde M4)
 internal/ingest/     detector, clasificador, parsers M3U/CSV, pipeline (M5)
 internal/health/     checkers por provider + worker con presupuesto  (M6)
-web/                 frontend embebido (web.go + dist/: reproductor mínimo M4)
+web/                 frontend: proyecto SvelteKit (src/) + web.go (go:embed de
+                     dist/, generado en build, no versionado)             (M10a)
 docs/                especificación, plan, mockup
 testdata/            corpus de nombres reales, M3U, matriz de vídeos (media/ generado, no versionado)
 scripts/             generación de datos de prueba (make_testmedia.ps1/.sh)

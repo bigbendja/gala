@@ -8,9 +8,13 @@ gala.db
 gala.db-wal
 gala.db-shm
 /cache/
-# frontend (cuando exista SvelteKit)
+# frontend (M10a: proyecto SvelteKit real en web/)
 web/node_modules/
 web/.svelte-kit/
+# build de adapter-static: lo que embebe web/web.go vía go:embed. Se genera
+# con `npm ci && npm run build` (CI lo hace antes de `go build`; ver README
+# de web/ para desarrollo local) — nunca se versiona el resultado.
+web/dist/
 # matriz de prueba de M4: clips generados por scripts/make_testmedia.(ps1|sh),
 # no se versionan los binarios (Brief M4 §7)
 /testdata/media/
