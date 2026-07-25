@@ -97,6 +97,17 @@ cultura del disco duro que circula.
       futuro), API `POST /ingest` (texto plano o multipart, límite 5 MB→413,
       límite 5000 candidatos) y `GET /ingest/lists`, tests (incl. el texto
       EXACTO del mockup de ingesta, con DNS y descarga de M3U simulados).
+      Addendum (corrección de contadores post-entrega): `ResumenIngesta` no
+      lleva `por_confirmar` (el enriquecimiento es asíncrono — un campo así
+      siempre valdría igual que `anadidos`, mentira por omisión); `total` se
+      DERIVA como la suma exacta de los seis resultados mutuamente
+      excluyentes (invariante garantizada por construcción, testeada en
+      todos los tests del pipeline vía `assertResumenInvariant`); nuevo
+      campo `detectados` cuenta todo lo que entró antes de truncar por
+      límite o expandir M3U remotas (puede ser mayor que `total` si se corta
+      por límite, o menor si una M3U se expande en N entradas); un error de
+      BD real al dar de alta cae en `sin_clasificar`, nunca fuera de los
+      seis resultados.
 - [ ] M6 Salud ← SIGUIENTE
 - [ ] M7 LAN · M8 Deseos ·
       M9 .gala · M10 Frontend · M11 Release

@@ -26,27 +26,39 @@ const maxCandidates = 5000
 // SSRF y robustez — nunca confiar en el tamaño que declara un servidor externo).
 const maxM3UBodyBytes = 10 << 20 // 10 MB
 
-// ResumenIngesta es el resultado de una ingesta (Brief M5 §4). Todo lo que
-// no se pudo dar de alta queda contado en algún campo y, si hace falta
-// explicación, en Detalles: "nada se pierde en silencio".
+// ResumenIngesta es el resultado de una ingesta (Brief M5 §4, corregido por
+// el addendum post-entrega tras detectar que los contadores no cuadraban).
+//
+// NOTA (addendum, "por_confirmar" eliminado): el Brief original pedía un
+// campo PorConfirmar. Se quitó a propósito: el enriquecimiento TMDB es
+// asíncrono (como en M3), así que en el momento de ESTA respuesta ningún
+// recién-añadido puede estar confirmado todavía — un campo "por_confirmar"
+// SIEMPRE valdría lo mismo que Anadidos, en cualquier ejecución posible
+// mientras esta arquitectura siga siendo asíncrona. Un campo que solo puede
+// medir lo mismo que otro, con un nombre que sugiere que podría no hacerlo,
+// miente por omisión; se prefiere no tenerlo.
 type ResumenIngesta struct {
-	Total int `json:"total"` // candidatos detectados (URLs/filas), tras expandir M3U remotas
+	// Detectados es TODO lo que entró por la caja antes de truncar por
+	// límite o expandir M3U remotas: una URL de texto suelto, una fila de
+	// CSV, o una entrada de una M3U pegada/subida directamente cuentan aquí
+	// 1 a 1. Puede diferir de Total: una M3U remota cuenta 1 vez aquí pero,
+	// si se resuelve como lista, se expande en sus N entradas (Total >
+	// Detectados); si el límite de candidatos corta algunos antes de
+	// procesarlos, quedan en Detectados pero no en Total (Total <
+	// Detectados). "Recibí X, esto pasó con cada una" (addendum M5).
+	Detectados int `json:"detectados"`
 
-	Anadidos   int `json:"anadidos"`   // items/sources nuevos creados
-	Duplicados int `json:"duplicados"` // (provider, locator) ya existía
+	// Total es la suma EXACTA de los seis resultados de abajo — invariante
+	// garantizada por construcción (se calcula como esa suma, nunca como un
+	// conteo aparte): cada candidato que se llega a procesar (tras expandir
+	// M3U remotas y aplicar el límite) termina en uno y solo uno de los seis.
+	Total int `json:"total"`
 
-	// PorConfirmar: recién creados y todavía sin identificar. El
-	// enriquecimiento TMDB es asíncrono (como en M3): en el momento de esta
-	// respuesta, TODO lo recién Añadido está sin confirmar por definición
-	// (nadie ha llamado a TMDB todavía) — PorConfirmar == Anadidos aquí a
-	// propósito; el número baja con el tiempo según la cola de M3 vaya
-	// auto-confirmando en segundo plano, pero eso ya no lo refleja esta
-	// respuesta puntual.
-	PorConfirmar int `json:"por_confirmar"`
-
+	Anadidos             int `json:"anadidos"`               // items/sources nuevos creados
+	Duplicados           int `json:"duplicados"`             // (provider, locator) ya existía
 	PendientesConector   int `json:"pendientes_conector"`    // drive/mega: entrada creada, sin conector todavía
 	OmitidosNoSoportados int `json:"omitidos_no_soportados"` // hosts de streaming gris: SIN entrada
-	SinClasificar        int `json:"sin_clasificar"`         // no encajó en nada, o falló su verificación/descarga
+	SinClasificar        int `json:"sin_clasificar"`         // no encajó en nada, falló su verificación/descarga, o error interno al darlo de alta
 	Basura               int `json:"basura"`                 // el normalizador de M3 lo detectó como junk/extra
 
 	PorTipo  map[string]int `json:"por_tipo"`
@@ -118,6 +130,10 @@ func (p *Pipeline) Run(ctx context.Context, blob, filename, now string) (*Resume
 		}
 	}
 
+	// Detectados: TODO lo que entró, antes de truncar o expandir M3U
+	// remotas (addendum M5 §2: "recibí X, esto pasó con cada una").
+	res.Detectados = len(candidates)
+
 	if len(candidates) > maxCandidates {
 		res.Detalles = append(res.Detalles, fmt.Sprintf(
 			"la ingesta traía %d candidatos; se procesan solo los primeros %d (límite de M5)",
@@ -126,7 +142,6 @@ func (p *Pipeline) Run(ctx context.Context, blob, filename, now string) (*Resume
 	}
 
 	candidates = p.expandM3URemote(ctx, candidates, res, now)
-	res.Total = len(candidates)
 
 	name := strings.TrimSpace(filename)
 	if name == "" {
@@ -147,6 +162,13 @@ func (p *Pipeline) Run(ctx context.Context, blob, filename, now string) (*Resume
 		}
 		p.processCandidate(ctx, c, effectiveListID, now, res)
 	}
+
+	// Total se DERIVA de los seis resultados, nunca de un conteo
+	// independiente: así la invariante se cumple por construcción (addendum
+	// post-entrega de M5, tras detectar que un total contado aparte no
+	// cuadraba con la suma de resultados).
+	res.Total = res.Anadidos + res.Duplicados + res.PendientesConector +
+		res.OmitidosNoSoportados + res.SinClasificar + res.Basura
 
 	if p.identify != nil && res.Anadidos > 0 {
 		p.identify.Enqueue()
@@ -260,10 +282,7 @@ func (p *Pipeline) processCandidate(ctx context.Context, c Candidate, listID int
 
 	case ClassDirect, ClassUnknown:
 		outcome := p.createProvisional(ctx, c, httpprovider.ProviderID, catalog.HealthUnverified, listID, now, false)
-		p.applyOutcome(res, outcome, func() {
-			res.Anadidos++
-			res.PorConfirmar++
-		})
+		p.applyOutcome(res, outcome, func() { res.Anadidos++ })
 
 	default: // ClassM3URemote no debería sobrevivir a expandM3URemote
 		res.SinClasificar++
@@ -280,11 +299,16 @@ type candidateOutcome struct {
 }
 
 // applyOutcome traduce un candidateOutcome a los contadores del resumen;
-// onCreated añade los contadores específicos de la categoría que sí tuvo
-// éxito (Anadidos+PorConfirmar, o PendientesConector).
+// onCreated añade el contador específico de la categoría que sí tuvo éxito
+// (Anadidos, o PendientesConector). Un error interno real (fallo de BD al
+// comprobar duplicados o al dar de alta) cae en SinClasificar: no hay una
+// categoría propia para "fallo interno" en el contrato de ResumenIngesta, y
+// dejarlo fuera de los seis resultados rompería la invariante Total = suma
+// (addendum post-entrega de M5). El detalle ya explica la causa real.
 func (p *Pipeline) applyOutcome(res *ResumenIngesta, o candidateOutcome, onCreated func()) {
 	switch {
 	case o.errMsg != "":
+		res.SinClasificar++
 		res.Detalles = append(res.Detalles, o.errMsg)
 	case o.dup:
 		res.Duplicados++

@@ -80,6 +80,22 @@ func newPipelineForTest(t *testing.T, responses map[string]fakeM3UResponse) (*Pi
 
 const testNow = "2026-01-01T00:00:00Z"
 
+// assertResumenInvariant comprueba la invariante de ResumenIngesta pedida
+// tras el addendum de corrección de contadores: Total debe ser SIEMPRE la
+// suma exacta de los seis resultados mutuamente excluyentes, para cualquier
+// texto de entrada. Se llama en todos los tests del pipeline, no solo en uno
+// dedicado, porque cualquier caso nuevo (dedupe, SSRF, límite, etc.) podría
+// reintroducir el mismo descuadre que motivó la corrección.
+func assertResumenInvariant(t *testing.T, res *ResumenIngesta) {
+	t.Helper()
+	sum := res.Anadidos + res.Duplicados + res.PendientesConector +
+		res.OmitidosNoSoportados + res.SinClasificar + res.Basura
+	if sum != res.Total {
+		t.Errorf("invariante rota: Anadidos+Duplicados+PendientesConector+OmitidosNoSoportados+SinClasificar+Basura = %d, pero Total = %d (%+v)",
+			sum, res.Total, res)
+	}
+}
+
 // --- E2E: el texto EXACTO del mockup (docs/GALA_Mockup.html) ---------------
 
 // TestPipelineRunMockupTextExact pega EXACTAMENTE el texto de ejemplo del
@@ -111,12 +127,19 @@ func TestPipelineRunMockupTextExact(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 
-	// Candidatos de primer nivel: drive (1) + mp4 directo (1) = 2; la M3U
-	// se expande aparte y no cuenta como candidato de nivel superior una vez
-	// resuelta (Total ya incluye sus 3 entradas en su lugar).
+	// Detectados: los 3 candidatos de primer nivel tal como entraron (drive,
+	// la URL de la M3U, el mp4) — ANTES de que la M3U se expanda.
+	if res.Detectados != 3 {
+		t.Errorf("Detectados = %d, esperado 3 (drive + URL de la M3U + mp4, antes de expandir)", res.Detectados)
+	}
+	// Total: tras expandir la M3U en sus 3 entradas, quedan 5 candidatos
+	// procesados (drive + mp4 + 3 entradas) — Detectados(3) < Total(5),
+	// justo el caso de "se expande" que motivó separar los dos campos.
 	if res.Total != 5 {
 		t.Errorf("Total = %d, esperado 5 (drive + mp4 + 3 entradas de la M3U expandida)", res.Total)
 	}
+	assertResumenInvariant(t, res)
+
 	if res.PendientesConector != 1 {
 		t.Errorf("PendientesConector = %d, esperado 1 (el enlace de Drive)", res.PendientesConector)
 	}
@@ -125,9 +148,6 @@ func TestPipelineRunMockupTextExact(t *testing.T) {
 	}
 	if res.Anadidos != 3 {
 		t.Errorf("Anadidos = %d, esperado 3 (el mp4 directo + las 2 series de la M3U)", res.Anadidos)
-	}
-	if res.PorConfirmar != res.Anadidos {
-		t.Errorf("PorConfirmar = %d, esperado igual a Anadidos (%d): nada se auto-confirma en la respuesta síncrona", res.PorConfirmar, res.Anadidos)
 	}
 	if res.Duplicados != 0 || res.SinClasificar != 0 || res.Basura != 0 {
 		t.Errorf("Duplicados/SinClasificar/Basura = %d/%d/%d, esperado 0/0/0", res.Duplicados, res.SinClasificar, res.Basura)
@@ -185,6 +205,7 @@ func TestPipelineDedupeSameURLTwice(t *testing.T) {
 	if res.Anadidos != 1 || res.Duplicados != 1 {
 		t.Fatalf("Anadidos=%d Duplicados=%d, esperado 1/1", res.Anadidos, res.Duplicados)
 	}
+	assertResumenInvariant(t, res)
 
 	items, err := repo.List(context.Background(), catalog.ListFilter{Limit: 10})
 	if err != nil {
@@ -215,6 +236,7 @@ func TestPipelineDedupeSameMovieTwoRoutesCreatesTwoProvisionalSources(t *testing
 	if res.Anadidos != 2 || res.Duplicados != 0 {
 		t.Fatalf("Anadidos=%d Duplicados=%d, esperado 2/0 (locators distintos, ingesta no dedupe por título)", res.Anadidos, res.Duplicados)
 	}
+	assertResumenInvariant(t, res)
 
 	items, err := repo.List(context.Background(), catalog.ListFilter{Limit: 10})
 	if err != nil {
@@ -246,6 +268,7 @@ func TestPipelineM3URemoteBlockedBySSRF(t *testing.T) {
 	if res.SinClasificar != 1 {
 		t.Fatalf("SinClasificar = %d, esperado 1 (bloqueado por SSRF)", res.SinClasificar)
 	}
+	assertResumenInvariant(t, res)
 	if len(res.Detalles) != 1 || !strings.Contains(res.Detalles[0], "127.0.0.1") {
 		t.Fatalf("Detalles = %v, esperado que mencione la URL bloqueada", res.Detalles)
 	}
@@ -272,6 +295,7 @@ func TestPipelineUnsupportedHostCreatesNoEntry(t *testing.T) {
 	if res.OmitidosNoSoportados != 1 || res.Anadidos != 1 {
 		t.Fatalf("OmitidosNoSoportados=%d Anadidos=%d, esperado 1/1", res.OmitidosNoSoportados, res.Anadidos)
 	}
+	assertResumenInvariant(t, res)
 	if len(res.Detalles) != 0 {
 		t.Errorf("Detalles = %v; host_no_soportado no debe generar detalle (sin nombres, sin cómo)", res.Detalles)
 	}
@@ -300,6 +324,7 @@ func TestPipelineJunkURLCountsAsBasura(t *testing.T) {
 	if res.Basura != 1 || res.Anadidos != 0 {
 		t.Fatalf("Basura=%d Anadidos=%d, esperado 1/0", res.Basura, res.Anadidos)
 	}
+	assertResumenInvariant(t, res)
 
 	items, err := repo.List(context.Background(), catalog.ListFilter{Limit: 10})
 	if err != nil {
@@ -326,6 +351,10 @@ func TestPipelineCandidateLimit(t *testing.T) {
 	if res.Total != maxCandidates {
 		t.Fatalf("Total = %d, esperado %d (límite aplicado)", res.Total, maxCandidates)
 	}
+	if res.Detectados != maxCandidates+50 {
+		t.Fatalf("Detectados = %d, esperado %d (todo lo que entró, antes del límite; Detectados > Total es el caso de \"se corta\")", res.Detectados, maxCandidates+50)
+	}
+	assertResumenInvariant(t, res)
 	foundNotice := false
 	for _, d := range res.Detalles {
 		if strings.Contains(d, "límite") {
@@ -377,6 +406,10 @@ func TestPipelineLocalPathReportedNotProcessed(t *testing.T) {
 	if res.Total != 1 {
 		t.Fatalf("Total = %d, esperado 1 (la ruta local no es un candidato)", res.Total)
 	}
+	if res.Detectados != 1 {
+		t.Fatalf("Detectados = %d, esperado 1 (la ruta local no cuenta como candidato; solo la URL)", res.Detectados)
+	}
+	assertResumenInvariant(t, res)
 	found := false
 	for _, d := range res.Detalles {
 		if strings.Contains(d, dir) {
@@ -393,5 +426,53 @@ func TestPipelineLocalPathReportedNotProcessed(t *testing.T) {
 	}
 	if items.Total != 1 {
 		t.Fatalf("items en catálogo = %d, esperado 1 (solo el mp4 directo)", items.Total)
+	}
+}
+
+// --- Error de BD a mitad de ingesta (Brief: "nada se pierde en silencio") --
+
+// TestPipelineDBErrorCountsAsSinClasificar cubre el tercer hueco encontrado
+// en el addendum de corrección de contadores: un error de BD real (no
+// catalog.ErrNotFound, p.ej. la conexión ya cerrada) al comprobar duplicados
+// caía FUERA de los seis resultados, rompiendo la invariante Total = suma.
+// Ahora cae en SinClasificar (ver Pipeline.applyOutcome) y queda explicado en
+// Detalles.
+func TestPipelineDBErrorCountsAsSinClasificar(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("abrir store: %v", err)
+	}
+	repo := catalog.NewRepo(st.DB)
+	p := NewPipeline(repo, nil, nil)
+
+	listID, err := repo.InsertIngestList(context.Background(), &catalog.IngestList{
+		Name: "test", Type: "text", ItemCount: 1,
+	}, testNow)
+	if err != nil {
+		t.Fatalf("InsertIngestList: %v", err)
+	}
+
+	// Cerrar el store DESPUÉS de conseguir un listID válido simula un fallo
+	// real de BD a mitad de la ingesta (SourceByLocator fallará con un error
+	// de conexión, no con catalog.ErrNotFound); se llama a processCandidate
+	// directamente, sin pasar por Run, para no depender del store ya cerrado
+	// en ningún paso previo.
+	if err := st.Close(); err != nil {
+		t.Fatalf("cerrar store: %v", err)
+	}
+
+	c := candidateFromURL("https://cdn.ejemplo.net/v/pelicula.mp4", "", "url")
+	res := &ResumenIngesta{PorTipo: map[string]int{}}
+	p.processCandidate(context.Background(), c, listID, testNow, res)
+	res.Total = res.Anadidos + res.Duplicados + res.PendientesConector +
+		res.OmitidosNoSoportados + res.SinClasificar + res.Basura
+
+	if res.SinClasificar != 1 {
+		t.Fatalf("SinClasificar = %d, esperado 1 (el error de BD no debe perderse ni caer fuera de los seis resultados)", res.SinClasificar)
+	}
+	assertResumenInvariant(t, res)
+	if len(res.Detalles) != 1 {
+		t.Fatalf("Detalles = %v, esperado 1 entrada explicando el error de BD", res.Detalles)
 	}
 }

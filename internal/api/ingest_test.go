@@ -49,10 +49,10 @@ func newIngestTestServer(t *testing.T) *ingestTestServer {
 }
 
 type resumenDTO struct {
+	Detectados           int            `json:"detectados"`
 	Total                int            `json:"total"`
 	Anadidos             int            `json:"anadidos"`
 	Duplicados           int            `json:"duplicados"`
-	PorConfirmar         int            `json:"por_confirmar"`
 	PendientesConector   int            `json:"pendientes_conector"`
 	OmitidosNoSoportados int            `json:"omitidos_no_soportados"`
 	SinClasificar        int            `json:"sin_clasificar"`
