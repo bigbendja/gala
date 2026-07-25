@@ -54,7 +54,7 @@ func newPlayTestServer(t *testing.T, ffmpeg *media.FFmpeg, hls *stream.Manager) 
 	if ffmpeg == nil {
 		ffmpeg = &media.FFmpeg{}
 	}
-	srv := api.New(st, repo, cfg, sc, fakeEnum{}, nil, nil, dir, log, ffmpeg, hls)
+	srv := api.New(st, repo, cfg, sc, fakeEnum{}, nil, nil, dir, log, ffmpeg, hls, nil)
 	mux := http.NewServeMux()
 	srv.Routes(mux)
 	hts := httptest.NewServer(mux)

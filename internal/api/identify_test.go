@@ -55,7 +55,7 @@ func newIdentifyTestServer(t *testing.T, tmdbHandler http.HandlerFunc) *identify
 	q := identify.NewQueue(ctx, repo, client, log)
 	sc := scan.New(ctx, cfg, repo, fakeEnum{}, log)
 
-	srv := api.New(st, repo, cfg, sc, fakeEnum{}, q, client, dir, log, nil, nil)
+	srv := api.New(st, repo, cfg, sc, fakeEnum{}, q, client, dir, log, nil, nil, nil)
 	mux := http.NewServeMux()
 	srv.Routes(mux)
 	hts := httptest.NewServer(mux)

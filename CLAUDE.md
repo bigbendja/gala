@@ -80,8 +80,25 @@ cultura del disco duro que circula.
       `scripts/make_testmedia.(ps1|sh)` para la matriz de prueba, tests (con
       ffmpeg/ffprobe falsos compilados en caliente para no depender de tener
       ffmpeg real en CI).
-- [ ] M5 Ingesta ← SIGUIENTE
-- [ ] M6 Salud · M7 LAN · M8 Deseos ·
+- [x] M5 Ingesta universal: `internal/ingest` (detector de tipo M3U/CSV/texto
+      suelto — DetectInputType, heurística de CSV por cabecera+columna
+      url/link/enlace; extractor de URLs y de rutas locales de texto sucio;
+      clasificador de URLs — directo/m3u_remoto/drive/mega/host_no_soportado/
+      desconocido, unsupportedHosts mantenible SOLO para omitir, nunca
+      resolver; parser M3U robusto a CRLF/comentarios/atributos, con
+      heurística lista-de-canales-vs-HLS-de-un-vídeo; parser CSV mínimo;
+      Pipeline que reutiliza identify.Parse para basura y despierta la MISMA
+      cola de M3 al terminar — sin lógica de matching propia), provider
+      `internal/providers/httpprovider` (Check/Resolve + ValidateExternalURL:
+      SSRF básico contra 127.0.0.0/8, 10/8, 172.16/12, 192.168/16, 169.254/16
+      y equivalentes IPv6, con resolución DNS sustituible en tests),
+      `catalog.IngestList`/`Source.OriginListID` (trazabilidad, fila propia
+      por cada M3U remota expandida con su source_url para un re-sync
+      futuro), API `POST /ingest` (texto plano o multipart, límite 5 MB→413,
+      límite 5000 candidatos) y `GET /ingest/lists`, tests (incl. el texto
+      EXACTO del mockup de ingesta, con DNS y descarga de M3U simulados).
+- [ ] M6 Salud ← SIGUIENTE
+- [ ] M7 LAN · M8 Deseos ·
       M9 .gala · M10 Frontend · M11 Release
 (Actualizar esta lista al completar cada módulo.)
 
@@ -92,11 +109,12 @@ internal/store/      SQLite + migraciones embebidas
 internal/config/     gala.json portable
 internal/catalog/    dominio + repositorio (M1)
 internal/api/        handlers REST /api/v1
-internal/providers/  interfaz Provider + localfs/, m3u/, http/  (desde M2)
+internal/providers/  interfaz Provider + localfs/ (M2), httpprovider/ (M5)
 internal/scan/       orquestador de escaneo: estado, exclusión mutua (M2)
 internal/identify/   normalizador, TMDB, caché                  (desde M3)
 internal/media/      ffmpeg/ffprobe: localización, sonda, decide  (desde M4)
 internal/stream/     direct play + remux HLS con sesiones         (desde M4)
+internal/ingest/     detector, clasificador, parsers M3U/CSV, pipeline (M5)
 web/                 frontend embebido (web.go + dist/: reproductor mínimo M4)
 docs/                especificación, plan, mockup
 testdata/            corpus de nombres reales, M3U, matriz de vídeos (media/ generado, no versionado)

@@ -7,7 +7,7 @@ import (
 )
 
 const sourceCols = `id, item_id, provider, locator, volume_id, quality_label,
-	health, last_checked, priority, added_at`
+	health, last_checked, priority, added_at, origin_list_id`
 
 // SourceByLocator devuelve la fuente con ese provider+locator, o ErrNotFound.
 // Base de la idempotencia del escaneo localfs (UNIQUE(provider, locator)).
@@ -109,6 +109,7 @@ func (r *Repo) ListVolumes(ctx context.Context) ([]Volume, error) {
 func scanSource(s scanner) (Source, error) {
 	var src Source
 	err := s.Scan(&src.ID, &src.ItemID, &src.Provider, &src.Locator, &src.VolumeID,
-		&src.QualityLabel, &src.Health, &src.LastChecked, &src.Priority, &src.AddedAt)
+		&src.QualityLabel, &src.Health, &src.LastChecked, &src.Priority, &src.AddedAt,
+		&src.OriginListID)
 	return src, err
 }

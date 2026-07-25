@@ -81,6 +81,10 @@ type Source struct {
 	LastChecked  *string `json:"last_checked,omitempty"`
 	Priority     int     `json:"priority"`
 	AddedAt      string  `json:"added_at"`
+	// OriginListID enlaza con ingest_lists.id cuando la fuente vino de una
+	// ingesta (M5, Brief M5 §4: trazabilidad). nil para fuentes de M2 (scan
+	// local) o creadas a mano.
+	OriginListID *int64 `json:"origin_list_id,omitempty"`
 }
 
 // Estados de salud de una fuente.

@@ -11,6 +11,7 @@ import (
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
 	"github.com/bigbendja/gala/internal/identify"
+	"github.com/bigbendja/gala/internal/ingest"
 	"github.com/bigbendja/gala/internal/media"
 	"github.com/bigbendja/gala/internal/providers/localfs"
 	"github.com/bigbendja/gala/internal/scan"
@@ -35,16 +36,20 @@ type Server struct {
 
 	FFmpeg *media.FFmpeg   // nunca nil (Locate() siempre devuelve algo); Available() puede ser false
 	HLS    *stream.Manager // nil solo en tests que no ejercitan streaming/remux (M4)
+
+	Ingest *ingest.Pipeline // nil solo en tests que no ejercitan la ingesta (M5)
 }
 
 // New crea el servidor de API con sus dependencias. repo, cfg, sc, enum, q,
-// tmdb, ffmpeg y hls se comparten con el resto de la aplicación (poller,
-// escaneo inicial, cola de identificación y cola de sondeo de medios en main).
+// tmdb, ffmpeg, hls e ingestPipeline se comparten con el resto de la
+// aplicación (poller, escaneo inicial, cola de identificación, cola de
+// sondeo de medios, pipeline de ingesta en main).
 func New(st *store.Store, repo *catalog.Repo, cfg *config.Config, sc *scan.Scanner,
 	enum localfs.Enumerator, q *identify.Queue, tmdb *identify.Client, cacheDir string, log *slog.Logger,
-	ffmpeg *media.FFmpeg, hls *stream.Manager) *Server {
+	ffmpeg *media.FFmpeg, hls *stream.Manager, ingestPipeline *ingest.Pipeline) *Server {
 	return &Server{Store: st, Catalog: repo, Config: cfg, Scanner: sc, Enum: enum,
-		Identify: q, TMDB: tmdb, CacheDir: cacheDir, Log: log, FFmpeg: ffmpeg, HLS: hls}
+		Identify: q, TMDB: tmdb, CacheDir: cacheDir, Log: log, FFmpeg: ffmpeg, HLS: hls,
+		Ingest: ingestPipeline}
 }
 
 // Routes registra las rutas de la API en el mux dado (requiere Go >= 1.22).
@@ -72,6 +77,9 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/sources/{id}/failed", s.handleSourceFailed)
 	mux.HandleFunc("GET /api/v1/playback/{item_id}", s.handleGetPlayback)
 	mux.HandleFunc("PUT /api/v1/playback/{item_id}", s.handlePutPlayback)
+
+	mux.HandleFunc("POST /api/v1/ingest", s.handleIngest)
+	mux.HandleFunc("GET /api/v1/ingest/lists", s.handleIngestLists)
 }
 
 func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {

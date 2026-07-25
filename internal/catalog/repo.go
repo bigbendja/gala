@@ -142,17 +142,15 @@ func (r *Repo) Get(ctx context.Context, id int64) (*Item, error) {
 		return nil, err
 	}
 
-	rows, err := r.q.QueryContext(ctx, `SELECT id, item_id, provider, locator,
-		volume_id, quality_label, health, last_checked, priority, added_at
+	rows, err := r.q.QueryContext(ctx, `SELECT `+sourceCols+`
 		FROM sources WHERE item_id = ? ORDER BY priority DESC, id ASC`, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var s Source
-		if err := rows.Scan(&s.ID, &s.ItemID, &s.Provider, &s.Locator, &s.VolumeID,
-			&s.QualityLabel, &s.Health, &s.LastChecked, &s.Priority, &s.AddedAt); err != nil {
+		s, err := scanSource(rows)
+		if err != nil {
 			return nil, err
 		}
 		it.Sources = append(it.Sources, s)
@@ -204,10 +202,10 @@ func (r *Repo) InsertSource(ctx context.Context, s *Source, now string) (int64, 
 		s.Health = HealthUnverified
 	}
 	res, err := r.q.ExecContext(ctx, `INSERT INTO sources
-		(item_id, provider, locator, volume_id, quality_label, health, priority, added_at)
-		VALUES (?,?,?,?,?,?,?,?)`,
+		(item_id, provider, locator, volume_id, quality_label, health, priority, added_at, origin_list_id)
+		VALUES (?,?,?,?,?,?,?,?,?)`,
 		s.ItemID, s.Provider, s.Locator, s.VolumeID, s.QualityLabel, s.Health,
-		s.Priority, now)
+		s.Priority, now, s.OriginListID)
 	if err != nil {
 		return 0, err
 	}

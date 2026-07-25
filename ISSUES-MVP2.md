@@ -45,3 +45,34 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
 - 2026-07-24: sondeo de fuentes `http` con ffprobe (M4 solo sonda localfs;
   los enlaces directos se sirven siempre en modo direct vía redirect 302, sin
   comprobar contenedor/códecs real).
+- 2026-07-25: conectores reales de Google Drive y Mega (Brief M5: "son
+  posteriores, solo dejar el contrato listo"). M5 reconoce los dominios y crea
+  la fuente con provider="drive"|"mega" y health='sin_verificar', marcada
+  "pendiente de conector"; el título mostrado hasta entonces es el último
+  segmento de la URL (p. ej. "view" para un enlace de Drive típico), no el
+  título real del archivo — solo el conector futuro puede resolverlo.
+- 2026-07-25: resolvers de hosts de streaming gris (Streamtape, Filemoon,
+  Vidoza, Doodstream y similares). Regla de hierro, no entra NUNCA: M5 solo
+  los detecta para omitirlos (internal/ingest/classify.go, unsupportedHosts),
+  igual que rechazó la insinuación de facilitarlos de cualquier otra forma.
+- 2026-07-25: descarga/anclado a local de fuentes remotas (M5 solo cataloga
+  el enlace vía provider http; nunca descarga el archivo al disco del
+  usuario).
+- 2026-07-25: re-sincronización programada de listas M3U remotas (revisar
+  periódicamente si una IPTV list añadió/quitó canales). M5 deja
+  `ingest_lists.source_url` guardado para cada M3U remota expandida
+  (internal/ingest/pipeline.go, fila anidada tipo "m3u_remoto") precisamente
+  para que esto sea posible más adelante; no hay ningún worker que la
+  re-consulte todavía.
+- 2026-07-25: dedupe por tmdb_id en el momento de la ingesta (dos locators
+  distintos que resultan ser la misma película). M5 solo deduplica por
+  (provider, locator) de forma síncrona; el dedupe por tmdb_id ya lo hace M3
+  (ApplyMovieIdentification) cuando la cola de identificación —asíncrona—
+  llega a esas fuentes, así que ocurre solo, pero no en el momento de la
+  respuesta de /ingest.
+- 2026-07-25: heurística de "host de descarga directa simple" del Brief M5
+  §2 ("directo: ...o el host es de descarga directa simple"). Implementado
+  solo por extensión de archivo conocida; no hay una lista de hosts de
+  descarga directa (a diferencia de unsupportedHosts, el Brief no da
+  ejemplos concretos y inventar una lista sin criterio claro parecía más
+  arriesgado que útil).

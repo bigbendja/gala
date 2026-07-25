@@ -22,6 +22,7 @@ import (
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
 	"github.com/bigbendja/gala/internal/identify"
+	"github.com/bigbendja/gala/internal/ingest"
 	"github.com/bigbendja/gala/internal/media"
 	"github.com/bigbendja/gala/internal/providers/localfs"
 	"github.com/bigbendja/gala/internal/scan"
@@ -96,6 +97,10 @@ func main() {
 	hlsManager := stream.NewManager(ctx, ffmpeg.FFmpegPath, filepath.Join(cacheDir, "hls"), log)
 	go hlsManager.RunSweeper()
 
+	// Ingesta universal (M5): crea items/sources provisionales y despierta
+	// la MISMA cola de identificación de M3, sin lógica de matching propia.
+	ingestPipeline := ingest.NewPipeline(repo, idQueue, log)
+
 	enum := localfs.NewEnumerator()
 	scanner := scan.New(ctx, cfg, repo, enum, log)
 	// Fin de escaneo de M2 despierta la cola de identificación de M3 y la de
@@ -104,7 +109,7 @@ func main() {
 		idQueue.Enqueue()
 		mediaQueue.Enqueue()
 	}
-	apiSrv := api.New(st, repo, cfg, scanner, enum, idQueue, tmdbClient, cacheDir, log, ffmpeg, hlsManager)
+	apiSrv := api.New(st, repo, cfg, scanner, enum, idQueue, tmdbClient, cacheDir, log, ffmpeg, hlsManager, ingestPipeline)
 
 	// Poller de volúmenes: detecta conexión/desconexión de discos y dispara
 	// el re-escaneo de las carpetas registradas que vivan en ellos.
