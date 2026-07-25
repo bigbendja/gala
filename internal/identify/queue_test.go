@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/bigbendja/gala/internal/catalog"
 )
@@ -143,6 +144,63 @@ func TestQueueOfflineThenRecovers(t *testing.T) {
 	}
 	if !q.Status().Online {
 		t.Error("Status().Online = false tras recuperar la red")
+	}
+}
+
+// TestQueueDoesNotBusyLoopOnPersistentAPIError reproduce el bug real
+// reportado en uso: con una API key de TMDB inválida (401, un error de API
+// real, NO offline: internal/identify/tmdb.go solo envuelve en ErrOffline
+// los 5xx/429/errores de red tras agotar reintentos), drain() volvía a
+// PendingIdentify de inmediato una y otra vez porque PendingIdentify incluye
+// items en error a propósito (para reintentarlos) — sin ninguna pasada que
+// progrese, el bucle exterior nunca paraba, martillando TMDB cientos de
+// veces por segundo en vez de esperar al siguiente drenado periódico.
+func TestQueueDoesNotBusyLoopOnPersistentAPIError(t *testing.T) {
+	repo := newRepoForTest(t)
+
+	var requests int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&requests, 1)
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"status_code":7,"status_message":"Invalid API key"}`))
+	}))
+	t.Cleanup(srv.Close)
+	client := NewClient("clave-invalida", t.TempDir(), newMemCache())
+	client.BaseURL = srv.URL
+	client.ImageBase = srv.URL
+
+	id := insertProvisionalItem(t, context.Background(), repo, "Inception.2010.1080p.BluRay.x264-SPARKS")
+
+	// Contexto acotado: si el bug de bucle sin backoff reaparece, el test
+	// falla con un mensaje claro (y rápido) en vez de colgarse para siempre.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	q := NewQueue(ctx, repo, client, discardLogger())
+
+	done := make(chan struct{})
+	go func() {
+		q.drain()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
+		t.Fatal("drain() no volvió en 1s: parece seguir en bucle sin backoff")
+	}
+
+	if got := atomic.LoadInt32(&requests); got != 1 {
+		t.Fatalf("peticiones a TMDB = %d, esperado exactamente 1 (una sola pasada, sin reintento inmediato)", got)
+	}
+
+	it, err := repo.Get(context.Background(), id)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if it.IdentifyStatus != catalog.IdentifyError {
+		t.Fatalf("IdentifyStatus = %q, esperado %q", it.IdentifyStatus, catalog.IdentifyError)
+	}
+	if q.Status().LastError == "" {
+		t.Error("Status().LastError vacío, esperado el motivo del fallo persistente (para poder diagnosticarlo)")
 	}
 }
 

@@ -102,7 +102,15 @@ func (q *Queue) Run() {
 
 // drain procesa todos los items pendientes que pueda. Si TMDB no responde
 // (ErrOffline), se detiene y devuelve true: los que quedan siguen en BD como
-// pending/error y se reintentan en la siguiente pasada (Brief §4).
+// pending/error y se reintentan en la siguiente pasada (Brief §4). También
+// se detiene y devuelve true si una pasada completa no resuelve NINGÚN item
+// (todos vuelven a quedar en error): PendingIdentify incluye items en error
+// a propósito para reintentarlos, pero un fallo persistente por item (p. ej.
+// una API key de TMDB inválida: 401, ni offline ni transitorio) los deja
+// exactamente en el mismo estado en el siguiente vistazo — sin este corte,
+// el bucle exterior los reprocesaría sin fin, cientos de veces por segundo,
+// en vez de esperar al siguiente drenado periódico como si fuera offline
+// (bug real observado: cola martillando TMDB sin backoff con una key rota).
 func (q *Queue) drain() (offline bool) {
 	q.mu.Lock()
 	q.status.Processing = true
@@ -130,6 +138,8 @@ func (q *Queue) drain() (offline bool) {
 		}
 
 		hitOffline := false
+		progressed := false
+		var lastItemErr error
 		for _, it := range items {
 			if q.ctx.Err() != nil {
 				return false
@@ -143,9 +153,11 @@ func (q *Queue) drain() (offline bool) {
 					hitOffline = true
 					break
 				}
+				lastItemErr = err
 				q.log.Warn("identify: procesar item", "item_id", it.ID, "err", err)
 				continue
 			}
+			progressed = true
 			q.mu.Lock()
 			q.status.Processed++
 			q.mu.Unlock()
@@ -155,8 +167,16 @@ func (q *Queue) drain() (offline bool) {
 		}
 		q.mu.Lock()
 		q.status.Online = true
-		q.status.LastError = ""
+		if progressed {
+			q.status.LastError = ""
+		} else if lastItemErr != nil {
+			q.status.LastError = lastItemErr.Error()
+		}
 		q.mu.Unlock()
+
+		if !progressed {
+			return true
+		}
 	}
 }
 
