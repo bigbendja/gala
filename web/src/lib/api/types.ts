@@ -99,3 +99,76 @@ export interface HealthSummary {
 	last_run?: string;
 	running: boolean;
 }
+
+// --- Reproducción (Brief M10b §1; internal/api/stream.go) ------------------
+
+// media.PlayMode.
+export type PlayMode = 'direct' | 'remux' | 'reject' | 'analyzing';
+
+export interface PlayMediaView {
+	container?: string;
+	video_codec?: string;
+	audio_codec?: string;
+	duration_s?: number;
+}
+
+export interface PlaySourceView {
+	source_id: number;
+	provider: string;
+	quality_label?: string;
+	health: Health;
+	mode: PlayMode;
+	url: string;
+	reason?: string;
+	media?: PlayMediaView;
+	/** Solo si la fuente es localfs y la petición viene de localhost. */
+	path?: string;
+}
+
+export interface PlayResponse {
+	item_id: number;
+	sources: PlaySourceView[];
+	chosen_source_id?: number;
+	ffmpeg_available: boolean;
+}
+
+// --- Ingesta (Brief M10b §2; internal/ingest/pipeline.go) -------------------
+
+// ingest.ResumenIngesta.
+export interface ResumenIngesta {
+	detectados: number;
+	total: number;
+	anadidos: number;
+	duplicados: number;
+	pendientes_conector: number;
+	omitidos_no_soportados: number;
+	sin_clasificar: number;
+	basura: number;
+	por_tipo: Record<string, number>;
+	detalles: string[] | null;
+	list_id: number;
+}
+
+// --- Por confirmar (Brief M10b §3; internal/catalog/repo_identify.go) ------
+
+// catalog.Candidate.
+export interface Candidate {
+	tmdb_id: number;
+	kind: 'movie' | 'tv';
+	title: string;
+	original_title?: string;
+	year?: number;
+	poster_path?: string;
+	score: number;
+}
+
+// catalog.PendingItem (Item + candidates, si los hay).
+export interface PendingItem extends Item {
+	candidates?: Candidate[];
+}
+
+export interface ConfirmRequest {
+	tmdb_id?: number;
+	kind?: 'movie' | 'tv';
+	title?: string;
+}

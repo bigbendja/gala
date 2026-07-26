@@ -186,9 +186,54 @@ cultura del disco duro que circula.
       temporadas/episodios reales, botón "+ Mi lista" funcional en hero y
       ficha, "Continuar viendo" alimentada por `in_progress` (ya no limitada
       a la página cargada de "Tu galería").
+- [x] M10b Frontend — Reproductor + Ingesta + Por confirmar: reproductor real
+      (`web/src/lib/components/Player.svelte`, ruta `/ver/{id}`) que sustituye
+      al mínimo de M4 — consume `GET /play/{item_id}`, selector de fuentes con
+      `HealthDot`+modo+calidad, direct play nativo, remux vía hls.js
+      (`^1.6.16`, dependencia npm normal para que Vite lo empaquete — nunca
+      CDN), fallback automático a la siguiente fuente reproducible si el
+      `<video>` dispara `error` (avisa a `POST /sources/{id}/failed` y
+      muestra "La fuente falló, probando la siguiente…"), reject/analyzing
+      mostrados con el motivo en español + "Copiar enlace"/"Copiar ruta del
+      archivo" (nunca vlc://), aviso si `ffmpeg_available` es falso, progreso
+      guardado cada ~10 s y en pausa vía `PUT /playback/{item_id}` y
+      reanudado al abrir (offset del lado del cliente para direct, parámetro
+      `t` de arranque de sesión para remux — la sesión HLS siempre empieza su
+      propio timeline en 0 en el punto de seek). Modal "Pega lo que sea"
+      (`IngestModal.svelte`) conectado a `POST /api/v1/ingest`: pega texto o
+      suelta un archivo, muestra el `ResumenIngesta` REAL (no las cifras de
+      fantasía del mockup) con sus `detalles` si algo quedó sin clasificar;
+      "Elegir carpeta"/"Escanear disco USB"/"Importar .gala" quedan inertes a
+      propósito (gestión de carpetas es M10c, `.gala` es M9) en vez de
+      improvisar alcance nuevo. "Por confirmar" (`/pendientes`, contador en
+      el topbar): consume `GET /pending`; separa items `review` (candidatos
+      TMDB como `CandidateCard` con póster — única excepción consciente a
+      "todo offline", ya que la búsqueda que los generó ya fue online — o
+      título manual) de `junk` (sección "Descartados", solo lectura) de
+      `pending`/`error` (se cuentan como "siguen procesándose en segundo
+      plano", no se listan como accionables); confirmar por candidato usa
+      `POST /items/{id}/confirm {tmdb_id,kind}`, por título manual
+      `{title}`; ninguno de los dos endpoints es nuevo. No existe endpoint
+      para descartar un item de la cola sin confirmarlo (se anota en
+      ISSUES-MVP2.md, no se inventó uno). Tests: Vitest para
+      `pickNextSource`/fallback simulado con `video.error`/`ResumenIngesta`/
+      `CandidateCard` (49 tests, `svelte-check` limpio). Verificación E2E
+      manual contra `gala.exe` real con la matriz de M4: direct play y remux
+      (HLS real vía ffmpeg), reject HEVC con mensaje honesto, fallback
+      forzado borrando el archivo de una fuente, ingesta con el texto EXACTO
+      del mockup (ver `internal/ingest/pipeline_test.go`,
+      `TestPipelineRunMockupTextExact`) mostrando un resumen real con un
+      fallo de DNS real en sus `detalles`, resolución manual de un item de
+      "Por confirmar" reflejada al instante en galería y topbar, y reanudado
+      de progreso tras recargar la página — capturas en
+      `docs/screenshots/m10b/`. La confirmación de candidato TMDB no se pudo
+      probar en vivo en este entorno (sin API key de TMDB válida,
+      `ApplyIdentification` fallaría con 401); queda cubierta por los tests
+      automatizados de M3 y por la ruta de título manual, que sí es 100%
+      offline y se verificó en vivo.
 - [ ] M7 LAN ← SIGUIENTE
 - [ ] M8 Deseos ·
-      M9 .gala · M10b/M10c Frontend (reproductor, ingesta, ajustes) ·
+      M9 .gala · M10c Frontend (ajustes, búsqueda funcional, responsive) ·
       M11 Release
 (Actualizar esta lista al completar cada módulo.)
 

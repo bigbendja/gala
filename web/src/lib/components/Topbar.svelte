@@ -1,5 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/state';
+
+	interface Props {
+		onOpenIngest: () => void;
+		/** Items "Por confirmar" reales (Brief M10b §3); 0 = la píldora no se
+		 *  muestra — nada que confirmar no es un estado que anunciar. */
+		pendingCount?: number;
+	}
+	let { onOpenIngest, pendingCount = 0 }: Props = $props();
 </script>
 
 <header class="topbar">
@@ -14,7 +22,8 @@
 	<nav class="nav" aria-label="Principal">
 		<a href="/" class:active={page.url.pathname === '/'}>Inicio</a>
 		<!-- Películas/Series/Listas/Deseos: visuales por ahora — el
-		     enrutado de M10a se limita a "/" y "/item/{id}" (CLAUDE.md). -->
+		     enrutado de M10a/M10b se limita a "/", "/item/{id}", "/ver/{id}"
+		     y "/pendientes" (CLAUDE.md). -->
 		<span class="inert" title="Todavía no navega a ningún sitio">Películas</span>
 		<span class="inert" title="Todavía no navega a ningún sitio">Series</span>
 		<span class="inert" title="Todavía no navega a ningún sitio">Listas</span>
@@ -23,13 +32,17 @@
 
 	<div class="spacer"></div>
 
+	{#if pendingCount > 0}
+		<a class="pending-pill" href="/pendientes">{pendingCount} por confirmar</a>
+	{/if}
+
 	<div class="search" role="search" title="Búsqueda: llega en M10c">🔍 Buscar en tu galería…</div>
 
 	<button class="lan-pill" disabled title="Modo LAN: llega en M7">
 		<span class="lan-dot"></span> Modo LAN
 	</button>
 
-	<button class="btn-add" disabled title="Añadir contenido: llega en M10b">＋ Añadir</button>
+	<button class="btn-add" onclick={onOpenIngest}>＋ Añadir</button>
 </header>
 
 <style>
@@ -132,7 +145,27 @@
 		font-size: 14px;
 		transition: 0.15s;
 		box-shadow: 0 4px 18px rgba(242, 169, 59, 0.25);
-		opacity: 0.65;
+	}
+	.btn-add:hover {
+		background: #ffbf58;
+		transform: translateY(-1px);
+	}
+	.pending-pill {
+		display: flex;
+		align-items: center;
+		background: rgba(242, 169, 59, 0.12);
+		border: 1px solid rgba(242, 169, 59, 0.35);
+		border-radius: 99px;
+		padding: 7px 14px;
+		font-size: 13px;
+		color: var(--accent);
+		font-weight: 500;
+		text-decoration: none;
+		transition: 0.15s;
+		white-space: nowrap;
+	}
+	.pending-pill:hover {
+		background: rgba(242, 169, 59, 0.2);
 	}
 
 	@media (max-width: 900px) {

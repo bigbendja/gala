@@ -75,7 +75,7 @@
 				{#if item.overview}<p class="overview">{item.overview}</p>{/if}
 
 				<div class="actions">
-					<button class="btn-play" disabled title="Reproducir: llega en M10b">▶ Reproducir</button>
+					<a class="btn-play" href="/ver/{item.id}">▶ Reproducir</a>
 					<button class="btn-ghost" class:active={wished} disabled={wishPending} onclick={toggleWished}>
 						{wished ? '✓ En tu lista' : '＋ Mi lista'}
 					</button>

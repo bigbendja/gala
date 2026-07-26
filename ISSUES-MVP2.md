@@ -105,6 +105,24 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   cruzarla exigiría una petición por fuente. Si en algún momento importa
   mostrarlo, lo más barato sería que M5 guardase el origen en la propia
   fuente en vez de derivarlo.
+- 2026-07-26: descartar manualmente un item de "Por confirmar" desde la UI
+  (Brief M10b §3). No existe endpoint HTTP para borrar/descartar un item
+  provisional — `catalog.Repo.DeleteItem` existe a nivel de repositorio pero
+  no está expuesto por ningún handler de `internal/api`. El brief permitía
+  omitirlo si no existía ("se anota, no se inventa"), así que M10b no añadió
+  backend nuevo: la pantalla `/pendientes` solo permite elegir un candidato
+  o escribir un título a mano; un item que el usuario no quiere en el
+  catálogo no tiene, hoy, forma de desaparecer salvo confirmarlo con algún
+  título y borrarlo después por otra vía (no hay ninguna en M10b tampoco).
+- 2026-07-26: carátulas de candidatos en "Por confirmar" sin conexión
+  (Brief M10b §3). `candidatePosterUrl()` pinta el póster de cada candidato
+  tirando en vivo de `image.tmdb.org` (nunca se cachea localmente, a
+  diferencia del resto de imágenes del catálogo que sí pasan por
+  `/img/{archivo}` una vez confirmadas). Es una excepción deliberada a "todo
+  funciona offline": la búsqueda que produjo esos candidatos ya fue un paso
+  online, así que la vista previa no añade una dependencia de red nueva,
+  pero si el usuario está realmente offline al abrir la cola, esos pósters
+  no cargan (fallback a inicial del título, ya cubierto por tests).
 - 2026-07-25: puntuación TMDB (`vote_average`) y duración (`media_info`) en
   la ficha/hero. Brief M10a menciona "★ 7,8" y "duración si existe en
   media_info" como en el mockup; ninguno de los dos viaja hoy en

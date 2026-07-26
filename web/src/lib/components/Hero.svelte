@@ -66,7 +66,7 @@
 			</div>
 			{#if item.overview}<p>{item.overview}</p>{/if}
 			<div class="hero-actions">
-				<a class="btn-play" href="/item/{item.id}">▶ Reproducir</a>
+				<a class="btn-play" href="/ver/{item.id}">▶ Reproducir</a>
 				<button class="btn-ghost" class:active={wished} disabled={wishPending} onclick={toggleWished}>
 					{wished ? '✓ En tu lista' : '＋ Mi lista'}
 				</button>
