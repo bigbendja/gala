@@ -44,14 +44,11 @@
 
 	const wishlistItems = $derived(data.wishlist?.items ?? []);
 
-	// "Continuar viendo" solo mira la página de "Tu galería" YA cargada: no
-	// hay un filtro de API para "items con progreso" y escanear todo el
-	// catálogo solo para esta fila no seria razonable a miles de items (ver
-	// informe de la entrega). Si el item con progreso no está entre los más
-	// recientes, no aparece aquí — limitación conocida y documentada.
-	const continuingItems = $derived(
-		(data.gallery?.items ?? []).filter((it) => it.progress && !it.progress.watched)
-	);
+	// "Continuar viendo" (Brief M10a-fix B3/C): alimentada por el filtro
+	// in_progress, mira todo el catálogo, no solo la página ya cargada de
+	// "Tu galería" (limitación de M10a, ya resuelta). Si viene vacía —o
+	// falló la petición—, la fila se oculta, nunca se muestra vacía.
+	const continuingItems = $derived(data.continuing?.items ?? []);
 
 	const isEmptyCatalog = $derived(
 		!data.galleryError && !data.wishlistError && galleryItems.length === 0 && wishlistItems.length === 0

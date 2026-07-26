@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
@@ -59,6 +60,8 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/ping", s.handlePing)
 	mux.HandleFunc("GET /api/v1/items", s.handleListItems)
 	mux.HandleFunc("GET /api/v1/items/{id}", s.handleGetItem)
+	mux.HandleFunc("POST /api/v1/items/{id}/wish", s.handleWishAdd)
+	mux.HandleFunc("DELETE /api/v1/items/{id}/wish", s.handleWishRemove)
 
 	mux.HandleFunc("GET /api/v1/folders", s.handleListFolders)
 	mux.HandleFunc("POST /api/v1/folders", s.handleAddFolder)
@@ -96,7 +99,14 @@ func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
 
 // handleListItems: GET /api/v1/items?kind=movie&q=texto&year=2023&genre=Drama
 //
-//	&wished=true&confirmed=false&limit=60&offset=0
+//	&wished=true&confirmed=false&parent_id=42&in_progress=true&limit=60&offset=0
+//
+// parent_id (Brief M10a-fix B1): ausente = sin filtrar por jerarquía (igual
+// que antes); ""/"null" = solo items de nivel superior; un id = solo sus
+// hijos directos (temporadas de una serie, episodios de una temporada).
+// in_progress (Brief M10a-fix B3): "true" = solo items con progreso real
+// para el dispositivo de la cookie (vacía si no hay cookie todavía, nunca
+// error), ordenados por el momento del progreso.
 func (s *Server) handleListItems(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f := catalog.ListFilter{
@@ -124,6 +134,26 @@ func (s *Server) handleListItems(w http.ResponseWriter, r *http.Request) {
 	if f.Confirmed, err = boolParam(q.Get("confirmed")); err != nil {
 		badRequest(w, "confirmed no válido")
 		return
+	}
+	if q.Has("parent_id") {
+		pid := q.Get("parent_id")
+		if pid == "" || strings.EqualFold(pid, "null") {
+			f.TopLevelOnly = true
+		} else {
+			v, perr := strconv.ParseInt(pid, 10, 64)
+			if perr != nil || v <= 0 {
+				badRequest(w, "parent_id no válido")
+				return
+			}
+			f.ParentID = &v
+		}
+	}
+	if inProgress, err := boolParam(q.Get("in_progress")); err != nil {
+		badRequest(w, "in_progress no válido")
+		return
+	} else if inProgress != nil && *inProgress {
+		f.InProgress = true
+		f.DeviceID = readDeviceID(r)
 	}
 
 	res, err := s.Catalog.List(r.Context(), f)

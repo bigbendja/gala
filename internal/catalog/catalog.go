@@ -117,8 +117,27 @@ type ListFilter struct {
 	Genre     string // vacío = todos
 	Wished    *bool  // nil = indiferente
 	Confirmed *bool  // nil = indiferente
-	Limit     int    // <=0 → 60; máx 200
-	Offset    int
+
+	// ParentID/TopLevelOnly filtran por jerarquía (Brief M10a-fix B1: la
+	// ficha de una serie necesita listar sus temporadas/episodios directos).
+	// Ninguno de los dos puesto = comportamiento previo, sin filtrar por
+	// parent_id (compatibilidad). ParentID no nil = solo los hijos directos
+	// de ese id. TopLevelOnly = solo items sin padre (parent_id IS NULL);
+	// se ignora si ParentID también está puesto.
+	ParentID     *int64
+	TopLevelOnly bool
+
+	// InProgress, con DeviceID, filtra a items con progreso de reproducción
+	// real para ESE dispositivo (position_s > 0, no watched), ordenados por
+	// el momento del progreso en vez de por added_at (Brief M10a-fix B3:
+	// "Continuar viendo" sin depender de qué página del catálogo esté
+	// cargada). DeviceID vacío (sin cookie de dispositivo todavía) da
+	// resultado vacío, nunca error — mismo criterio que AttachProgress.
+	InProgress bool
+	DeviceID   string
+
+	Limit  int // <=0 → 60; máx 200
+	Offset int
 }
 
 // Normalize aplica límites seguros al filtro.

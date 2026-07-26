@@ -70,6 +70,12 @@ export interface ListItemsParams {
 	year?: number;
 	wished?: boolean;
 	confirmed?: boolean;
+	/** Hijos directos de este id (temporadas de una serie, episodios de una
+	 *  temporada). 'null' = solo items de nivel superior. Brief M10a-fix B1. */
+	parent_id?: number | 'null';
+	/** Solo items con progreso real para el dispositivo actual. Brief
+	 *  M10a-fix B3. */
+	in_progress?: boolean;
 	limit?: number;
 	offset?: number;
 }

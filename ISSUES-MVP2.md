@@ -94,23 +94,10 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   re-parsear la lista M3U en sí para detectar canales añadidos/quitados
   (eso es la re-sincronización ya anotada en la entrada de M5 sobre
   `ingest_lists.source_url`).
-- 2026-07-25: filtro `parent_id` (o endpoint dedicado) en `GET /items` para
-  listar los hijos directos de un item (temporadas de una serie, episodios
-  de una temporada). Brief M10a: "si es serie, mostrar temporadas y
-  episodios" — sin este filtro, la ficha de una serie no puede pedir su
-  jerarquía sin traerse el catálogo entero; se anotó en la ficha en vez de
-  inventar el filtro.
-- 2026-07-25: endpoint de alta/baja en deseos (`POST /wishlist` de la
-  especificación §5, o equivalente). M10a deja "+ Mi lista" visual/inerte
-  tanto en el hero como en la ficha (Brief M10a §5/§6: "puede ser funcional
-  si hay endpoint; si no, visual") — no existe todavía (es M8).
-  `GET /items?wished=` sí filtra, pero no hay forma de ESCRIBIR wished=1.
-- 2026-07-25: filtro "items con progreso" en `GET /items` (o endpoint
-  dedicado tipo `GET /continue-watching`). La fila "Continuar viendo" de
-  M10a solo mira la página ya cargada de "Tu galería" (donde `progress` SÍ
-  viaja, desde M4) para no escanear todo el catálogo solo para esta fila;
-  un item en curso que no esté entre los más recientes no aparece ahí. Con
-  un filtro dedicado dejaría de ser una limitación.
+- 2026-07-25 (resuelto 2026-07-26, M10a-fix): filtro `parent_id`/`in_progress`
+  en `GET /items` y endpoint de alta/baja en deseos — los tres quedaron
+  anotados aquí tras M10a y se cerraron en el mini-brief M10a-fix (ver
+  CLAUDE.md, addendum M10a-fix, para el detalle de la implementación).
 - 2026-07-25: procedencia M3U de una fuente visible sin petición extra. El
   badge "LISTA·M3U" del mockup no se implementó en M10a: `Source.Provider`
   no distingue "vino de una M3U" de "enlace directo" (ambos son

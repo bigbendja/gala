@@ -13,10 +13,10 @@ export class ApiError extends Error {
 	}
 }
 
-async function request<T>(path: string): Promise<T> {
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	let res: Response;
 	try {
-		res = await fetch(path);
+		res = await fetch(path, init);
 	} catch {
 		throw new ApiError('No se pudo conectar con GALA. Comprueba que el programa sigue en marcha.');
 	}
@@ -42,6 +42,10 @@ export function listItems(params: ListItemsParams = {}): Promise<ListResult> {
 	if (params.year) q.set('year', String(params.year));
 	if (params.wished !== undefined) q.set('wished', String(params.wished));
 	if (params.confirmed !== undefined) q.set('confirmed', String(params.confirmed));
+	if (params.parent_id !== undefined) {
+		q.set('parent_id', params.parent_id === 'null' ? '' : String(params.parent_id));
+	}
+	if (params.in_progress !== undefined) q.set('in_progress', String(params.in_progress));
 	q.set('limit', String(params.limit ?? 60));
 	q.set('offset', String(params.offset ?? 0));
 	return request<ListResult>(`/api/v1/items?${q.toString()}`);
@@ -50,6 +54,12 @@ export function listItems(params: ListItemsParams = {}): Promise<ListResult> {
 /** GET /api/v1/items/{id} — ficha con fuentes. */
 export function getItem(id: number): Promise<Item> {
 	return request<Item>(`/api/v1/items/${id}`);
+}
+
+/** POST (wished=true) o DELETE (wished=false) /api/v1/items/{id}/wish —
+ *  Brief M10a-fix B2, botón "+ Mi lista" de la ficha. */
+export function setWished(id: number, wished: boolean): Promise<{ status: string; wished: boolean }> {
+	return request(`/api/v1/items/${id}/wish`, { method: wished ? 'POST' : 'DELETE' });
 }
 
 /** GET /api/v1/health/summary — indicador global (M6). */

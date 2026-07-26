@@ -6,9 +6,13 @@ import type { PageLoad } from './$types';
 // piden bajo demanda desde +page.svelte según el usuario hace scroll
 // (ver Row.svelte, virtualización + paginación perezosa).
 export const load: PageLoad = async () => {
-	const [galleryRes, wishlistRes, healthRes] = await Promise.allSettled([
+	const [galleryRes, wishlistRes, continuingRes, healthRes] = await Promise.allSettled([
 		listItems({ confirmed: true, limit: 200, offset: 0 }),
 		listItems({ wished: true, limit: 60, offset: 0 }),
+		// Brief M10a-fix B3/C: "Continuar viendo" ahora mira TODO el
+		// catálogo vía el filtro in_progress, no solo la página de "Tu
+		// galería" ya cargada (limitación de M10a, ya resuelta).
+		listItems({ in_progress: true, limit: 60, offset: 0 }),
 		healthSummary()
 	]);
 
@@ -16,6 +20,7 @@ export const load: PageLoad = async () => {
 	const galleryError = galleryRes.status === 'rejected' ? String(galleryRes.reason) : null;
 	const wishlist = wishlistRes.status === 'fulfilled' ? wishlistRes.value : null;
 	const wishlistError = wishlistRes.status === 'rejected' ? String(wishlistRes.reason) : null;
+	const continuing = continuingRes.status === 'fulfilled' ? continuingRes.value : null;
 	const health = healthRes.status === 'fulfilled' ? healthRes.value : null;
 
 	// Hero (Brief M10a §5): el item confirmado más reciente que YA tiene
@@ -28,5 +33,5 @@ export const load: PageLoad = async () => {
 		listVolumes().catch(() => [])
 	]);
 
-	return { gallery, galleryError, wishlist, wishlistError, health, hero, volumes };
+	return { gallery, galleryError, wishlist, wishlistError, continuing, health, hero, volumes };
 };

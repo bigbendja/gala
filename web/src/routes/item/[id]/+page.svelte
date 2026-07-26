@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { imgUrl } from '$lib/api/client';
+	import { imgUrl, setWished } from '$lib/api/client';
 	import SourceStack from '$lib/components/SourceStack.svelte';
+	import { displayTitle, isUnidentified } from '$lib/format';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -8,10 +9,35 @@
 
 	const backdrop = $derived(item ? imgUrl(item.backdrop_path) : null);
 	const poster = $derived(item ? imgUrl(item.poster_path) : null);
+	const title = $derived(item ? displayTitle(item) : '');
+	const unidentified = $derived(item ? isUnidentified(item) : false);
+
+	// Brief M10a-fix B2/C: "+ Mi lista" ahora es funcional. Estado local
+	// optimista (arranca con el wished real del item) para no esperar una
+	// vuelta de red antes de reflejar el clic.
+	let wished = $state(false);
+	let wishPending = $state(false);
+	$effect(() => {
+		wished = item?.wished ?? false;
+	});
+
+	async function toggleWished() {
+		if (!item || wishPending) return;
+		const next = !wished;
+		wishPending = true;
+		try {
+			await setWished(item.id, next);
+			wished = next;
+		} catch {
+			// Se ignora: el botón se queda como estaba, el usuario puede reintentar.
+		} finally {
+			wishPending = false;
+		}
+	}
 </script>
 
 <svelte:head>
-	<title>{item ? `${item.title} — GALA` : 'GALA'}</title>
+	<title>{item ? `${title} — GALA` : 'GALA'}</title>
 </svelte:head>
 
 {#if data.itemError}
@@ -29,12 +55,15 @@
 				{#if poster}
 					<img src={poster} alt="" />
 				{:else}
-					<div class="art"><b>{item.title}</b></div>
+					<div class="art"><b>{title}</b></div>
 				{/if}
 			</a>
 
 			<div class="info">
-				<h1>{item.title}</h1>
+				<h1>{title}</h1>
+				{#if unidentified}
+					<p class="unidentified-tag">Sin identificar</p>
+				{/if}
 				{#if item.original_title && item.original_title !== item.title}
 					<p class="original">{item.original_title}</p>
 				{/if}
@@ -47,7 +76,9 @@
 
 				<div class="actions">
 					<button class="btn-play" disabled title="Reproducir: llega en M10b">▶ Reproducir</button>
-					<button class="btn-ghost" disabled title="Guardar en deseos: llega en M8">＋ Mi lista</button>
+					<button class="btn-ghost" class:active={wished} disabled={wishPending} onclick={toggleWished}>
+						{wished ? '✓ En tu lista' : '＋ Mi lista'}
+					</button>
 				</div>
 
 				{#if item.sources && item.sources.length > 0}
@@ -57,13 +88,32 @@
 				{/if}
 
 				{#if item.kind === 'series'}
-					<div class="seasons-notice">
-						<p>
-							<b>Temporadas y episodios:</b> la API de catálogo aún no permite pedir "los hijos de
-							este item" (falta un filtro por <code>parent_id</code> en <code>GET /items</code>),
-							así que esta ficha no puede listarlos todavía sin traerse el catálogo entero. Anotado
-							para un módulo futuro.
-						</p>
+					<div class="seasons">
+						{#if data.seasons.length === 0}
+							<p class="muted">Todavía no hay temporadas catalogadas de esta serie.</p>
+						{:else}
+							{#each data.seasons as season (season.id)}
+								<div class="season">
+									<h3>
+										{season.season_number ? `Temporada ${season.season_number}` : displayTitle(season)}
+									</h3>
+									{#if data.episodesBySeason[season.id]?.length}
+										<ol class="episodes">
+											{#each data.episodesBySeason[season.id] as ep (ep.id)}
+												<li>
+													<a href="/item/{ep.id}">
+														<span class="ep-num">{ep.episode_number ?? '—'}</span>
+														<span class="ep-title">{displayTitle(ep)}</span>
+													</a>
+												</li>
+											{/each}
+										</ol>
+									{:else}
+										<p class="muted">Sin episodios catalogados todavía.</p>
+									{/if}
+								</div>
+							{/each}
+						{/if}
 					</div>
 				{/if}
 			</div>
@@ -137,6 +187,14 @@
 		letter-spacing: -0.01em;
 		margin-bottom: 6px;
 	}
+	.unidentified-tag {
+		display: inline-block;
+		font-family: var(--mono);
+		font-size: 12px;
+		color: var(--muted);
+		font-style: italic;
+		margin-bottom: 8px;
+	}
 	.original {
 		color: var(--muted);
 		font-size: 14px;
@@ -178,8 +236,7 @@
 		padding: 13px 26px;
 		border-radius: 11px;
 	}
-	.btn-play:disabled,
-	.btn-ghost:disabled {
+	.btn-play:disabled {
 		opacity: 0.5;
 		cursor: default;
 	}
@@ -191,23 +248,63 @@
 		background: rgba(255, 255, 255, 0.03);
 		font-weight: 500;
 	}
+	.btn-ghost.active {
+		border-color: rgba(242, 169, 59, 0.4);
+		color: var(--accent);
+		background: rgba(242, 169, 59, 0.1);
+	}
+	.btn-ghost:disabled {
+		opacity: 0.6;
+		cursor: default;
+	}
 	.no-sources {
 		margin-top: 20px;
 	}
-	.seasons-notice {
-		margin-top: 22px;
+	.seasons {
+		margin-top: 26px;
 		max-width: 640px;
-		padding: 14px 18px;
+		display: flex;
+		flex-direction: column;
+		gap: 18px;
+	}
+	.season h3 {
+		font-family: var(--display);
+		font-size: 16px;
+		font-weight: 600;
+		margin-bottom: 8px;
+	}
+	.episodes {
+		list-style: none;
 		border: 1px solid var(--line);
 		border-radius: var(--r);
 		background: rgba(0, 0, 0, 0.2);
-		color: var(--muted);
-		font-size: 13px;
-		line-height: 1.5;
+		overflow: hidden;
 	}
-	.seasons-notice code {
+	.episodes li {
+		border-bottom: 1px solid rgba(51, 38, 25, 0.5);
+	}
+	.episodes li:last-child {
+		border-bottom: none;
+	}
+	.episodes a {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 10px 16px;
+		text-decoration: none;
+		color: inherit;
+		font-size: 13.5px;
+	}
+	.episodes a:hover {
+		background: var(--surface);
+	}
+	.ep-num {
 		font-family: var(--mono);
+		color: var(--muted);
 		font-size: 12px;
+		flex-shrink: 0;
+		width: 1.5em;
+		text-align: right;
 	}
 	.state-page {
 		max-width: 560px;

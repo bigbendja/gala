@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Source } from '$lib/api/types';
-	import { providerLabel, shortLocator } from '$lib/format';
+	import { cleanHealthDetail, providerLabel, shortLocator } from '$lib/format';
 	import HealthDot from './HealthDot.svelte';
 
 	interface Props {
@@ -15,11 +15,12 @@
 		<span>se reproduce la mejor disponible</span>
 	</div>
 	{#each sources as src (src.id)}
+		{@const detail = cleanHealthDetail(src.health_detail)}
 		<div class="src-row">
 			<HealthDot health={src.health} size={8} />
 			<span class="tag" class:local={src.provider === 'localfs'}>{providerLabel(src.provider)}</span>
 			<span class="path" title={src.locator}>
-				{shortLocator(src.locator)}{#if src.health_detail} · {src.health_detail}{/if}
+				{shortLocator(src.locator)}{#if detail} · {detail}{/if}
 			</span>
 			<span class="q">{src.quality_label ?? '—'}</span>
 		</div>

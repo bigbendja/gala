@@ -89,20 +89,41 @@ func (r *Repo) List(ctx context.Context, f ListFilter) (*ListResult, error) {
 		where = append(where, "i.confirmed = ?")
 		args = append(args, boolInt(*f.Confirmed))
 	}
+	if f.ParentID != nil {
+		where = append(where, "i.parent_id = ?")
+		args = append(args, *f.ParentID)
+	} else if f.TopLevelOnly {
+		where = append(where, "i.parent_id IS NULL")
+	}
+
+	// InProgress necesita un JOIN (no cabe en la lista plana de condiciones
+	// AND): sus argumentos van ANTES que los de `where`, porque su `?`
+	// aparece antes en el SQL final (dentro del FROM).
+	from := "items i"
+	joinArgs := []any{}
+	orderBy := "i.added_at DESC, i.id DESC"
+	if f.InProgress {
+		from = "items i INNER JOIN playback p ON p.item_id = i.id AND p.device_id = ?"
+		joinArgs = append(joinArgs, f.DeviceID)
+		where = append(where, "p.position_s > 0", "p.watched = 0")
+		orderBy = "p.updated_at DESC, i.id DESC"
+	}
 
 	cond := strings.Join(where, " AND ")
 
 	var total int
+	countArgs := append(append([]any{}, joinArgs...), args...)
 	if err := r.q.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM items i WHERE `+cond, args...).Scan(&total); err != nil {
+		`SELECT COUNT(*) FROM `+from+` WHERE `+cond, countArgs...).Scan(&total); err != nil {
 		return nil, err
 	}
 
 	query := `SELECT ` + itemCols + `,
 		(SELECT COUNT(*) FROM sources s WHERE s.item_id = i.id) AS source_count
-		FROM items i WHERE ` + cond + `
-		ORDER BY i.added_at DESC, i.id DESC LIMIT ? OFFSET ?`
-	rows, err := r.q.QueryContext(ctx, query, append(args, f.Limit, f.Offset)...)
+		FROM ` + from + ` WHERE ` + cond + `
+		ORDER BY ` + orderBy + ` LIMIT ? OFFSET ?`
+	queryArgs := append(append(append([]any{}, joinArgs...), args...), f.Limit, f.Offset)
+	rows, err := r.q.QueryContext(ctx, query, queryArgs...)
 	if err != nil {
 		return nil, err
 	}

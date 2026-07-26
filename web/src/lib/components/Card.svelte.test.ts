@@ -10,6 +10,7 @@ function makeItem(overrides: Partial<Item> = {}): Item {
 		title: 'Cielo de Harmattan',
 		genres: ['Drama'],
 		confirmed: true,
+		tmdb_id: 27205,
 		wished: false,
 		added_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
@@ -31,14 +32,21 @@ describe('Card', () => {
 		expect(getByText('2023')).toBeInTheDocument();
 	});
 
-	it('muestra el badge NUEVO si se añadió hace menos de 24h', () => {
+	it('muestra el badge NUEVO recién añadido', () => {
 		const { getByText } = render(Card, {
 			item: makeItem({ added_at: new Date().toISOString() })
 		});
 		expect(getByText('NUEVO')).toBeInTheDocument();
 	});
 
-	it('no muestra NUEVO si se añadió hace más de 24h', () => {
+	it('muestra NUEVO dentro de la ventana de 48h (Brief M10a-fix A1)', () => {
+		const { getByText } = render(Card, {
+			item: makeItem({ added_at: new Date(Date.now() - 30 * 3600_000).toISOString() })
+		});
+		expect(getByText('NUEVO')).toBeInTheDocument();
+	});
+
+	it('no muestra NUEVO pasadas las 48h', () => {
 		const { queryByText } = render(Card, {
 			item: makeItem({ added_at: new Date(Date.now() - 3 * 86_400_000).toISOString() })
 		});
@@ -59,5 +67,28 @@ describe('Card', () => {
 		});
 		expect(getByText('Sin fuente')).toBeInTheDocument();
 		expect(container.querySelector('.m')?.textContent).toContain('buscando');
+	});
+
+	it('limpia el título crudo y marca "Sin identificar" para items sin confirmar (Brief M10a-fix A4)', () => {
+		const { getAllByText, getByText, queryByText } = render(Card, {
+			item: makeItem({
+				title: 'Pelicula.2019.1080p.x264-GRUPO',
+				confirmed: false,
+				tmdb_id: undefined,
+				year: 2019
+			})
+		});
+		expect(getAllByText('Pelicula 2019 1080p x264-GRUPO')).toHaveLength(2);
+		expect(getByText('Sin identificar')).toBeInTheDocument();
+		// El año no se muestra a la vez que "Sin identificar" (no hay
+		// espacio ni sentido en mostrar los dos).
+		expect(queryByText('2019')).not.toBeInTheDocument();
+	});
+
+	it('un item confirmado y con tmdb_id NO se marca sin identificar', () => {
+		const { queryByText } = render(Card, {
+			item: makeItem({ confirmed: true, tmdb_id: 27205 })
+		});
+		expect(queryByText('Sin identificar')).not.toBeInTheDocument();
 	});
 });

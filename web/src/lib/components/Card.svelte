@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { imgUrl } from '$lib/api/client';
 	import type { Health, Item } from '$lib/api/types';
+	import { displayTitle, isUnidentified } from '$lib/format';
 	import HealthDot from './HealthDot.svelte';
 
 	interface Props {
@@ -33,7 +34,18 @@
 	// Brief M10a §5: badge "NUEVO" si se puede derivar de los datos reales
 	// (added_at reciente); "LISTA·M3U" se omite — el listado no expone el
 	// origen de ingesta por item (ver informe de la entrega).
-	const isNew = $derived(Date.now() - new Date(item.added_at).getTime() < 24 * 3600 * 1000);
+	// Brief M10a-fix A1: con 24h, prácticamente todo lo recién escaneado
+	// salía marcado NUEVO a la vez (si todo es nuevo, nada lo es); 48h dejó
+	// la mayoría de tarjetas sin badge en la prueba real.
+	const NEW_BADGE_WINDOW_HOURS = 48;
+	const isNew = $derived(
+		Date.now() - new Date(item.added_at).getTime() < NEW_BADGE_WINDOW_HOURS * 3600 * 1000
+	);
+
+	// Brief M10a-fix A4: título de presentación limpio para items sin
+	// identificar, sin tocar la lógica de M3 (solo esta vista).
+	const title = $derived(displayTitle(item));
+	const unidentified = $derived(variant === 'default' && isUnidentified(item));
 
 	const progressPct = $derived.by(() => {
 		const p = item.progress;
@@ -59,7 +71,7 @@
 		{#if poster}
 			<img src={poster} alt="" loading="lazy" />
 		{:else}
-			<b>{item.title}</b>
+			<b>{title}</b>
 		{/if}
 		{#if progressPct !== null}
 			<div class="progress"><i style:width="{progressPct}%"></i></div>
@@ -67,10 +79,19 @@
 	</div>
 
 	<div class="info">
-		<div class="t">{item.title}</div>
+		<div class="t">{title}</div>
 		<div class="m">
 			{#if variant === 'wish'}
 				<span>{item.year ?? ''} · buscando…</span>
+			{:else if unidentified}
+				<span class="unidentified">Sin identificar</span>
+				{#if healthDots.shown.length > 0}
+					<div class="dots">
+						{#each healthDots.shown as h, i (i)}
+							<HealthDot health={h} size={6} />
+						{/each}
+					</div>
+				{/if}
 			{:else}
 				<span>{item.year ?? ''}</span>
 				{#if healthDots.shown.length > 0}
@@ -165,6 +186,14 @@
 		gap: 4px;
 		margin-left: auto;
 	}
+	/* Brief M10a-fix A4: marca sobria, sin inventar título. */
+	.unidentified {
+		font-family: var(--mono);
+		font-size: 10.5px;
+		letter-spacing: 0.03em;
+		color: var(--muted);
+		font-style: italic;
+	}
 	.extra {
 		font-family: var(--mono);
 		font-size: 10px;
@@ -182,19 +211,25 @@
 		height: 100%;
 		background: var(--accent);
 	}
+	/* Brief M10a-fix A2: menor peso visual que antes (sin borde, más
+	   pequeño) y un halo/sombra difuso propio en vez de una chapa opaca, para
+	   que se lea sobre cualquier carátula sin tapar caras/logos del póster. */
 	.badge {
 		position: absolute;
-		top: 10px;
-		left: 10px;
+		top: 8px;
+		left: 8px;
 		z-index: 1;
 		font-family: var(--mono);
-		font-size: 10.5px;
-		letter-spacing: 0.06em;
-		background: rgba(16, 12, 9, 0.82);
-		border: 1px solid var(--line);
-		border-radius: 6px;
-		padding: 3px 8px;
-		color: var(--muted);
+		font-size: 9.5px;
+		font-weight: 500;
+		letter-spacing: 0.07em;
+		background: rgba(16, 12, 9, 0.5);
+		backdrop-filter: blur(3px);
+		border-radius: 5px;
+		padding: 2px 7px;
+		color: var(--text);
+		text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+		box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
 	}
 
 	/* Paleta de respaldo sin carátula (Brief M10a §5), calcada del mockup. */

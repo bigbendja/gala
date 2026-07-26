@@ -162,15 +162,30 @@ cultura del disco duro que circula.
       componentes y cliente de API; `svelte-check` limpio. CI actualizada:
       `npm ci && npm run build` antes de cualquier paso de Go (`go:embed`
       exige `web/dist/` con contenido). `web/dist/` deja de versionarse.
-      Endpoints que faltaron (anotados, no inventados — ver también
-      ISSUES-MVP2.md): sin filtro `parent_id` en `GET /items` (no se pueden
-      listar temporadas/episodios de una serie desde la ficha); sin endpoint
-      para alta/baja en deseos (M8, "+ Mi lista" queda visual); sin filtro
-      "items con progreso" (fila "Continuar viendo" solo mira la página ya
-      cargada de "Tu galería", no escanea todo el catálogo); el origen M3U
-      de una fuente no es visible sin cruzar `ingest_lists` (badge
-      "LISTA·M3U" omitido). Reproductor, modal de ingesta, "Por confirmar",
-      ajustes y búsqueda funcional quedan fuera a propósito (M10b/M10c).
+      Endpoints que faltaron en la entrega inicial (los 3 principales ya se
+      cerraron, ver addendum abajo); el origen M3U de una fuente sigue sin
+      ser visible sin cruzar `ingest_lists` (badge "LISTA·M3U" omitido,
+      exigiría una petición extra por fuente — ver ISSUES-MVP2.md).
+      Reproductor, modal de ingesta, "Por confirmar", ajustes y búsqueda
+      funcional quedan fuera a propósito (M10b/M10c).
+      Addendum M10a-fix (correcciones visuales + los 3 endpoints anotados):
+      badge "NUEVO" ahora a 48h (antes 24h, salía en casi todo) y con menor
+      peso visual (halo difuso en vez de chapa opaca, para no tapar el
+      póster); el detalle de salud en la ficha ya no muestra el nombre del
+      paquete Go interno (`httpprovider:` etc. — `cleanHealthDetail` en
+      `web/src/lib/format.ts`, limpieza SOLO de presentación); items sin
+      identificar (`confirmed=false` o sin `tmdb_id`) muestran el nombre de
+      archivo limpio (puntos/guiones bajos → espacios, `displayTitle`) y una
+      marca sobria "Sin identificar" en vez del año, sin tocar la lógica de
+      M3. Backend: `GET /items` gana `parent_id` (hijos directos; vacío o
+      "null" = solo nivel superior) y `in_progress` (items con progreso real
+      del dispositivo de la cookie, ordenados por el momento del progreso);
+      `POST`/`DELETE /items/{id}/wish` marca/quita deseado (anticipo mínimo
+      de M8 — la búsqueda-para-desear un título sin fuente sigue siendo M8
+      completo). Frontend ya consume los tres: ficha de serie con
+      temporadas/episodios reales, botón "+ Mi lista" funcional en hero y
+      ficha, "Continuar viendo" alimentada por `in_progress` (ya no limitada
+      a la página cargada de "Tu galería").
 - [ ] M7 LAN ← SIGUIENTE
 - [ ] M8 Deseos ·
       M9 .gala · M10b/M10c Frontend (reproductor, ingesta, ajustes) ·

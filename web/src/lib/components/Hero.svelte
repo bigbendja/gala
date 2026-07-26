@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { imgUrl } from '$lib/api/client';
+	import { untrack } from 'svelte';
+	import { imgUrl, setWished } from '$lib/api/client';
 	import type { Item, Volume } from '$lib/api/types';
-	import { addedEyebrow } from '$lib/format';
+	import { addedEyebrow, displayTitle } from '$lib/format';
 	import SourceStack from './SourceStack.svelte';
 
 	interface Props {
@@ -9,6 +10,28 @@
 		volumes: Volume[];
 	}
 	let { item, volumes }: Props = $props();
+
+	const title = $derived(displayTitle(item));
+
+	// Brief M10a-fix B2/C: mismo botón funcional que en la ficha. Semilla
+	// intencional de estado local (untrack): a partir de aquí wished vive
+	// de los clics del usuario, no de recargas de `item` (mismo patrón que
+	// la paginación de +page.svelte, Svelte state_referenced_locally).
+	let wished = $state(untrack(() => item.wished));
+	let wishPending = $state(false);
+	async function toggleWished() {
+		if (wishPending) return;
+		const next = !wished;
+		wishPending = true;
+		try {
+			await setWished(item.id, next);
+			wished = next;
+		} catch {
+			// Se ignora: el botón se queda como estaba, el usuario puede reintentar.
+		} finally {
+			wishPending = false;
+		}
+	}
 
 	// Etiqueta real del disco de origen, si la fuente principal es localfs y
 	// el volumen tiene Label conocido (Brief M10a: "no inventar" — sin
@@ -35,7 +58,7 @@
 	<div class="hero-inner">
 		<div>
 			<div class="eyebrow">{eyebrow}</div>
-			<h1>{item.title}</h1>
+			<h1>{title}</h1>
 			<div class="hero-meta">
 				{#if item.rating_cert}<span class="cert">{item.rating_cert}+</span>{/if}
 				{#if item.year}<span>{item.year}</span>{/if}
@@ -44,7 +67,9 @@
 			{#if item.overview}<p>{item.overview}</p>{/if}
 			<div class="hero-actions">
 				<a class="btn-play" href="/item/{item.id}">▶ Reproducir</a>
-				<button class="btn-ghost" disabled title="Llega en M8">＋ Mi lista</button>
+				<button class="btn-ghost" class:active={wished} disabled={wishPending} onclick={toggleWished}>
+					{wished ? '✓ En tu lista' : '＋ Mi lista'}
+				</button>
 				<a class="btn-ghost" href="/item/{item.id}">Detalles</a>
 			</div>
 
@@ -57,7 +82,7 @@
 			{#if poster}
 				<img src={poster} alt="" />
 			{:else}
-				<div class="art"><b>{item.title}</b></div>
+				<div class="art"><b>{title}</b></div>
 			{/if}
 		</a>
 	</div>
@@ -202,6 +227,11 @@
 	.btn-ghost:disabled {
 		opacity: 0.5;
 		cursor: default;
+	}
+	.btn-ghost.active {
+		border-color: rgba(242, 169, 59, 0.4);
+		color: var(--accent);
+		background: rgba(242, 169, 59, 0.1);
 	}
 	.hero-poster {
 		display: block;
