@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
-	import { ApiError, confirmItem } from '$lib/api/client';
+	import { ApiError, confirmItem, deleteItem } from '$lib/api/client';
 	import CandidateCard from '$lib/components/CandidateCard.svelte';
 	import type { Candidate, PendingItem } from '$lib/api/types';
 	import { displayTitle } from '$lib/format';
@@ -16,6 +16,10 @@
 	let manualTitles = $state<Record<number, string>>({});
 	let busyIds = $state(new Set<number>());
 	let errors = $state<Record<number, string>>({});
+	// Brief M10c §3: descartar un "Por confirmar" que no es un título real
+	// (cierra el hueco anotado en M10b/ISSUES-MVP2.md — ahora sí hay
+	// endpoint: DELETE /api/v1/items/{id}).
+	let confirmingDiscard = $state<number | null>(null);
 
 	const review = $derived(items.filter((it) => it.identify_status === 'review'));
 	const junk = $derived(items.filter((it) => it.identify_status === 'junk'));
@@ -50,6 +54,22 @@
 		const title = (manualTitles[item.id] ?? '').trim();
 		if (!title) return;
 		resolve(item, { title });
+	}
+
+	async function discard(item: PendingItem) {
+		if (busyIds.has(item.id)) return;
+		confirmingDiscard = null;
+		busyIds.add(item.id);
+		delete errors[item.id];
+		try {
+			await deleteItem(item.id);
+			items = items.filter((it) => it.id !== item.id);
+			invalidateAll();
+		} catch (err) {
+			errors[item.id] = err instanceof ApiError ? err.message : 'No se pudo descartar. Inténtalo de nuevo.';
+		} finally {
+			busyIds.delete(item.id);
+		}
 	}
 </script>
 
@@ -122,6 +142,26 @@
 							Usar este título
 						</button>
 					</div>
+
+					<div class="discard-row">
+						{#if confirmingDiscard === item.id}
+							<span class="confirm">
+								¿Descartar "{displayTitle(item)}"? No es una película/serie real.
+								<button class="btn-ghost small" disabled={busyIds.has(item.id)} onclick={() => discard(item)}>
+									Sí, descartar
+								</button>
+								<button class="btn-ghost small" onclick={() => (confirmingDiscard = null)}>Cancelar</button>
+							</span>
+						{:else}
+							<button
+								class="btn-link-discard"
+								disabled={busyIds.has(item.id)}
+								onclick={() => (confirmingDiscard = item.id)}
+							>
+								No es un título real — descartar
+							</button>
+						{/if}
+					</div>
 				</div>
 			{/each}
 		</div>
@@ -193,6 +233,37 @@
 		gap: 12px;
 		flex-wrap: wrap;
 	}
+	.discard-row {
+		margin-top: 14px;
+		padding-top: 14px;
+		border-top: 1px dashed var(--line);
+	}
+	.btn-link-discard {
+		color: var(--bad);
+		font-size: 12.5px;
+		opacity: 0.75;
+		transition: 0.15s;
+	}
+	.btn-link-discard:hover:not(:disabled) {
+		opacity: 1;
+		text-decoration: underline;
+	}
+	.btn-link-discard:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
+	.discard-row .confirm {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex-wrap: wrap;
+		font-size: 13px;
+		color: var(--warn);
+	}
+	.btn-ghost.small {
+		padding: 5px 12px;
+		font-size: 12.5px;
+	}
 	.manual {
 		display: flex;
 		gap: 10px;
@@ -247,5 +318,18 @@
 		font-family: var(--mono);
 		font-size: 12.5px;
 		color: var(--muted);
+	}
+
+	@media (max-width: 480px) {
+		.page {
+			padding: 20px 16px 60px;
+		}
+		.manual {
+			flex-direction: column;
+		}
+		.manual .btn-ghost {
+			width: 100%;
+			justify-content: center;
+		}
 	}
 </style>

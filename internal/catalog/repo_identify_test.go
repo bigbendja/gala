@@ -2,6 +2,7 @@ package catalog_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/bigbendja/gala/internal/catalog"
@@ -247,6 +248,91 @@ func TestPendingIdentifyIncludesPendingAndError(t *testing.T) {
 	}
 	if got[junkID] {
 		t.Error("PendingIdentify incluyó un item Junk (nunca se reintenta TMDB)")
+	}
+}
+
+// TestDeleteItemCascadesToChildren cubre el descarte manual de "Por
+// confirmar" (Brief M10c §3, DELETE /api/v1/items/{id}): borrar una serie
+// debe borrar también sus temporadas y episodios, no dejarlos huérfanos ni
+// fallar por la restricción de clave foránea de parent_id.
+func TestDeleteItemCascadesToChildren(t *testing.T) {
+	ctx := context.Background()
+	r := newTestRepo(t)
+	num := func(i int) *int { return &i }
+
+	seriesID, err := r.InsertItem(ctx, &catalog.Item{
+		Kind: catalog.KindSeries, Title: "Serie De Prueba", Genres: []string{}, Confirmed: true,
+	}, "")
+	if err != nil {
+		t.Fatalf("InsertItem serie: %v", err)
+	}
+	seasonID, err := r.InsertItem(ctx, &catalog.Item{
+		Kind: catalog.KindSeason, ParentID: &seriesID, SeasonNumber: num(1),
+		Title: "Temporada 1", Genres: []string{}, Confirmed: true,
+	}, "")
+	if err != nil {
+		t.Fatalf("InsertItem temporada: %v", err)
+	}
+	episodeID, err := r.InsertItem(ctx, &catalog.Item{
+		Kind: catalog.KindEpisode, ParentID: &seasonID, SeasonNumber: num(1), EpisodeNumber: num(1),
+		Title: "T1E1", Genres: []string{}, Confirmed: true,
+	}, "")
+	if err != nil {
+		t.Fatalf("InsertItem episodio: %v", err)
+	}
+	src := catalog.Source{ItemID: episodeID, Provider: "localfs", Locator: "t1e1.mkv"}
+	if _, err := r.InsertSource(ctx, &src, ""); err != nil {
+		t.Fatalf("InsertSource: %v", err)
+	}
+
+	if err := r.DeleteItem(ctx, seriesID); err != nil {
+		t.Fatalf("DeleteItem serie: %v", err)
+	}
+
+	for _, id := range []int64{seriesID, seasonID, episodeID} {
+		if _, err := r.Get(ctx, id); !errors.Is(err, catalog.ErrNotFound) {
+			t.Errorf("Get(%d) tras DeleteItem = %v, esperado ErrNotFound", id, err)
+		}
+	}
+}
+
+// TestDeleteItemNotFound cubre el 404 que debe devolver el handler HTTP.
+func TestDeleteItemNotFound(t *testing.T) {
+	ctx := context.Background()
+	r := newTestRepo(t)
+	if err := r.DeleteItem(ctx, 999999); !errors.Is(err, catalog.ErrNotFound) {
+		t.Fatalf("DeleteItem(inexistente) = %v, esperado ErrNotFound", err)
+	}
+}
+
+// TestSearchIsAccentInsensitive cubre "parasitos" encontrando "Parásitos"
+// (Brief M10c §1).
+func TestSearchIsAccentInsensitive(t *testing.T) {
+	ctx := context.Background()
+	r := newTestRepo(t)
+
+	if _, err := r.InsertItem(ctx, &catalog.Item{
+		Kind: catalog.KindMovie, Title: "Parásitos", Genres: []string{}, Confirmed: true,
+	}, ""); err != nil {
+		t.Fatalf("InsertItem: %v", err)
+	}
+
+	for _, q := range []string{"parasitos", "PARASITOS", "parásitos", "Parásit"} {
+		res, err := r.List(ctx, catalog.ListFilter{Query: q})
+		if err != nil {
+			t.Fatalf("List(q=%q): %v", q, err)
+		}
+		if res.Total != 1 {
+			t.Errorf("List(q=%q).Total = %d, esperado 1", q, res.Total)
+		}
+	}
+
+	none, err := r.List(ctx, catalog.ListFilter{Query: "inexistente"})
+	if err != nil {
+		t.Fatalf("List(q=inexistente): %v", err)
+	}
+	if none.Total != 0 {
+		t.Errorf("List(q=inexistente).Total = %d, esperado 0", none.Total)
 	}
 }
 

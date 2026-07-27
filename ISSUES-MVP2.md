@@ -105,15 +105,11 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   cruzarla exigiría una petición por fuente. Si en algún momento importa
   mostrarlo, lo más barato sería que M5 guardase el origen en la propia
   fuente en vez de derivarlo.
-- 2026-07-26: descartar manualmente un item de "Por confirmar" desde la UI
-  (Brief M10b §3). No existe endpoint HTTP para borrar/descartar un item
-  provisional — `catalog.Repo.DeleteItem` existe a nivel de repositorio pero
-  no está expuesto por ningún handler de `internal/api`. El brief permitía
-  omitirlo si no existía ("se anota, no se inventa"), así que M10b no añadió
-  backend nuevo: la pantalla `/pendientes` solo permite elegir un candidato
-  o escribir un título a mano; un item que el usuario no quiere en el
-  catálogo no tiene, hoy, forma de desaparecer salvo confirmarlo con algún
-  título y borrarlo después por otra vía (no hay ninguna en M10b tampoco).
+- 2026-07-26 (resuelto 2026-07-27, M10c): descartar manualmente un item de
+  "Por confirmar" desde la UI (Brief M10b §3, cerrado en Brief M10c §3/§6:
+  `DELETE /api/v1/items/{id}` cablea `catalog.Repo.DeleteItem`, ahora con
+  borrado en cascada de hijos directos antes de borrar el item — ver
+  CLAUDE.md, entrada M10c, para el detalle).
 - 2026-07-26: carátulas de candidatos en "Por confirmar" sin conexión
   (Brief M10b §3). `candidatePosterUrl()` pinta el póster de cada candidato
   tirando en vivo de `image.tmdb.org` (nunca se cachea localmente, a
@@ -123,6 +119,22 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   online, así que la vista previa no añade una dependencia de red nueva,
   pero si el usuario está realmente offline al abrir la cola, esos pósters
   no cargan (fallback a inicial del título, ya cubierto por tests).
+- 2026-07-27: "ruta de datos" en Ajustes → Sistema (Brief M10c §2 la pedía
+  en la lista de "solo lectura"). No se expone: no hay endpoint que la
+  devuelva (`config.BaseDir()`/`DBPath()`/`CacheDir()` son funciones internas
+  de Go, no API), y el brief solo autorizaba dos endpoints nuevos ("nada
+  más"). Añadir uno solo para esto también implicaría, de cara a M7 (LAN),
+  filtrar rutas absolutas del servidor a cualquier cliente de la red local
+  — mejor decidirlo junto con el diseño de Modo LAN que colarlo aquí. Se
+  muestran versión y disponibilidad de ffmpeg (vía el `GET /ping` ya
+  existente, con un campo añadido) y el enlace al repo; nada más.
+- 2026-07-27: "Listas" (`/listas`, Brief M10c §4) no cruza cada lista con
+  sus items. Es la misma limitación que ya constaba para el badge
+  "LISTA·M3U" de M10a: `ingest_lists` no tiene una consulta "dame los items
+  de esta lista" expuesta por la API, y el brief pedía "vista mínima
+  honesta (no inventar)" en vez de un endpoint nuevo. La vista actual solo
+  lista nombre/tipo/recuento/fecha de sincronización; cada fila no enlaza a
+  ningún sitio.
 - 2026-07-25: puntuación TMDB (`vote_average`) y duración (`media_info`) en
   la ficha/hero. Brief M10a menciona "★ 7,8" y "duración si existe en
   media_info" como en el mockup; ninguno de los dos viaja hoy en

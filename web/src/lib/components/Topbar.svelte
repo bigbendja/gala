@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import SearchBox from './SearchBox.svelte';
 
 	interface Props {
 		onOpenIngest: () => void;
@@ -8,6 +9,24 @@
 		pendingCount?: number;
 	}
 	let { onOpenIngest, pendingCount = 0 }: Props = $props();
+
+	let mobileNavOpen = $state(false);
+
+	const navLinks = [
+		{ href: '/', label: 'Inicio' },
+		{ href: '/peliculas', label: 'Películas' },
+		{ href: '/series', label: 'Series' },
+		{ href: '/listas', label: 'Listas' },
+		{ href: '/deseos', label: 'Deseos' }
+	];
+
+	function isActive(href: string): boolean {
+		return href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href);
+	}
+
+	function closeMobileNav() {
+		mobileNavOpen = false;
+	}
 </script>
 
 <header class="topbar">
@@ -20,14 +39,9 @@
 	</a>
 
 	<nav class="nav" aria-label="Principal">
-		<a href="/" class:active={page.url.pathname === '/'}>Inicio</a>
-		<!-- Películas/Series/Listas/Deseos: visuales por ahora — el
-		     enrutado de M10a/M10b se limita a "/", "/item/{id}", "/ver/{id}"
-		     y "/pendientes" (CLAUDE.md). -->
-		<span class="inert" title="Todavía no navega a ningún sitio">Películas</span>
-		<span class="inert" title="Todavía no navega a ningún sitio">Series</span>
-		<span class="inert" title="Todavía no navega a ningún sitio">Listas</span>
-		<span class="inert" title="Todavía no navega a ningún sitio">Deseos</span>
+		{#each navLinks as link (link.href)}
+			<a href={link.href} class:active={isActive(link.href)}>{link.label}</a>
+		{/each}
 	</nav>
 
 	<div class="spacer"></div>
@@ -36,14 +50,47 @@
 		<a class="pending-pill" href="/pendientes">{pendingCount} por confirmar</a>
 	{/if}
 
-	<div class="search" role="search" title="Búsqueda: llega en M10c">🔍 Buscar en tu galería…</div>
+	<div class="search-slot">
+		<SearchBox />
+	</div>
+
+	<a class="settings-link" href="/ajustes" title="Ajustes" aria-label="Ajustes">⚙️</a>
 
 	<button class="lan-pill" disabled title="Modo LAN: llega en M7">
 		<span class="lan-dot"></span> Modo LAN
 	</button>
 
 	<button class="btn-add" onclick={onOpenIngest}>＋ Añadir</button>
+
+	<button
+		class="hamburger"
+		aria-label={mobileNavOpen ? 'Cerrar menú' : 'Abrir menú'}
+		aria-expanded={mobileNavOpen}
+		onclick={() => (mobileNavOpen = !mobileNavOpen)}
+	>
+		{mobileNavOpen ? '✕' : '☰'}
+	</button>
 </header>
+
+{#if mobileNavOpen}
+	<div class="mobile-nav" role="navigation" aria-label="Principal (móvil)">
+		<div class="mobile-search"><SearchBox onNavigate={closeMobileNav} /></div>
+		{#each navLinks as link (link.href)}
+			<a href={link.href} class:active={isActive(link.href)} onclick={closeMobileNav}>{link.label}</a>
+		{/each}
+		{#if pendingCount > 0}
+			<a href="/pendientes" onclick={closeMobileNav}>{pendingCount} por confirmar</a>
+		{/if}
+		<a href="/ajustes" onclick={closeMobileNav}>⚙️ Ajustes</a>
+		<button
+			class="mobile-add"
+			onclick={() => {
+				closeMobileNav();
+				onOpenIngest();
+			}}>＋ Añadir</button
+		>
+	</div>
+{/if}
 
 <style>
 	.topbar {
@@ -77,17 +124,13 @@
 		gap: 4px;
 		margin-left: 6px;
 	}
-	.nav a,
-	.nav .inert {
+	.nav a {
 		color: var(--muted);
 		text-decoration: none;
 		padding: 7px 12px;
 		border-radius: 9px;
 		font-weight: 500;
 		transition: 0.15s;
-		cursor: default;
-	}
-	.nav a {
 		cursor: pointer;
 	}
 	.nav a:hover {
@@ -101,16 +144,33 @@
 	.spacer {
 		flex: 1;
 	}
-	.search {
+	.search-slot {
+		display: flex;
+	}
+	.settings-link {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		justify-content: center;
+		width: 34px;
+		height: 34px;
+		border-radius: 10px;
+		font-size: 15px;
+		text-decoration: none;
+		transition: 0.15s;
+	}
+	.settings-link:hover {
+		background: var(--surface);
+	}
+	.hamburger {
+		display: none;
+		align-items: center;
+		justify-content: center;
+		width: 38px;
+		height: 38px;
+		border-radius: 10px;
 		background: var(--surface);
 		border: 1px solid var(--line);
-		border-radius: 10px;
-		padding: 8px 14px;
-		color: var(--muted);
-		min-width: 220px;
+		font-size: 16px;
 	}
 	.lan-pill {
 		display: flex;
@@ -168,14 +228,64 @@
 		background: rgba(242, 169, 59, 0.2);
 	}
 
+	.mobile-nav {
+		display: none;
+	}
+
 	@media (max-width: 900px) {
 		.nav,
-		.search {
+		.search-slot,
+		.settings-link,
+		.lan-pill {
 			display: none;
 		}
 		.topbar {
 			padding: 12px 16px;
-			gap: 12px;
+			gap: 10px;
+		}
+		.btn-add {
+			padding: 9px 12px;
+		}
+		.hamburger {
+			display: flex;
+		}
+		.mobile-nav {
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+			padding: 14px 16px 20px;
+			background: rgba(16, 12, 9, 0.98);
+			border-bottom: 1px solid var(--line);
+		}
+		.mobile-search {
+			margin-bottom: 10px;
+		}
+		.mobile-search :global(.search-box) {
+			width: 100%;
+			min-width: 0;
+		}
+		.mobile-nav a {
+			color: var(--text);
+			text-decoration: none;
+			padding: 12px 10px;
+			border-radius: 8px;
+			font-weight: 500;
+			font-size: 15px;
+		}
+		.mobile-nav a.active {
+			background: var(--surface-2);
+		}
+		.mobile-nav a:active {
+			background: var(--surface);
+		}
+		.mobile-add {
+			margin-top: 10px;
+			background: var(--accent);
+			color: #1a1207;
+			font-weight: 600;
+			padding: 13px 18px;
+			border-radius: 10px;
+			font-size: 15px;
 		}
 	}
 </style>

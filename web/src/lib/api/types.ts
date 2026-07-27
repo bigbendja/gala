@@ -172,3 +172,44 @@ export interface ConfirmRequest {
 	kind?: 'movie' | 'tv';
 	title?: string;
 }
+
+// --- Ajustes (Brief M10c §2; internal/api/localfs.go, scan.go, queue.go) ---
+
+// internal/api/localfs.go: folderInfo.
+export interface FolderInfo {
+	path: string;
+	connected: boolean;
+}
+
+// scan.Status.
+export interface ScanStatus {
+	running: boolean;
+	last_started?: string;
+	last_finished?: string;
+	files_seen: number;
+	items_new: number;
+}
+
+// identify.Status.
+export interface IdentifyStatus {
+	pending: number;
+	processing: boolean;
+	online: boolean;
+	last_error?: string;
+	processed: number;
+}
+
+// internal/api/settings.go: tmdbSettingsView.
+export interface TMDBSettings {
+	configured: boolean;
+}
+
+// catalog.IngestList.
+export interface IngestList {
+	id: number;
+	name: string;
+	type: string;
+	source_url?: string;
+	last_sync?: string;
+	item_count: number;
+}

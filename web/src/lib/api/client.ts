@@ -4,7 +4,10 @@
 // (CLAUDE.md: "sí se permiten utilidades mínimas si hacen falta").
 import type {
 	ConfirmRequest,
+	FolderInfo,
 	HealthSummary,
+	IdentifyStatus,
+	IngestList,
 	Item,
 	ListItemsParams,
 	ListResult,
@@ -12,6 +15,8 @@ import type {
 	PlayResponse,
 	Progress,
 	ResumenIngesta,
+	ScanStatus,
+	TMDBSettings,
 	Volume
 } from './types';
 
@@ -193,4 +198,80 @@ export function confirmItem(id: number, body: ConfirmRequest): Promise<Item> {
 export function candidatePosterUrl(posterPath: string | undefined): string | null {
 	if (!posterPath) return null;
 	return `https://image.tmdb.org/t/p/w154${posterPath}`;
+}
+
+/** DELETE /api/v1/items/{id} — descarta un item de "Por confirmar" que no
+ *  es un título real (Brief M10c §3). Borra el item y sus fuentes (y, si
+ *  tiene hijos, también los hijos). Sin confirmación aquí: la pide la UI. */
+export function deleteItem(id: number): Promise<{ status: string }> {
+	return request(`/api/v1/items/${id}`, { method: 'DELETE' });
+}
+
+// --- Ajustes (Brief M10c §2) -------------------------------------------------
+
+/** GET /api/v1/folders — carpetas registradas con su estado de conexión. */
+export function listFolders(): Promise<FolderInfo[]> {
+	return request('/api/v1/folders');
+}
+
+/** POST /api/v1/folders — añade una carpeta; 400 no existe, 409 duplicada. */
+export function addFolder(path: string): Promise<FolderInfo> {
+	return request('/api/v1/folders', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ path })
+	});
+}
+
+/** DELETE /api/v1/folders?path=... — quita una carpeta (los items se
+ *  conservan; solo se quitan sus fuentes locales). */
+export function removeFolder(path: string): Promise<{ status: string }> {
+	return request(`/api/v1/folders?${new URLSearchParams({ path }).toString()}`, { method: 'DELETE' });
+}
+
+/** POST /api/v1/scan — rescaneo de todas las carpetas registradas. */
+export function startScan(): Promise<{ status: string }> {
+	return request('/api/v1/scan', { method: 'POST' });
+}
+
+/** GET /api/v1/scan/status. */
+export function scanStatus(): Promise<ScanStatus> {
+	return request('/api/v1/scan/status');
+}
+
+/** GET /api/v1/identify/status — estado de la cola de identificación
+ *  (Brief M10c §2: mostrar last_error en cristiano, p. ej. clave inválida). */
+export function identifyStatus(): Promise<IdentifyStatus> {
+	return request('/api/v1/identify/status');
+}
+
+/** POST /api/v1/health/check — verificación de salud bajo demanda. */
+export function startHealthCheck(): Promise<{ status: string }> {
+	return request('/api/v1/health/check', { method: 'POST' });
+}
+
+/** GET /api/v1/settings/tmdb — nunca devuelve la clave, solo si existe. */
+export function getTMDBSettings(): Promise<TMDBSettings> {
+	return request('/api/v1/settings/tmdb');
+}
+
+/** PUT /api/v1/settings/tmdb — valida la clave contra TMDB antes de
+ *  guardarla (422 si es inválida, 503 si no hay conexión para probarla). */
+export function putTMDBSettings(apiKey: string): Promise<{ status: string }> {
+	return request('/api/v1/settings/tmdb', {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ api_key: apiKey })
+	});
+}
+
+/** GET /api/v1/ingest/lists — lotes/M3U ingeridos ("Listas" de la topbar). */
+export function listIngestLists(): Promise<IngestList[]> {
+	return request('/api/v1/ingest/lists');
+}
+
+/** GET /api/v1/ping — versión y disponibilidad de ffmpeg, para Ajustes →
+ *  Sistema (Brief M10c §2, sin inventar un endpoint nuevo solo para esto). */
+export function ping(): Promise<{ status: string; app: string; version: string; ffmpeg_available: boolean }> {
+	return request('/api/v1/ping');
 }

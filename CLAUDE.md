@@ -231,9 +231,68 @@ cultura del disco duro que circula.
       `ApplyIdentification` fallaría con 401); queda cubierta por los tests
       automatizados de M3 y por la ruta de título manual, que sí es 100%
       offline y se verificó en vivo.
+- [x] M10c Frontend — Ajustes + Búsqueda + Gestión + Responsive (cierra M10):
+      búsqueda funcional en la topbar (`SearchBox.svelte`, debounce ~300 ms
+      sobre `GET /items?q=...`, desplegable con `<Card>` reales, estado vacío,
+      botón de limpiar); búsqueda insensible a acentos AÑADIDA en este brief
+      (`internal/catalog/search.go` — el brief la daba por resuelta, pero no
+      lo estaba: `COLLATE NOCASE` de M1 solo cubre mayúsculas/minúsculas ASCII,
+      no vocales acentuadas; se pliegan tanto la columna vía SQL
+      `REPLACE(LOWER(...))` encadenado como el término buscado en Go, sin
+      migración ni columna nueva). Pantalla `/ajustes` (nueva, sin mockup —
+      diseño propio sobrio, ver informe): Carpetas (listar/añadir/quitar con
+      confirmación inline, reusa `GET·POST·DELETE /folders` de M2), Escaneo
+      (`POST /scan` + `GET /scan/status` con sondeo cada 2 s mientras
+      `running`), Identificación (`GET /identify/status`,
+      `friendlyIdentifyError` en `web/src/lib/format.ts` traduce un 401 crudo
+      de TMDB a "La clave de TMDB no es válida" en vez de enseñar el JSON de
+      error — verificado en vivo con una carpeta y una clave falsa reales),
+      Clave TMDB (endpoints nuevos, ver abajo; nunca se muestra la clave,
+      solo si hay una configurada), Salud (`GET /health/summary` +
+      `POST /health/check` con sondeo), Sistema (versión y disponibilidad de
+      ffmpeg vía `GET /ping` — solo se le añadió el campo `ffmpeg_available`,
+      sin montar un endpoint nuevo solo para esto; "ruta de datos" NO se
+      expone, ver ISSUES-MVP2.md). Descartar pendientes en `/pendientes`
+      (cierra el hueco anotado en M10b): confirmación inline por item,
+      `DELETE /api/v1/items/{id}` (endpoint nuevo, ver abajo). Navegación real
+      de la topbar: `/peliculas` y `/series` (`Grid.svelte`, rejilla con
+      "Cargar más" — reemplaza la fila de scroll horizontal de `Row.svelte`
+      para un listado completo), `/deseos` (variant "wish"), `/listas`
+      (`GET /ingest/lists`, vista mínima honesta de solo lectura — sin
+      cruzarla con items, exigiría un endpoint que no se pidió). Responsive
+      360–414px: topbar colapsa a menú hamburguesa con buscador y navegación
+      accesibles (`Topbar.svelte`); corregido un desbordamiento horizontal
+      real de la ficha en móvil (`.info` es un track de grid `1fr` sin
+      `min-width:0` — un track "1fr" sigue teniendo `min-width:auto` por
+      defecto, así que el texto sin ajuste de línea de `SourceStack`
+      forzaba tanto el track como la página entera más anchos que el
+      viewport; encontrado y verificado con Chrome DevTools Protocol
+      emulando 360–390px contra `gala.exe` real, no solo mirándolo).
+      Endpoints nuevos (mínimos, según brief): `DELETE /api/v1/items/{id}`
+      (cablea `catalog.Repo.DeleteItem`, ahora con borrado en cascada de
+      hijos — serie→temporada→episodio — antes de borrar el item, ya que
+      `parent_id` no tiene `ON DELETE CASCADE` a propósito y sin esto una
+      serie con temporadas fallaría por la restricción de clave foránea);
+      `GET`/`PUT /api/v1/settings/tmdb` (nunca devuelve la clave; `PUT` la
+      valida con una búsqueda de prueba real contra TMDB antes de guardarla
+      — 422 si es inválida, 503 si no hay conexión para probarla — y toma
+      efecto de inmediato en la cola de identificación, mismo `*identify.
+      Client` compartido). Tests: Go (`TestDeleteItemCascadesToChildren`,
+      `TestSearchIsAccentInsensitive`, `TestHandlePutTMDBSettings*`, etc.) y
+      Vitest (`SearchBox`, `/ajustes`, descartar en `/pendientes`; 62 tests
+      en total, `svelte-check` limpio). Verificación E2E manual contra
+      `gala.exe` real: añadir una carpeta desde Ajustes y ver aparecer su
+      contenido sin curl, escribir una clave TMDB inválida desde la UI y ver
+      el 422 real, buscar "parasitos" y encontrar "Parásitos" (con acento) en
+      un item real, descartar un pendiente basura y verlo desaparecer de la
+      cola y del backend (404 al pedirlo después), navegar
+      Películas/Series/Listas/Deseos, y emulación móvil 360/375/390px en
+      galería/ficha/reproductor/ajustes/pendientes/modal de ingesta/menú —
+      capturas en `docs/screenshots/m10c/`. Con esto M10 (a+b+c) queda
+      cerrado.
 - [ ] M7 LAN ← SIGUIENTE
 - [ ] M8 Deseos ·
-      M9 .gala · M10c Frontend (ajustes, búsqueda funcional, responsive) ·
+      M9 .gala ·
       M11 Release
 (Actualizar esta lista al completar cada módulo.)
 

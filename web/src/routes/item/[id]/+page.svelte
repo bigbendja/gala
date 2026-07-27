@@ -179,6 +179,14 @@
 		line-height: 1.1;
 		background: radial-gradient(90% 60% at 30% 20%, rgba(242, 169, 59, 0.35), transparent 60%);
 	}
+	.info {
+		/* Un track de grid "1fr" sigue teniendo min-width:auto por defecto: sin
+		   esto, el contenido sin ajuste de línea de SourceStack (rutas largas
+		   en fuente monoespaciada) fuerza el track — y con él toda la página —
+		   más ancho que el viewport en móvil, incluso ya colapsado a una sola
+		   columna (@media max-width:700px). */
+		min-width: 0;
+	}
 	.info h1 {
 		font-family: var(--display);
 		font-size: clamp(28px, 4vw, 44px);

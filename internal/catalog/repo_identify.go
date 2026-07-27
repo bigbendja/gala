@@ -264,12 +264,38 @@ func (r *Repo) ApplyManualConfirm(ctx context.Context, itemID int64, title, now 
 	return err
 }
 
-// DeleteItem borra un item y sus fuentes (ON DELETE CASCADE). Lo usa la
-// cola de M3 para los extras (sample/trailer/teaser): "los extras NO
-// aparecen en la galería" (Brief §4).
+// DeleteItem borra un item, sus fuentes (ON DELETE CASCADE) y, si tiene
+// hijos directos (p. ej. una serie con temporadas, o una temporada con
+// episodios), los borra también de forma recursiva antes de borrar el
+// propio item (parent_id NO tiene ON DELETE CASCADE a propósito, para que
+// un episodio nunca desaparezca solo porque se reordenó su temporada; aquí
+// sí queremos el borrado completo). Devuelve ErrNotFound si el item no
+// existe. La usa tanto la cola de M3 para los extras descartados
+// (sample/trailer/teaser, sin hijos: "los extras NO aparecen en la
+// galería", Brief M3 §4) como el descarte manual de "Por confirmar"
+// (Brief M10c §3).
 func (r *Repo) DeleteItem(ctx context.Context, itemID int64) error {
-	_, err := r.q.ExecContext(ctx, `DELETE FROM items WHERE id = ?`, itemID)
-	return err
+	children, err := r.List(ctx, ListFilter{ParentID: &itemID, Limit: 200})
+	if err != nil {
+		return err
+	}
+	for _, child := range children.Items {
+		if err := r.DeleteItem(ctx, child.ID); err != nil {
+			return err
+		}
+	}
+	res, err := r.q.ExecContext(ctx, `DELETE FROM items WHERE id = ?`, itemID)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *Repo) findOrCreateSeries(ctx context.Context, tmdbID int64, title string,

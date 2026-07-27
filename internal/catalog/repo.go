@@ -67,8 +67,13 @@ func (r *Repo) List(ctx context.Context, f ListFilter) (*ListResult, error) {
 		args = append(args, f.Kind)
 	}
 	if q := strings.TrimSpace(f.Query); q != "" {
-		where = append(where, "(i.title LIKE ? COLLATE NOCASE OR i.original_title LIKE ? COLLATE NOCASE)")
-		like := "%" + q + "%"
+		// Insensible a mayúsculas Y a acentos (Brief M10c §1): "parasitos"
+		// debe encontrar "Parásitos". COLLATE NOCASE solo cubre ASCII, así
+		// que además plegamos vocales acentuadas en ambos lados (ver
+		// search.go); original_title puede ser NULL, de ahí el COALESCE.
+		where = append(where, "("+foldAccentsSQL("i.title")+" LIKE ? OR "+
+			foldAccentsSQL("COALESCE(i.original_title, '')")+" LIKE ?)")
+		like := "%" + foldAccents(q) + "%"
 		args = append(args, like, like)
 	}
 	if f.Year != 0 {

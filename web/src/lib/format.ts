@@ -60,6 +60,22 @@ export function isUnidentified(item: Pick<Item, 'confirmed' | 'tmdb_id'>): boole
 	return !item.confirmed || !item.tmdb_id;
 }
 
+// Brief M10c §2: "avisar claramente 'API key de TMDB inválida' cuando el
+// error sea 401 — esto le habría ahorrado horas al usuario". LastError es
+// el error de Go crudo (p. ej. `tmdb /movie/1: 401 {"status_message":
+// "Invalid API key..."}`); esto lo traduce a un aviso legible sin tocar lo
+// que guarda el backend.
+export function friendlyIdentifyError(lastError: string | undefined | null): string | null {
+	if (!lastError) return null;
+	if (/\b401\b/.test(lastError) || /invalid api key/i.test(lastError)) {
+		return 'La clave de TMDB no es válida. Cámbiala más abajo, en "Clave TMDB".';
+	}
+	if (/sin conexión con tmdb/i.test(lastError)) {
+		return 'Sin conexión con TMDB en este momento. Se reintenta solo cada pocos minutos.';
+	}
+	return lastError;
+}
+
 /** Título de presentación: limpia separadores de nombre de archivo SOLO
  * cuando el item no está identificado; un item ya identificado por TMDB
  * conserva su título real tal cual. */

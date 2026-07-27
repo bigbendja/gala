@@ -35,11 +35,14 @@
 		background: rgba(0, 0, 0, 0.25);
 		overflow: hidden;
 		max-width: 560px;
+		width: 100%;
+		box-sizing: border-box;
 	}
 	.src-head {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		gap: 10px;
 		padding: 11px 16px;
 		border-bottom: 1px solid var(--line);
 		font-family: var(--mono);
@@ -48,6 +51,12 @@
 		text-transform: uppercase;
 		color: var(--muted);
 	}
+	.src-head span:last-child {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		min-width: 0;
+	}
 	.src-row {
 		display: flex;
 		align-items: center;
@@ -55,6 +64,7 @@
 		padding: 11px 16px;
 		border-bottom: 1px solid rgba(51, 38, 25, 0.5);
 		font-size: 13.5px;
+		min-width: 0;
 	}
 	.src-row:last-child {
 		border-bottom: none;
@@ -81,6 +91,7 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		flex: 1;
+		min-width: 0;
 	}
 	.src-row .q {
 		color: var(--muted);

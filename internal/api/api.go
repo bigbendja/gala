@@ -60,6 +60,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/ping", s.handlePing)
 	mux.HandleFunc("GET /api/v1/items", s.handleListItems)
 	mux.HandleFunc("GET /api/v1/items/{id}", s.handleGetItem)
+	mux.HandleFunc("DELETE /api/v1/items/{id}", s.handleDeleteItem)
 	mux.HandleFunc("POST /api/v1/items/{id}/wish", s.handleWishAdd)
 	mux.HandleFunc("DELETE /api/v1/items/{id}/wish", s.handleWishRemove)
 
@@ -89,11 +90,19 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/health/summary", s.handleHealthSummary)
 	mux.HandleFunc("POST /api/v1/health/check", s.handleHealthCheck)
 	mux.HandleFunc("GET /api/v1/health/status", s.handleHealthStatus)
+
+	mux.HandleFunc("GET /api/v1/settings/tmdb", s.handleGetTMDBSettings)
+	mux.HandleFunc("PUT /api/v1/settings/tmdb", s.handlePutTMDBSettings)
 }
 
 func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"status": "ok", "app": "gala", "version": Version,
+		// ffmpeg_available: Ajustes → Sistema lo muestra sin inventar un
+		// endpoint nuevo (Brief M10c §2/§6: "nada más" que los dos
+		// endpoints listados) — ya viaja igual en /play/{item_id}, aquí
+		// solo se expone sin depender de tener un item a mano.
+		"ffmpeg_available": s.FFmpeg.Available(),
 	})
 }
 
@@ -192,6 +201,29 @@ func (s *Server) handleGetItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, items[0])
+}
+
+// handleDeleteItem: DELETE /api/v1/items/{id} — descarta un item que no es
+// un título real (Brief M10c §3, cierra el hueco anotado en M10b:
+// ISSUES-MVP2.md). Borra el item, sus fuentes (ON DELETE CASCADE) y, si
+// tiene hijos (serie/temporada), también los hijos completos — ver
+// catalog.Repo.DeleteItem. Sin confirmación a nivel de API: la pide la UI
+// antes de llamar.
+func (s *Server) handleDeleteItem(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		badRequest(w, "id no válido")
+		return
+	}
+	if err := s.Catalog.DeleteItem(r.Context(), id); err != nil {
+		if errors.Is(err, catalog.ErrNotFound) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "no encontrado"})
+			return
+		}
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "eliminado"})
 }
 
 func intParam(v string, def int) (int, error) {

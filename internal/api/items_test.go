@@ -190,3 +190,51 @@ func TestHandleWishAddUnknownItem404(t *testing.T) {
 		t.Fatalf("status = %d, esperado 404", resp.StatusCode)
 	}
 }
+
+// --- descartar pendiente (Brief M10c §3, cierra el hueco anotado en M10b) --
+
+func TestHandleDeleteItem(t *testing.T) {
+	ps := newPlayTestServer(t, nil, nil)
+	itemID := ps.insertMovie(t, "Basura Sin Identificar")
+
+	req, _ := http.NewRequest(http.MethodDelete, ps.URL+"/api/v1/items/"+strconv.FormatInt(itemID, 10), nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("DELETE /items/{id}: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		data, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status = %d, body=%s", resp.StatusCode, data)
+	}
+
+	if _, err := ps.repo.Get(context.Background(), itemID); err == nil {
+		t.Fatal("el item seguía existiendo tras DELETE")
+	}
+}
+
+func TestHandleDeleteItemNotFound(t *testing.T) {
+	ps := newPlayTestServer(t, nil, nil)
+	req, _ := http.NewRequest(http.MethodDelete, ps.URL+"/api/v1/items/999999", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("DELETE /items/{id}: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status = %d, esperado 404", resp.StatusCode)
+	}
+}
+
+func TestHandleDeleteItemInvalidID(t *testing.T) {
+	ps := newPlayTestServer(t, nil, nil)
+	req, _ := http.NewRequest(http.MethodDelete, ps.URL+"/api/v1/items/abc", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("DELETE /items/{id}: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, esperado 400", resp.StatusCode)
+	}
+}

@@ -185,8 +185,8 @@
 					{/if}
 
 					<div class="alt-src">
-						<button disabled title="Gestión de carpetas: llega en M10c">📁 Elegir carpeta</button>
-						<button disabled title="Rescaneo manual: llega en M10c">💽 Escanear disco USB</button>
+						<a href="/ajustes" onclick={close}>📁 Elegir carpeta</a>
+						<a href="/ajustes" onclick={close}>💽 Escanear disco</a>
 						<button disabled title="Formato .gala: llega en M9">📦 Importar .gala</button>
 					</div>
 
@@ -389,13 +389,19 @@
 		margin-top: 16px;
 		flex-wrap: wrap;
 	}
-	.alt-src button {
+	.alt-src button,
+	.alt-src a {
 		font-size: 12.5px;
 		color: var(--muted);
 		border: 1px solid var(--line);
 		border-radius: 99px;
 		padding: 7px 14px;
 		transition: 0.15s;
+		text-decoration: none;
+	}
+	.alt-src a:hover {
+		color: var(--text);
+		background: var(--surface-2);
 	}
 	.alt-src button:disabled {
 		opacity: 0.55;
