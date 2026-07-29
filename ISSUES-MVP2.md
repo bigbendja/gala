@@ -3,6 +3,12 @@
 Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
 
 - (ejemplo) 2026-07: ...
+- 2026-07-29 (Fase 0 tarea 0.4, diagnóstico integral): quitar una carpeta desde
+  Ajustes y volver a añadirla más tarde no reconcilia sus items con la carpeta
+  reaparecida — crea items duplicados en vez de restaurar la fuente al item
+  original (que queda como "fantasma" de 0 fuentes). Reproducido en vivo.
+  Detalle y arreglo propuesto en `docs/GALA_Plan_Estabilizacion_Fases.md`,
+  sección "Deuda técnica".
 - 2026-07-20: soporte opcional de unidades de red como volúmenes (el Enumerator de
   Windows de M2 solo enumera discos fijos y extraíbles; DRIVE_REMOTE queda fuera).
 - 2026-07-20: soporte real de archivos multi-título (packs/trilogías/temporadas

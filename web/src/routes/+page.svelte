@@ -3,23 +3,17 @@
 	import Hero from '$lib/components/Hero.svelte';
 	import Row from '$lib/components/Row.svelte';
 	import { listItems } from '$lib/api/client';
+	import { galleryVisible } from '$lib/gallery';
 	import type { Item } from '$lib/api/types';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
-	function moviesAndSeries(items: Item[]): Item[] {
-		// Brief M10a §5: "Tu galería" no muestra season/episode sueltos (esos
-		// cuelgan de su serie en la ficha); tampoco kind=other (provisional,
-		// aún no confirmado por M3).
-		return items.filter((it) => it.kind === 'movie' || it.kind === 'series');
-	}
-
 	// Semilla intencional de estado LOCAL de paginación a partir del primer
 	// load: a partir de aquí este estado vive independiente de `data` (crece
 	// con loadMoreGallery), por eso se lee con untrack — no es un olvido de
 	// $derived, es la semántica que queremos (Svelte, state_referenced_locally).
-	let galleryItems = $state<Item[]>(untrack(() => moviesAndSeries(data.gallery?.items ?? [])));
+	let galleryItems = $state<Item[]>(untrack(() => galleryVisible(data.gallery?.items ?? [])));
 	let galleryRawOffset = $state(untrack(() => data.gallery?.items.length ?? 0));
 	let galleryRawTotal = $state(untrack(() => data.gallery?.total ?? 0));
 	let galleryLoadingMore = $state(false);
@@ -28,8 +22,8 @@
 		if (galleryLoadingMore || galleryRawOffset >= galleryRawTotal) return;
 		galleryLoadingMore = true;
 		try {
-			const page = await listItems({ confirmed: true, limit: 200, offset: galleryRawOffset });
-			galleryItems = [...galleryItems, ...moviesAndSeries(page.items)];
+			const page = await listItems({ limit: 200, offset: galleryRawOffset });
+			galleryItems = [...galleryItems, ...galleryVisible(page.items)];
 			galleryRawOffset += page.items.length;
 			galleryRawTotal = page.total;
 		} catch {

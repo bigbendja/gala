@@ -4,7 +4,7 @@
 	import { ApiError, confirmItem, deleteItem } from '$lib/api/client';
 	import CandidateCard from '$lib/components/CandidateCard.svelte';
 	import type { Candidate, PendingItem } from '$lib/api/types';
-	import { displayTitle } from '$lib/format';
+	import { displayTitle, friendlyIdentifyError } from '$lib/format';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -13,7 +13,13 @@
 	// confirmaciones del usuario (se quitan items al resolverlos), no de
 	// recargas de `data` — mismo patrón que el resto de la app.
 	let items = $state<PendingItem[]>(untrack(() => data.items));
-	let manualTitles = $state<Record<number, string>>({});
+	// Precargado con el título limpio de cada item (Fase 0 tarea 0.4: el
+	// dato ya se conoce y se muestra en el <h2> de arriba; obligar a
+	// reescribirlo a mano era fricción sin motivo). El usuario puede editarlo
+	// antes de pulsar "Usar este título", o dejarlo tal cual.
+	let manualTitles = $state<Record<number, string>>(
+		untrack(() => Object.fromEntries(data.items.map((it) => [it.id, displayTitle(it)])))
+	);
 	let busyIds = $state(new Set<number>());
 	let errors = $state<Record<number, string>>({});
 	// Brief M10c §3: descartar un "Por confirmar" que no es un título real
@@ -21,15 +27,23 @@
 	// endpoint: DELETE /api/v1/items/{id}).
 	let confirmingDiscard = $state<number | null>(null);
 
-	const review = $derived(items.filter((it) => it.identify_status === 'review'));
+	// Fase 0 — diagnóstico integral: `error` (M3 lo intentó y TMDB falló —
+	// típicamente una clave inválida, Brief M10c §2) se trataba igual que
+	// `pending` (transitorio, "se reintenta solo"), pero un error de clave
+	// inválida NUNCA se resuelve solo reintentando cada 5 min: el usuario
+	// quedaba con el mismo item atascado para siempre, sin ninguna acción
+	// disponible salvo arreglar la clave en Ajustes primero. Se trata igual
+	// que `review` (candidatos vacíos, pero con las mismas acciones:
+	// título manual, dejar sin identificar, descartar) — la cola de M3
+	// sigue reintentándolo sola en segundo plano igualmente si la causa era
+	// transitoria; esto solo añade una salida manual para cuando no lo es.
+	const review = $derived(items.filter((it) => it.identify_status === 'review' || it.identify_status === 'error'));
 	const junk = $derived(items.filter((it) => it.identify_status === 'junk'));
-	// pending/error son transitorios: la propia cola de M3 los reintenta
-	// sola (Brief M10b §3 no pide mostrarlos como algo a resolver a mano;
-	// se anota su número para no esconder que existen, sin ofrecer
-	// acciones sobre ellos).
-	const inProgressCount = $derived(
-		items.length - review.length - junk.length
-	);
+	// pending es lo único puramente transitorio que queda: todavía no le ha
+	// tocado turno a la cola de M3 (Brief M10b §3 no pide mostrarlo como
+	// algo a resolver a mano; se anota su número para no esconder que
+	// existe, sin ofrecer acciones sobre él).
+	const inProgressCount = $derived(items.length - review.length - junk.length);
 
 	async function resolve(item: PendingItem, body: { tmdb_id: number; kind: 'movie' | 'tv' } | { title: string }) {
 		if (busyIds.has(item.id)) return;
@@ -54,6 +68,19 @@
 		const title = (manualTitles[item.id] ?? '').trim();
 		if (!title) return;
 		resolve(item, { title });
+	}
+
+	// Fase 0 tarea 0.4: "dejarlo como está" tiene que ser una acción real, no
+	// un limbo. Usa el mismo camino que el título manual (catalog.
+	// ApplyManualConfirm ya existe y hace justo esto: confirmed=true,
+	// identify_status=ok, sin tocar tmdb_id) pero con el nombre de archivo
+	// limpio de siempre, ignorando lo que haya escrito el usuario en el
+	// campo de título manual. El item sigue mostrando "Sin identificar" en
+	// la galería (isUnidentified mira tmdb_id, no confirmed) y ya es
+	// reproducible — de hecho ya lo era antes de confirmar, /play nunca
+	// exigió `confirmed`.
+	function leaveUnidentified(item: PendingItem) {
+		resolve(item, { title: displayTitle(item) });
 	}
 
 	async function discard(item: PendingItem) {
@@ -110,6 +137,11 @@
 			{#each review as item (item.id)}
 				<div class="item">
 					<h2>{displayTitle(item)}</h2>
+					{#if item.identify_status === 'error'}
+						<p class="muted id-error">
+							GALA no pudo consultar TMDB para este item: {friendlyIdentifyError(item.identify_note)}
+						</p>
+					{/if}
 					{#if errors[item.id]}<p class="error">{errors[item.id]}</p>{/if}
 
 					{#if item.candidates && item.candidates.length > 0}
@@ -140,6 +172,12 @@
 							onclick={() => confirmManual(item)}
 						>
 							Usar este título
+						</button>
+					</div>
+
+					<div class="leave-row">
+						<button class="btn-link" disabled={busyIds.has(item.id)} onclick={() => leaveUnidentified(item)}>
+							Dejar sin identificar — ya es reproducible, solo sin datos de TMDB
 						</button>
 					</div>
 
@@ -206,6 +244,10 @@
 		color: var(--bad);
 		font-size: 13.5px;
 	}
+	.id-error {
+		margin-bottom: 12px;
+		color: var(--warn);
+	}
 	.empty {
 		margin-top: 40px;
 		text-align: center;
@@ -232,6 +274,23 @@
 		display: flex;
 		gap: 12px;
 		flex-wrap: wrap;
+	}
+	.leave-row {
+		margin-top: 10px;
+	}
+	.btn-link {
+		color: var(--accent);
+		font-size: 12.5px;
+		opacity: 0.85;
+		transition: 0.15s;
+	}
+	.btn-link:hover:not(:disabled) {
+		opacity: 1;
+		text-decoration: underline;
+	}
+	.btn-link:disabled {
+		opacity: 0.4;
+		cursor: default;
 	}
 	.discard-row {
 		margin-top: 14px;

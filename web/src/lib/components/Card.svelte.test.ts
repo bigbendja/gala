@@ -60,13 +60,44 @@ describe('Card', () => {
 		expect(container.querySelectorAll('[role="img"]')).toHaveLength(3);
 	});
 
-	it('variante wish muestra "Sin fuente" y "buscando…", sin puntos de salud', () => {
+	it('variante wish SIN fuente (deseo aspiracional) muestra "Sin fuente" y "buscando…"', () => {
 		const { getByText, container } = render(Card, {
-			item: makeItem({ wished: true, health_summary: {} }),
+			item: makeItem({ wished: true, source_count: 0, health_summary: {} }),
 			variant: 'wish'
 		});
 		expect(getByText('Sin fuente')).toBeInTheDocument();
 		expect(container.querySelector('.m')?.textContent).toContain('buscando');
+	});
+
+	// Fase 0 — diagnóstico integral: M10a-fix permite desear cualquier item
+	// YA existente (con fuente real), no solo títulos aspiracionales; la
+	// tarjeta seguía mostrando "Sin fuente · buscando…" siempre en variant
+	// wish, aunque el item fuera perfectamente reproducible — mentía sobre
+	// el estado real del item.
+	it('variante wish CON fuente NO dice "Sin fuente"/"buscando" — se ve como una tarjeta normal', () => {
+		const { queryByText, getByText } = render(Card, {
+			item: makeItem({ wished: true, source_count: 1, year: 2023 }),
+			variant: 'wish'
+		});
+		expect(queryByText('Sin fuente')).not.toBeInTheDocument();
+		expect(queryByText(/buscando/)).not.toBeInTheDocument();
+		expect(getByText('2023')).toBeInTheDocument();
+	});
+
+	it('variante wish CON fuente pero sin identificar muestra "Sin identificar", no el año', () => {
+		const { getByText, queryByText } = render(Card, {
+			item: makeItem({
+				wished: true,
+				source_count: 1,
+				confirmed: false,
+				tmdb_id: undefined,
+				year: 2023
+			}),
+			variant: 'wish'
+		});
+		expect(getByText('Sin identificar')).toBeInTheDocument();
+		expect(queryByText('2023')).not.toBeInTheDocument();
+		expect(queryByText('Sin fuente')).not.toBeInTheDocument();
 	});
 
 	it('limpia el título crudo y marca "Sin identificar" para items sin confirmar (Brief M10a-fix A4)', () => {

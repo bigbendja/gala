@@ -190,6 +190,48 @@ func TestHandlePlayHTTPProviderAlwaysDirect(t *testing.T) {
 	}
 }
 
+// TestHandlePlayWorksForUnconfirmedItem cubre la Fase 0 tarea 0.4: un
+// enlace directo recién pegado se crea con confirmed=false/kind=other (M5,
+// pendiente de que M3 lo identifique o no). El bug reportado era de
+// VISIBILIDAD en la galería, no de reproducción — /play nunca miró
+// Confirmed ni IdentifyStatus. Este test deja eso probado explícitamente,
+// no solo inferido de leer el código.
+func TestHandlePlayWorksForUnconfirmedItem(t *testing.T) {
+	ps := newPlayTestServer(t, nil, nil)
+	item := catalog.Item{
+		Kind: catalog.KindOther, Title: "Big Buck Bunny 360 10s 1MB",
+		Genres: []string{}, Confirmed: false, IdentifyStatus: catalog.IdentifyReview,
+	}
+	itemID, err := ps.repo.InsertItem(context.Background(), &item, "")
+	if err != nil {
+		t.Fatalf("InsertItem: %v", err)
+	}
+	srcID := ps.insertSource(t, itemID, "http://ejemplo.test/Big_Buck_Bunny_360_10s_1MB.mp4", "",
+		catalog.HealthUnverified, 0, "http")
+
+	got := getPlay(t, ps, itemID)
+	if len(got.Sources) != 1 || got.Sources[0].Mode != "direct" {
+		t.Fatalf("Sources = %+v, esperado 1 fuente en modo direct (item sin confirmar)", got.Sources)
+	}
+	if got.ChosenSourceID == nil || *got.ChosenSourceID != srcID {
+		t.Fatalf("ChosenSourceID = %v, esperado %d incluso sin confirmar", got.ChosenSourceID, srcID)
+	}
+
+	// Y /stream/{source_id} debe redirigir de verdad, no solo "elegirse".
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := client.Get(ps.URL + "/api/v1/stream/" + strconv.FormatInt(srcID, 10))
+	if err != nil {
+		t.Fatalf("GET /stream: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("status = %d, esperado 302 (redirect a la URL directa)", resp.StatusCode)
+	}
+	if loc := resp.Header.Get("Location"); loc != "http://ejemplo.test/Big_Buck_Bunny_360_10s_1MB.mp4" {
+		t.Errorf("Location = %q", loc)
+	}
+}
+
 func TestHandlePlayUnknownItem404(t *testing.T) {
 	ps := newPlayTestServer(t, nil, nil)
 	resp, err := http.Get(ps.URL + "/api/v1/play/999999")

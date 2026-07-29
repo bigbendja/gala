@@ -10,7 +10,11 @@ cultura del disco duro que circula.
 
 ## Documentos de referencia (leer antes de tocar código)
 - `docs/GALA_Especificacion_MVP1.md` — especificación funcional/técnica completa.
-- `docs/GALA_Plan_Desarrollo_MVP1.md` — módulos, dependencias, orden y criterios de "hecho".
+- `docs/GALA_Plan_Desarrollo_MVP1.md` — módulos, dependencias, orden y criterios de "hecho" del MVP1 original (M0–M11).
+- `docs/GALA_Plan_Estabilizacion_Fases.md` — plan operativo ACTUAL post-MVP1 (julio
+  2026 en adelante): Fase 0 (estabilizar) → Fase 1 (rediseño home) → Fase 2 (M7 LAN)
+  → Fase 3 (Drive/Mega) → Fase 4 (M9 .gala) → Fase 5 (M11 release). Manda sobre el
+  orden de "siguiente módulo" de la lista de abajo cuando difieran.
 - `docs/GALA_Mockup.html` — referencia visual VINCULANTE del frontend (paleta, tipografías, componentes).
 
 ## Reglas de hierro (no negociables)
@@ -290,11 +294,31 @@ cultura del disco duro que circula.
       galería/ficha/reproductor/ajustes/pendientes/modal de ingesta/menú —
       capturas en `docs/screenshots/m10c/`. Con esto M10 (a+b+c) queda
       cerrado.
-- [ ] M7 LAN ← SIGUIENTE
-- [ ] M8 Deseos ·
-      M9 .gala ·
-      M11 Release
-(Actualizar esta lista al completar cada módulo.)
+- [x] Fase 0 (`docs/GALA_Plan_Estabilizacion_Fases.md`) — Estabilizar lo que
+      estaba roto tras M10: 0.1 CI (test `TestLocatePrefersFfmpegSubfolder`
+      arreglado — colisión archivo/carpeta solo en Linux, no hacía falta
+      tocar `internal/media`; el resto de 0.1, y 0.2/0.3/0.5 completos,
+      resultaron ya resueltos por M10c, diagnóstico desactualizado), 0.4
+      (bug real: "Tu galería" exigía `confirmed=true` Y `kind IN
+      (movie,series)`, escondiendo cualquier enlace directo sin match en
+      TMDB — casi todos. `web/src/lib/gallery.ts` deja ver `kind=other` con
+      `source_count > 0` sin exigir `confirmed`; "Por confirmar" gana la
+      acción "Dejar sin identificar" y trata `identify_status=error` como
+      accionable, no como limbo eterno; verificado en vivo con la URL real
+      de Big Buck Bunny del reporte original). Diagnóstico integral
+      (pedido explícito del titular) encontró y corrigió además un bug de
+      presentación en la tarjeta "Deseos" (decía "Sin fuente · buscando…"
+      aunque el item ya tuviera fuente real) y documentó sin corregir un
+      bug de reconciliación de carpetas quitadas/vueltas a añadir (ver
+      ISSUES-MVP2.md y la propia Fase 0 en el plan). Pendiente de que el
+      titular confirme el run verde en GitHub Actions antes de dar la fase
+      por cerrada del todo.
+- [ ] Fase 1 (rediseño de la Home) ← SIGUIENTE — ver
+      `docs/GALA_Plan_Estabilizacion_Fases.md`; no empieza sin mockup
+      acordado con el titular.
+- [ ] Fase 2 (M7 LAN) · Fase 3 (Drive/Mega) · Fase 4 (M9 .gala) ·
+      Fase 5 (M11 release)
+(Actualizar esta lista al completar cada módulo/fase.)
 
 ## Estructura
 ```

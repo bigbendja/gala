@@ -45,7 +45,13 @@
 	// Brief M10a-fix A4: título de presentación limpio para items sin
 	// identificar, sin tocar la lógica de M3 (solo esta vista).
 	const title = $derived(displayTitle(item));
-	const unidentified = $derived(variant === 'default' && isUnidentified(item));
+	// Fase 0 — diagnóstico integral: "wish" también puede ser un item YA con
+	// fuente (M10a-fix permite desear cualquier item existente, no solo
+	// títulos aspiracionales sin fuente — ver más abajo, source_count===0 es
+	// el único caso que sigue siendo "Sin fuente · buscando…"), así que
+	// también puede necesitar la marca "Sin identificar". "wide" (Continuar
+	// viendo) se deja igual que siempre, sin marca, por simplicidad visual.
+	const unidentified = $derived((variant === 'default' || variant === 'wish') && isUnidentified(item));
 
 	const progressPct = $derived.by(() => {
 		const p = item.progress;
@@ -63,7 +69,7 @@
 	{#if isNew && variant === 'default'}
 		<div class="badge">NUEVO</div>
 	{/if}
-	{#if variant === 'wish'}
+	{#if variant === 'wish' && item.source_count === 0}
 		<span class="wish-tag">Sin fuente</span>
 	{/if}
 
@@ -81,7 +87,7 @@
 	<div class="info">
 		<div class="t">{title}</div>
 		<div class="m">
-			{#if variant === 'wish'}
+			{#if variant === 'wish' && item.source_count === 0}
 				<span>{item.year ?? ''} · buscando…</span>
 			{:else if unidentified}
 				<span class="unidentified">Sin identificar</span>

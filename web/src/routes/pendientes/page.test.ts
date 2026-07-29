@@ -85,3 +85,94 @@ describe('Por confirmar — descartar (Brief M10c §3)', () => {
 		expect(getByText('VID-20230101-WA0001')).toBeInTheDocument();
 	});
 });
+
+describe('Por confirmar — dejar sin identificar (Fase 0 tarea 0.4)', () => {
+	beforeEach(() => {
+		deleteItemMock.mockReset();
+		confirmItemMock.mockReset();
+		invalidateAllMock.mockReset();
+	});
+
+	it('el campo de título manual viene precargado con el nombre limpio del item', () => {
+		const { getByPlaceholderText } = render(Page, {
+			data: {
+				items: [makeItem({ title: 'Big_Buck_Bunny_360_10s_1MB.mp4' })],
+				error: null,
+				pendingCount: 1
+			}
+		});
+		const input = getByPlaceholderText('O escribe el título correcto…') as HTMLInputElement;
+		expect(input.value).toBe('Big Buck Bunny 360 10s 1MB mp4');
+	});
+
+	it('"Dejar sin identificar" confirma con el título limpio, ignorando lo que haya en el input', async () => {
+		confirmItemMock.mockResolvedValueOnce({ id: 42 });
+		const { getByText, getByPlaceholderText, queryByText } = render(Page, {
+			data: { items: [makeItem({ title: 'pelicula.rara.2024.mkv' })], error: null, pendingCount: 1 }
+		});
+
+		const input = getByPlaceholderText('O escribe el título correcto…') as HTMLInputElement;
+		await fireEvent.input(input, { target: { value: 'un título a medio escribir' } });
+
+		await fireEvent.click(getByText(/Dejar sin identificar/));
+
+		await waitFor(() =>
+			expect(confirmItemMock).toHaveBeenCalledWith(42, { title: 'pelicula rara 2024 mkv' })
+		);
+		await waitFor(() => expect(queryByText('pelicula rara 2024 mkv')).toBeNull());
+		expect(invalidateAllMock).toHaveBeenCalled();
+	});
+
+	it('un fallo al dejarlo sin identificar muestra error y conserva el item', async () => {
+		const { ApiError } = await import('$lib/api/client');
+		confirmItemMock.mockRejectedValueOnce(new ApiError('error interno', 500));
+		const { getByText } = render(Page, {
+			data: { items: [makeItem()], error: null, pendingCount: 1 }
+		});
+
+		await fireEvent.click(getByText(/Dejar sin identificar/));
+
+		await waitFor(() => expect(getByText('error interno')).toBeInTheDocument());
+		expect(getByText('VID-20230101-WA0001')).toBeInTheDocument();
+	});
+});
+
+describe('Por confirmar — items en identify_status=error son accionables (diagnóstico Fase 0)', () => {
+	beforeEach(() => {
+		deleteItemMock.mockReset();
+		confirmItemMock.mockReset();
+		invalidateAllMock.mockReset();
+	});
+
+	it('un item en error (p. ej. clave TMDB inválida) aparece como accionable, no como "procesándose"', () => {
+		const errored = makeItem({
+			id: 4,
+			title: 'Big_Buck_Bunny_360_10s_1MB',
+			identify_status: 'error',
+			identify_note: 'tmdb /movie/1: 401 {"status_message":"Invalid API key: You must be granted a valid key."}'
+		});
+		const { getByText, queryByText } = render(Page, {
+			data: { items: [errored], error: null, pendingCount: 1 }
+		});
+
+		expect(getByText('Big Buck Bunny 360 10s 1MB')).toBeInTheDocument();
+		expect(getByText(/La clave de TMDB no es válida/)).toBeInTheDocument();
+		expect(queryByText('No hay nada por confirmar ahora mismo.')).toBeNull();
+		expect(getByText(/Dejar sin identificar/)).toBeInTheDocument();
+	});
+
+	it('"Dejar sin identificar" también funciona sobre un item en error', async () => {
+		confirmItemMock.mockResolvedValueOnce({ id: 4 });
+		const errored = makeItem({ id: 4, title: 'Big_Buck_Bunny_360_10s_1MB', identify_status: 'error' });
+		const { getByText, queryByText } = render(Page, {
+			data: { items: [errored], error: null, pendingCount: 1 }
+		});
+
+		await fireEvent.click(getByText(/Dejar sin identificar/));
+
+		await waitFor(() =>
+			expect(confirmItemMock).toHaveBeenCalledWith(4, { title: 'Big Buck Bunny 360 10s 1MB' })
+		);
+		await waitFor(() => expect(queryByText('Big Buck Bunny 360 10s 1MB')).toBeNull());
+	});
+});

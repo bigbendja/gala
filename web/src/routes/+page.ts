@@ -7,7 +7,10 @@ import type { PageLoad } from './$types';
 // (ver Row.svelte, virtualización + paginación perezosa).
 export const load: PageLoad = async () => {
 	const [galleryRes, wishlistRes, continuingRes, healthRes] = await Promise.allSettled([
-		listItems({ confirmed: true, limit: 200, offset: 0 }),
+		// FASE 0 tarea 0.4: sin `confirmed` — ver la nota de galleryVisible()
+		// en +page.svelte, que hace el filtrado real (incluye kind=other sin
+		// identificar, siempre que tenga fuente).
+		listItems({ limit: 200, offset: 0 }),
 		listItems({ wished: true, limit: 60, offset: 0 }),
 		// Brief M10a-fix B3/C: "Continuar viendo" ahora mira TODO el
 		// catálogo vía el filtro in_progress, no solo la página de "Tu

@@ -29,13 +29,23 @@ func exeName(base string) string {
 }
 
 // TestLocatePrefersFfmpegSubfolder cubre el orden de búsqueda del Brief M4
-// §1: primero la carpeta "ffmpeg/" junto al ejecutable.
+// §1: primero la carpeta "ffmpeg/" junto al ejecutable. FASE 0 tarea 0.1:
+// el test original también creaba un "ffmpeg" suelto en la raíz de dir para
+// probar que se ignora frente al de la subcarpeta — pero en sistemas sin
+// extensión de ejecutable (todo menos Windows), ese archivo raíz se llama
+// literalmente "ffmpeg", el mismo nombre que la CARPETA "ffmpeg/" ya creada
+// en el mismo directorio; un archivo y un directorio no pueden coexistir
+// con el mismo nombre y padre, así que el segundo touchExecutable fallaba
+// siempre en Linux/macOS (nunca en Windows, donde el binario raíz se llama
+// "ffmpeg.exe", un nombre distinto). No hace falta crear ese archivo raíz
+// para probar la preferencia: locateBinary (ffmpeg.go) comprueba la
+// subcarpeta PRIMERO y devuelve en cuanto la encuentra, sin mirar siquiera
+// la raíz — ver TestLocateFallsBackToExeDir para la cobertura del
+// fallback en sí.
 func TestLocatePrefersFfmpegSubfolder(t *testing.T) {
 	dir := t.TempDir()
 	inSub := filepath.Join(dir, "ffmpeg", exeName("ffmpeg"))
-	inRoot := filepath.Join(dir, exeName("ffmpeg"))
 	touchExecutable(t, inSub)
-	touchExecutable(t, inRoot)
 	// ffprobe solo junto al ejecutable, para comprobar que cada binario se
 	// busca de forma independiente.
 	touchExecutable(t, filepath.Join(dir, exeName("ffprobe")))
