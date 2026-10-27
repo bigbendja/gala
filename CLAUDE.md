@@ -380,6 +380,26 @@ cultura del disco duro que circula.
       crea item ni fuente (aviso en log); bajas, regreso del .strm y
       re-añadir carpeta reconcilian con `removed_sources` como en M7. Detalle
       y lo descartado en ISSUES-MVP2.md.
+- [x] Fixes críticos de la auditoría visual (PR #3; auditoría con capturas en
+      `docs/screenshots/audit/`, antes del acabado visual): (1) con la BD vacía
+      `GET /pending` devolvía `null` y el layout raíz (`.filter` sobre `null`)
+      tumbaba TODAS las rutas con "500 Internal Error": la API devuelve siempre
+      `[]` y el cliente tolera `null` en las listas (`orEmpty`). REGLA: toda
+      lista que salga por la API es `[]`, nunca `null`. (2) Remux en bucle:
+      `setupRemux` leía `knownPosition` dentro del `$effect` de montaje y cada
+      `timeupdate` lo relanzaba (una sesión HLS por fotograma hasta agotar el
+      límite de 3; existía desde M10b, que solo verificó el arranque); el
+      efecto depende ahora solo de fuente+modo+`<video>`. Nuevo `DELETE
+      /stream/{source}/hls/{session}` (`Manager.StopSessionOf`, idempotente,
+      solo cierra la sesión de su fuente, permitido a clientes LAN) y el
+      reproductor libera su sesión al salir/cambiar de fuente/`pagehide`;
+      antes solo se barrían a los 30 min y el servidor quedaba en 503.
+      (3) SSRF en ingesta: los enlaces directos pasan por el mismo bloqueo de
+      M5 que M3U remotas, `.strm` y salud (un DNS caído no rechaza);
+      `ValidateExternalURL` bloquea `localhost`/`*.localhost` por nombre.
+      Pendiente de la auditoría (acabado visual, aún sin hacer): pantalla
+      negra durante la carga, fichas de serie/episodio/sin identificar,
+      carátulas de candidatos, textos crudos (ISO, `ApiError:`), topbar móvil.
 - [ ] Fase 3 (Drive/Mega) · Fase 4 (M9 .gala) · Fase 5 (M11 release)
 (Actualizar esta lista al completar cada módulo/fase.)
 
