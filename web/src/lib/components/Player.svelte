@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Hls from 'hls.js';
 	import { onDestroy, untrack } from 'svelte';
-	import { getPlay, putPlayback, reportSourceFailed, startHLS, streamUrl } from '$lib/api/client';
+	import { getPlay, putPlayback, reportSourceFailed, startHLS, stopHLS, streamUrl } from '$lib/api/client';
 	import type { Item, PlayResponse, PlaySourceView, Progress } from '$lib/api/types';
 	import { displayTitle, providerLabel } from '$lib/format';
 	import { isPlayable, pickNextSource } from '$lib/player';
@@ -30,6 +30,8 @@
 
 	let videoEl: HTMLVideoElement | undefined = $state();
 	let hls: Hls | null = null;
+	// Sesión de remux viva en el servidor (para liberarla al salir/cambiar).
+	let hlsSession: { sourceId: number; sessionId: string } | null = null;
 
 	// Posición conocida del ARCHIVO ORIGINAL (no de la sesión HLS, que puede
 	// empezar su propio reloj en 0 tras un -ss del lado servidor — ver
@@ -67,19 +69,33 @@
 		return () => clearTimeout(t);
 	});
 
+	// El efecto de montaje depende SOLO de qué fuente está activa y de su modo
+	// (primitivos: no se relanza porque `play` se vuelva a pedir con la misma
+	// fuente) y del <video>. Todo lo demás se lee con untrack: leer
+	// `knownPosition` aquí dentro (lo actualiza cada timeupdate) relanzaba el
+	// efecto en cada fotograma → una sesión de remux nueva cada vez, en bucle,
+	// hasta agotar el límite de 3 sesiones del servidor.
+	const activeSourceId = $derived(currentSource?.source_id ?? null);
+	const activeMode = $derived(currentSource?.mode ?? null);
+
 	// Montar/desmontar el <video> (o la sesión hls.js) según la fuente activa.
 	$effect(() => {
-		const src = currentSource;
-		teardownHls();
-		if (!videoEl || !src) return;
-		if (src.mode === 'direct') {
-			remuxStartOffset = 0;
-			videoEl.src = streamUrl(src.source_id);
-		} else if (src.mode === 'remux') {
-			setupRemux(src, videoEl);
-		} else {
-			videoEl.removeAttribute('src');
-		}
+		const id = activeSourceId;
+		const mode = activeMode;
+		const video = videoEl;
+		untrack(() => {
+			teardownHls();
+			const src = currentSource;
+			if (!video || !src || src.source_id !== id || src.mode !== mode) return;
+			if (mode === 'direct') {
+				remuxStartOffset = 0;
+				video.src = streamUrl(src.source_id);
+			} else if (mode === 'remux') {
+				setupRemux(src, video);
+			} else {
+				video.removeAttribute('src');
+			}
+		});
 	});
 
 	onDestroy(() => {
@@ -92,13 +108,27 @@
 			hls.destroy();
 			hls = null;
 		}
+		releaseSession();
+	}
+
+	function releaseSession() {
+		if (hlsSession) {
+			stopHLS(hlsSession.sourceId, hlsSession.sessionId);
+			hlsSession = null;
+		}
 	}
 
 	async function setupRemux(src: PlaySourceView, video: HTMLVideoElement) {
 		const offset = knownPosition;
 		try {
-			const { playlist_url } = await startHLS(src.source_id, offset || undefined);
-			if (currentSource?.source_id !== src.source_id) return; // cambiaste de fuente mientras arrancaba
+			const { session_id, playlist_url } = await startHLS(src.source_id, offset || undefined);
+			if (currentSource?.source_id !== src.source_id || video !== videoEl) {
+				// Cambiaste de fuente (o saliste) mientras arrancaba: esa sesión ya
+				// no la va a usar nadie.
+				stopHLS(src.source_id, session_id);
+				return;
+			}
+			hlsSession = { sourceId: src.source_id, sessionId: session_id };
 			remuxStartOffset = offset;
 			if (Hls.isSupported()) {
 				const instance = new Hls();
@@ -181,6 +211,9 @@
 		}
 	}
 </script>
+
+<!-- Cerrar la pestaña no ejecuta onDestroy: libera la sesión de remux igualmente. -->
+<svelte:window onpagehide={releaseSession} />
 
 <div class="player">
 	<header>

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strings"
 )
 
 // ErrBlockedTarget señala que una URL apunta a una IP privada/loopback/
@@ -43,6 +44,12 @@ func ValidateExternalURL(ctx context.Context, rawURL string) error {
 	host := u.Hostname()
 	if host == "" {
 		return fmt.Errorf("httpprovider: URL sin host")
+	}
+
+	// "localhost" y "*.localhost" son loopback por definición (RFC 6761): se
+	// bloquean sin depender de lo que diga el resolvedor del sistema.
+	if lh := strings.ToLower(strings.TrimSuffix(host, ".")); lh == "localhost" || strings.HasSuffix(lh, ".localhost") {
+		return ErrBlockedTarget
 	}
 
 	// Host ya es una IP literal (sin DNS que resolver).

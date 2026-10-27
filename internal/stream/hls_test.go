@@ -297,3 +297,57 @@ func waitNoDir(t *testing.T, dir string) {
 	}
 	t.Fatalf("%s no se borró a tiempo", dir)
 }
+
+// StopSessionOf es lo que usa el cliente al salir del reproductor: libera la
+// sesión (ffmpeg + directorio) y deja sitio al límite global, para que
+// reproducciones abandonadas no dejen al servidor en 503.
+func TestStopSessionOfFreesTheSlot(t *testing.T) {
+	ffmpeg := buildFakeFFmpeg(t, 0, 300)
+	m := newManagerForTest(t, context.Background(), ffmpeg)
+
+	var last *Session
+	for i := int64(1); i <= maxGlobalSessions; i++ {
+		s, err := m.StartSession(context.Background(), i, "video.mkv", 0, false)
+		if err != nil {
+			t.Fatalf("StartSession fuente %d: %v", i, err)
+		}
+		last = s
+	}
+	if _, err := m.StartSession(context.Background(), 99, "video.mkv", 0, false); !errors.Is(err, ErrTooManySessions) {
+		t.Fatalf("con el límite lleno err = %v, esperado ErrTooManySessions", err)
+	}
+
+	if !m.StopSessionOf(last.ID, last.SourceID) {
+		t.Fatal("StopSessionOf no cerró una sesión existente")
+	}
+	waitNoDir(t, last.Dir)
+	if _, ok := m.Session(last.ID); ok {
+		t.Error("la sesión sigue registrada tras StopSessionOf")
+	}
+	if _, err := m.StartSession(context.Background(), 99, "video.mkv", 0, false); err != nil {
+		t.Fatalf("tras liberar una sesión debe caber otra: %v", err)
+	}
+}
+
+// Una sesión solo se cierra desde su propia fuente, y repetir la petición es
+// inofensivo.
+func TestStopSessionOfIgnoresOtherSourceAndUnknown(t *testing.T) {
+	ffmpeg := buildFakeFFmpeg(t, 0, 300)
+	m := newManagerForTest(t, context.Background(), ffmpeg)
+	s, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.StopSessionOf(s.ID, 2) {
+		t.Error("cerró la sesión de OTRA fuente")
+	}
+	if _, ok := m.Session(s.ID); !ok {
+		t.Error("la sesión desapareció pese a pedirla con otra fuente")
+	}
+	if m.StopSessionOf("no-existe", 1) {
+		t.Error("StopSessionOf(desconocida) = true")
+	}
+	if !m.StopSessionOf(s.ID, 1) || m.StopSessionOf(s.ID, 1) {
+		t.Error("cerrar dos veces debe devolver true y luego false")
+	}
+}

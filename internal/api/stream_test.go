@@ -832,3 +832,61 @@ func TestHandleHLSStartTooManySessions503(t *testing.T) {
 }
 
 func discardTestLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+
+// DELETE /stream/{source}/hls/{session}: el reproductor libera su sesión al
+// salir. Idempotente (204 siempre) y solo cierra la sesión de ESA fuente.
+func TestHandleHLSStopReleasesSession(t *testing.T) {
+	fake := buildFakeBinary(t)
+	setFakeProbeResponse(t, "h264", "aac", "matroska,webm")
+	ffmpeg := &media.FFmpeg{FFmpegPath: fake, FFprobePath: fake}
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	hlsMgr := stream.NewManager(ctx, fake, t.TempDir(), discardTestLogger())
+
+	ps := newPlayTestServer(t, ffmpeg, hlsMgr)
+	itemID := ps.insertMovie(t, "Peli MKV")
+	locator := ps.writeMediaFile(t, "peli.mkv", 1000)
+	srcID := ps.insertSource(t, itemID, locator, "", catalog.HealthAlive, 0, "")
+	src := strconv.FormatInt(srcID, 10)
+
+	resp, err := http.Get(ps.URL + "/api/v1/stream/" + src + "/hls/start")
+	if err != nil {
+		t.Fatalf("GET /hls/start: %v", err)
+	}
+	var out struct {
+		SessionID string `json:"session_id"`
+	}
+	json.NewDecoder(resp.Body).Decode(&out)
+	resp.Body.Close()
+	if _, ok := hlsMgr.Session(out.SessionID); !ok {
+		t.Fatal("la sesión no se creó")
+	}
+
+	del := func(source, session string) int {
+		req, _ := http.NewRequest(http.MethodDelete, ps.URL+"/api/v1/stream/"+source+"/hls/"+session, nil)
+		r, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("DELETE: %v", err)
+		}
+		r.Body.Close()
+		return r.StatusCode
+	}
+
+	// Con otra fuente no se cierra (pero responde 204: es idempotente).
+	if code := del(strconv.FormatInt(srcID+1, 10), out.SessionID); code != http.StatusNoContent {
+		t.Fatalf("DELETE con otra fuente = %d", code)
+	}
+	if _, ok := hlsMgr.Session(out.SessionID); !ok {
+		t.Fatal("DELETE con otra fuente cerró la sesión")
+	}
+
+	if code := del(src, out.SessionID); code != http.StatusNoContent {
+		t.Fatalf("DELETE = %d, esperado 204", code)
+	}
+	if _, ok := hlsMgr.Session(out.SessionID); ok {
+		t.Fatal("la sesión sigue viva tras DELETE")
+	}
+	if code := del(src, out.SessionID); code != http.StatusNoContent {
+		t.Fatalf("segundo DELETE = %d, esperado 204 (idempotente)", code)
+	}
+}

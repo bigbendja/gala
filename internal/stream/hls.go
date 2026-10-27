@@ -231,6 +231,27 @@ func (m *Manager) StopSession(id string) {
 	}
 }
 
+// StopSessionOf termina la sesión id solo si pertenece a sourceID. Devuelve
+// si existía y se cerró. Es lo que usa el cliente al salir del reproductor
+// (o cambiar de fuente): sin esto las sesiones solo se liberaban por
+// inactividad (30 min) y tres reproducciones abandonadas dejaban al servidor
+// respondiendo 503 hasta reiniciar.
+func (m *Manager) StopSessionOf(id string, sourceID int64) bool {
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if ok && sess.SourceID != sourceID {
+		ok = false
+	}
+	if ok {
+		delete(m.sessions, id)
+	}
+	m.mu.Unlock()
+	if ok {
+		m.stopProcess(sess)
+	}
+	return ok
+}
+
 // removeLocked quita sess del mapa (el llamante ya tiene m.mu) y libera su
 // proceso en segundo plano, para no bloquear a quien tiene el lock mientras
 // se espera a que ffmpeg termine.

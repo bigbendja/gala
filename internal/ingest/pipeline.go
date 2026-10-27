@@ -67,6 +67,10 @@ type ResumenIngesta struct {
 	// ListID es el id de la fila ingest_lists de ESTA ingesta (trazabilidad,
 	// Brief §4/§5).
 	ListID int64 `json:"list_id"`
+
+	// hostVerdict cachea, durante UNA ingesta, el veredicto SSRF por host: una
+	// lista con cientos de enlaces al mismo dominio resuelve su DNS una vez.
+	hostVerdict map[string]error
 }
 
 // HealthNotifier despierta al worker de salud de M6 tras una ingesta con
@@ -299,6 +303,15 @@ func (p *Pipeline) processCandidate(ctx context.Context, c Candidate, listID int
 		p.applyOutcome(res, outcome, func() { res.PendientesConector++ })
 
 	case ClassDirect, ClassUnknown:
+		// Mismo bloqueo SSRF que fetchM3U, los .strm y la salud: un enlace a
+		// localhost o a una red privada no se cataloga (GALA no es un puente
+		// hacia la red de casa).
+		if err := p.checkSSRF(ctx, c.Locator, res); err != nil {
+			res.SinClasificar++
+			res.Detalles = append(res.Detalles, fmt.Sprintf(
+				"enlace a una red privada o local, bloqueado por seguridad: %s", c.Locator))
+			return
+		}
 		outcome := p.createProvisional(ctx, c, httpprovider.ProviderID, catalog.HealthUnverified, listID, now, false)
 		p.applyOutcome(res, outcome, func() { res.Anadidos++ })
 
@@ -306,6 +319,35 @@ func (p *Pipeline) processCandidate(ctx context.Context, c Candidate, listID int
 		res.SinClasificar++
 		res.Detalles = append(res.Detalles, fmt.Sprintf("lista M3U sin resolver: %s", c.Locator))
 	}
+}
+
+// ssrfDNSTimeout acota la comprobación de cada host nuevo: sin conexión no se
+// debe quedar la ingesta esperando a un DNS que no responde.
+const ssrfDNSTimeout = 3 * time.Second
+
+// checkSSRF devuelve un error SOLO si la URL apunta a un destino interno
+// (httpprovider.ErrBlockedTarget). Que el DNS no resuelva (p. ej. sin
+// conexión) no la rechaza: es un enlace sintácticamente válido y la salud
+// (M6) dirá si de verdad está caído — la ingesta funciona offline.
+func (p *Pipeline) checkSSRF(ctx context.Context, rawURL string, res *ResumenIngesta) error {
+	host := rawURL
+	if u, err := url.Parse(rawURL); err == nil {
+		host = u.Hostname()
+	}
+	if verdict, ok := res.hostVerdict[host]; ok {
+		return verdict
+	}
+	cctx, cancel := context.WithTimeout(ctx, ssrfDNSTimeout)
+	defer cancel()
+	var verdict error
+	if err := httpprovider.ValidateExternalURL(cctx, rawURL); errors.Is(err, httpprovider.ErrBlockedTarget) {
+		verdict = err
+	}
+	if res.hostVerdict == nil {
+		res.hostVerdict = map[string]error{}
+	}
+	res.hostVerdict[host] = verdict
+	return verdict
 }
 
 // candidateOutcome es el resultado de intentar dar de alta un candidato.

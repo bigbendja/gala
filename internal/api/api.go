@@ -87,6 +87,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/stream/{source_id}", s.handleStreamDirect)
 	mux.HandleFunc("GET /api/v1/stream/{source_id}/hls/start", s.handleHLSStart)
 	mux.HandleFunc("GET /api/v1/stream/{source_id}/hls/{session_id}/{file}", s.handleHLSFile)
+	mux.HandleFunc("DELETE /api/v1/stream/{source_id}/hls/{session_id}", s.handleHLSStop)
 	mux.HandleFunc("POST /api/v1/sources/{id}/failed", s.handleSourceFailed)
 	mux.HandleFunc("GET /api/v1/playback/{item_id}", s.handleGetPlayback)
 	mux.HandleFunc("PUT /api/v1/playback/{item_id}", s.handlePutPlayback)
