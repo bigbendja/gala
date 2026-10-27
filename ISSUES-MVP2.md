@@ -149,3 +149,27 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   de decisión de reproducción, fuera de alcance para una ficha de solo
   lectura en M10a). Se omitieron ambos campos en vez de inventarlos o
   acoplar la ficha a `/play` antes de que exista el reproductor (M10b).
+- 2026-10-27 (M7): "Continuar viendo" entre PC y móvil. La identidad es la
+  cookie `gala_device` (una por navegador/dispositivo, decisión cerrada del
+  brief M7), así que el progreso de un dispositivo NO aparece en otro: empezar
+  en el PC y seguir en el móvil exige una identidad de hogar compartida o
+  cuentas. Pendiente de decisión del titular (ver informe M7).
+- 2026-10-27 (M7): fantasmas anteriores al arreglo de "carpeta duplicada".
+  Los items que ya quedaron duplicados (uno con 0 fuentes, oculto, y otro
+  nuevo con la fuente) antes de `0005_removed_sources.sql` no tienen rastro
+  y no se reconcilian solos. Limpieza posible: borrar items sin fuentes ni
+  hijos cuyo `tmdb_id` ya tenga otro item con fuentes (conservador) — no se
+  hizo para no borrar nada del usuario sin pedirlo.
+- 2026-10-27 (M7): lista de dispositivos conectados en el panel de Modo LAN
+  (opcional en el brief). Se omitió: haría falta guardar `last_seen` por
+  `gala_device` y una consulta nueva; no es barato.
+- 2026-10-27 (M7): descubrimiento por nombre (mDNS, `gala.local`) — mejora
+  opcional; el QR y la URL con IP cubren el caso.
+- 2026-10-27 (M7): TLS en LAN. El tráfico va en HTTP plano dentro de la red
+  local (el PIN viaja sin cifrar al teclearlo). Aceptado para MVP1 con aviso
+  en el panel; HTTPS exigiría un certificado que el móvil acepte sin avisos.
+- 2026-10-27 (M7): perfil de transcode 480p para móviles de gama baja por
+  ancho de banda (en la especificación); no se hizo.
+- 2026-10-27 (M7): las sesiones del PIN viven en memoria: reiniciar GALA
+  obliga a los móviles a teclear el PIN otra vez. Persistirlas en la BD si
+  molesta en uso real.

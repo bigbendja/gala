@@ -9,6 +9,8 @@ import type {
 	IdentifyStatus,
 	IngestList,
 	Item,
+	LanSession,
+	LanStatus,
 	ListItemsParams,
 	ListResult,
 	PendingItem,
@@ -19,6 +21,9 @@ import type {
 	TMDBSettings,
 	Volume
 } from './types';
+
+/** Evento de window que se lanza cuando el backend pide el PIN del Modo LAN. */
+export const PIN_REQUIRED_EVENT = 'gala:pin-required';
 
 export class ApiError extends Error {
 	status?: number;
@@ -39,8 +44,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	if (!res.ok) {
 		let detail = '';
 		try {
-			const body = (await res.json()) as { error?: string };
+			const body = (await res.json()) as { error?: string; code?: string };
 			detail = body?.error ?? '';
+			// Modo LAN: la sesión del PIN caducó (o se cambió el PIN) con la
+			// app abierta; el layout escucha esto y vuelve a pedirlo.
+			if (res.status === 401 && body?.code === 'pin_required' && typeof window !== 'undefined') {
+				window.dispatchEvent(new CustomEvent(PIN_REQUIRED_EVENT));
+			}
 		} catch {
 			// el cuerpo de error no era JSON; se usa el mensaje genérico de abajo
 		}
@@ -274,4 +284,43 @@ export function listIngestLists(): Promise<IngestList[]> {
  *  Sistema (Brief M10c §2, sin inventar un endpoint nuevo solo para esto). */
 export function ping(): Promise<{ status: string; app: string; version: string; ffmpeg_available: boolean }> {
 	return request('/api/v1/ping');
+}
+
+// --- Modo LAN (M7) -----------------------------------------------------------
+
+/** GET /api/v1/lan/session — ¿es el PC o un dispositivo de la red? ¿Falta el PIN? */
+export function getLanSession(): Promise<LanSession> {
+	return request('/api/v1/lan/session');
+}
+
+/** POST /api/v1/lan/auth — teclea el PIN desde un dispositivo de la red. */
+export function lanAuth(pin: string): Promise<{ ok: boolean }> {
+	return request('/api/v1/lan/auth', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ pin })
+	});
+}
+
+/** GET /api/v1/lan/status — solo desde el PC. */
+export function getLanStatus(): Promise<LanStatus> {
+	return request('/api/v1/lan/status');
+}
+
+/** POST /api/v1/lan/toggle — activa o desactiva el Modo LAN (solo desde el PC). */
+export function setLanEnabled(enabled: boolean): Promise<LanStatus> {
+	return request('/api/v1/lan/toggle', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ enabled })
+	});
+}
+
+/** PUT /api/v1/lan/pin — pone o cambia el PIN ("1234"), o lo quita (""). */
+export function setLanPin(pin: string): Promise<LanStatus> {
+	return request('/api/v1/lan/pin', {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ pin })
+	});
 }

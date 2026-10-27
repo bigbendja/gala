@@ -14,6 +14,7 @@ import (
 	"github.com/bigbendja/gala/internal/health"
 	"github.com/bigbendja/gala/internal/identify"
 	"github.com/bigbendja/gala/internal/ingest"
+	"github.com/bigbendja/gala/internal/lan"
 	"github.com/bigbendja/gala/internal/media"
 	"github.com/bigbendja/gala/internal/providers/localfs"
 	"github.com/bigbendja/gala/internal/scan"
@@ -41,6 +42,12 @@ type Server struct {
 
 	Ingest *ingest.Pipeline // nil solo en tests que no ejercitan la ingesta (M5)
 	Health *health.Worker   // nil solo en tests que no ejercitan la salud de fuentes (M6)
+
+	// Modo LAN (M7). Los pone main tras api.New; nil = comportamiento de
+	// tests (sin listener real, sin guardián).
+	LanGuard      *lan.Guard
+	LanListen     func(bind string) error // reabre el listener HTTP en ese bind
+	LanCandidates func() []lan.Candidate  // nil = detección real de interfaces
 }
 
 // New crea el servidor de API con sus dependencias. repo, cfg, sc, enum, q,
@@ -93,6 +100,30 @@ func (s *Server) Routes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /api/v1/settings/tmdb", s.handleGetTMDBSettings)
 	mux.HandleFunc("PUT /api/v1/settings/tmdb", s.handlePutTMDBSettings)
+
+	// Modo LAN (M7). status/toggle/pin son solo del PC (requireOwner);
+	// session/auth son los únicos que usa un dispositivo remoto para el PIN.
+	mux.HandleFunc("GET /api/v1/lan/status", s.handleLanStatus)
+	mux.HandleFunc("POST /api/v1/lan/toggle", s.handleLanToggle)
+	mux.HandleFunc("PUT /api/v1/lan/pin", s.handleLanPIN)
+	mux.HandleFunc("GET /api/v1/lan/session", s.handleLanSession)
+	mux.HandleFunc("POST /api/v1/lan/auth", s.handleLanAuth)
+}
+
+func (s *Server) handleLanSession(w http.ResponseWriter, r *http.Request) {
+	if s.LanGuard == nil { // sin guardián (tests): es el PC
+		writeJSON(w, http.StatusOK, map[string]bool{"local": true, "pin_required": false, "authenticated": true})
+		return
+	}
+	s.LanGuard.HandleSession(w, r)
+}
+
+func (s *Server) handleLanAuth(w http.ResponseWriter, r *http.Request) {
+	if s.LanGuard == nil {
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	}
+	s.LanGuard.HandleAuth(w, r)
 }
 
 func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
@@ -199,6 +230,9 @@ func (s *Server) handleGetItem(w http.ResponseWriter, r *http.Request) {
 	if err := s.Catalog.AttachProgress(r.Context(), items, readDeviceID(r)); err != nil {
 		s.fail(w, err)
 		return
+	}
+	if !lan.IsLocal(r) {
+		redactForRemote(&items[0]) // Modo LAN: sin rutas del disco del PC
 	}
 	writeJSON(w, http.StatusOK, items[0])
 }

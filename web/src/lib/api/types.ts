@@ -213,3 +213,31 @@ export interface IngestList {
 	last_sync?: string;
 	item_count: number;
 }
+
+// --- Modo LAN (M7) ---
+
+// internal/lan.Candidate: una IPv4 que un móvil podría usar para llegar a GALA.
+export interface LanCandidate {
+	ip: string;
+	interface: string;
+	virtual: boolean;
+}
+
+// internal/api/lan.go: lanStatusView. Nunca lleva el PIN, solo pin_set.
+export interface LanStatus {
+	enabled: boolean;
+	bind: string;
+	port: number;
+	lan_ip: string;
+	url: string;
+	pin_set: boolean;
+	qr_payload: string;
+	candidates: LanCandidate[];
+}
+
+// internal/lan.sessionView: quién es este cliente y si le falta el PIN.
+export interface LanSession {
+	local: boolean;
+	pin_required: boolean;
+	authenticated: boolean;
+}

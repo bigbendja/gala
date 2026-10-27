@@ -202,3 +202,125 @@ func TestRemoveFolderSources(t *testing.T) {
 		t.Fatalf("esperado 0 fuentes, got %+v", it.Sources)
 	}
 }
+
+// Bug "carpeta duplicada" (M7 §6): quitar una carpeta y volver a añadirla
+// creaba items NUEVOS y dejaba los originales como fantasmas sin fuentes.
+func TestReAddFolderReconcilesInsteadOfDuplicating(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "Pelicula.Uno.2020.mkv"), int(localfs.MinFileSize)+1)
+	writeFile(t, filepath.Join(root, "Pelicula.Dos.2021.mkv"), int(localfs.MinFileSize)+1)
+
+	repo := newRepo(t)
+	cfg := &config.Config{MediaFolders: []string{root}}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	s := scan.New(ctx, cfg, repo, fakeEnum{}, log)
+
+	if err := s.Start(nil); err != nil {
+		t.Fatal(err)
+	}
+	waitDone(t, s)
+	first, err := repo.List(ctx, catalog.ListFilter{})
+	if err != nil || first.Total != 2 {
+		t.Fatalf("alta inicial: total=%d err=%v", first.Total, err)
+	}
+	ids := map[int64]bool{first.Items[0].ID: true, first.Items[1].ID: true}
+
+	// Quitar la carpeta (lo que hace DELETE /folders) y volver a añadirla.
+	if _, err := scan.RemoveFolderSources(ctx, repo, root); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Start([]string{root}); err != nil {
+		t.Fatal(err)
+	}
+	waitDone(t, s)
+
+	after, err := repo.List(ctx, catalog.ListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Total != 2 {
+		t.Fatalf("total tras re-añadir = %d, esperado 2 (sin duplicados ni fantasmas)", after.Total)
+	}
+	for _, it := range after.Items {
+		if !ids[it.ID] {
+			t.Errorf("item %d (%q) es nuevo: debió reutilizarse uno de %v", it.ID, it.Title, ids)
+		}
+		if it.SourceCount != 1 {
+			t.Errorf("item %d con %d fuentes, esperado 1", it.ID, it.SourceCount)
+		}
+	}
+	if st := s.Status(); st.ItemsNew != 0 {
+		t.Errorf("ItemsNew = %d, esperado 0: nada es nuevo", st.ItemsNew)
+	}
+}
+
+// Un fichero que desaparece y vuelve (disco sin montar, USB intermitente)
+// recupera su item en vez de duplicarlo.
+func TestFileReturningReusesItsItem(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	root := t.TempDir()
+	video := filepath.Join(root, "Vuelve.2022.mkv")
+	writeFile(t, video, int(localfs.MinFileSize)+1)
+
+	repo := newRepo(t)
+	cfg := &config.Config{MediaFolders: []string{root}}
+	s := scan.New(ctx, cfg, repo, fakeEnum{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	s.Start(nil)
+	waitDone(t, s)
+	res, _ := repo.List(ctx, catalog.ListFilter{})
+	id := res.Items[0].ID
+
+	// Marcarlo como identificado: la identificación debe sobrevivir.
+	if _, err := repo.DB.ExecContext(ctx, `UPDATE items SET title='Vuelve', confirmed=1, tmdb_id=99 WHERE id=?`, id); err != nil {
+		t.Fatal(err)
+	}
+
+	os.Remove(video)
+	s.Start(nil)
+	waitDone(t, s)
+	writeFile(t, video, int(localfs.MinFileSize)+1)
+	s.Start(nil)
+	waitDone(t, s)
+
+	res, _ = repo.List(ctx, catalog.ListFilter{})
+	if res.Total != 1 || res.Items[0].ID != id {
+		t.Fatalf("total=%d items=%+v, esperado el mismo item %d", res.Total, res.Items, id)
+	}
+	if res.Items[0].Title != "Vuelve" || res.Items[0].SourceCount != 1 {
+		t.Errorf("item recuperado = %+v", res.Items[0])
+	}
+}
+
+// Si el usuario descarta el item a propósito, volver a escanear la carpeta
+// lo da de alta como nuevo: el fantasma no resucita lo que se borró.
+func TestDeletedItemIsNotResurrected(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "Descartada.mkv"), int(localfs.MinFileSize)+1)
+	repo := newRepo(t)
+	cfg := &config.Config{MediaFolders: []string{root}}
+	s := scan.New(ctx, cfg, repo, fakeEnum{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	s.Start(nil)
+	waitDone(t, s)
+	res, _ := repo.List(ctx, catalog.ListFilter{})
+	scan.RemoveFolderSources(ctx, repo, root)
+	if err := repo.DeleteItem(ctx, res.Items[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	s.Start([]string{root})
+	waitDone(t, s)
+
+	res2, _ := repo.List(ctx, catalog.ListFilter{})
+	if res2.Total != 1 || res2.Items[0].SourceCount != 1 {
+		t.Fatalf("total=%d: el escaneo debe crear un item nuevo con su fuente", res2.Total)
+	}
+}

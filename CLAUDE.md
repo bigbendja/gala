@@ -316,8 +316,56 @@ cultura del disco duro que circula.
 - [ ] Fase 1 (rediseño de la Home) ← SIGUIENTE — ver
       `docs/GALA_Plan_Estabilizacion_Fases.md`; no empieza sin mockup
       acordado con el titular.
-- [ ] Fase 2 (M7 LAN) · Fase 3 (Drive/Mega) · Fase 4 (M9 .gala) ·
-      Fase 5 (M11 release)
+- [x] M7 Modo LAN (Fase 2; pendiente de la prueba en móvil real y del CI
+      verde, que confirma el titular): `internal/lan` (detección de la IP
+      local — `Candidates()` ordena IPv4 física privada > pública > virtual
+      (WSL/VPN/Tailscale…) y la API devuelve la mejor como `lan_ip` más la
+      lista completa; `Controller`: listener reiniciable sobre EL MISMO
+      `http.Server` — se cierra el listener viejo y se abre el nuevo, así que
+      una reproducción en curso del PC no se corta, y al DESACTIVAR se cortan
+      las conexiones de dispositivos remotos; `Guard`: middleware que envuelve
+      todo el mux). `config.Config` gana mutex para `Bind`/`LanPIN`
+      (`LanState`, `SetBind`, `SetLanPIN`). API: `GET /lan/status`, `POST
+      /lan/toggle`, `PUT /lan/pin` (solo desde el PC: loopback + Host
+      loopback + `application/json`, contra CSRF/DNS rebinding) y
+      `GET /lan/session`, `POST /lan/auth` (los usa el móvil). PIN de 4
+      dígitos en `gala.json` (`lan_pin`), nunca devuelto por la API (solo
+      `pin_set`); al acertarlo se planta la cookie `gala_lan` con un token
+      aleatorio guardado en memoria del servidor (30 días; reiniciar GALA o
+      cambiar/quitar el PIN invalida todas las sesiones); rate-limit
+      progresivo por IP (5 fallos → 30 s, se duplica hasta 15 min) más tope
+      global (30 fallos/10 min → 5 min). QR generado EN EL NAVEGADOR con
+      `qrcode-generator` (MIT, sin dependencias; evita una librería QR en
+      Go) a partir de `qr_payload` = `http://{lan_ip}:{port}`, nunca con el
+      PIN. **Qué puede un cliente LAN** (lista cerrada en
+      `lan.RemoteAllowed`; una ruta nueva de la API es solo-PC hasta que se
+      añada ahí a propósito): cargar la web, ver la galería y fichas
+      (`GET /items`), carátulas, `/play`, `/stream`, guardar su progreso
+      (`/playback`), "Mi lista" (`/wish`), y `/sources/{id}/failed`. Todo lo
+      demás (carpetas, escaneo, ingesta, "Por confirmar", borrar, ajustes,
+      clave TMDB, salud, Modo LAN) da 403. A un cliente LAN la ficha le llega
+      sin rutas del disco (solo el nombre del archivo), sin `volume_id` ni
+      `health_detail` (`redactForRemote`); `/play` ya ocultaba `path`. Rutas
+      con `..` o sin normalizar → 403. Frontend: píldora "Modo LAN"
+      funcional (`LanPanel.svelte`: aviso antes de activar, QR + URL,
+      candidatas alternativas, PIN poner/cambiar/quitar), `PinGate.svelte`
+      (pantalla de PIN para el móvil), el layout consulta `/lan/session` y
+      en dispositivos remotos oculta Añadir/Ajustes/Por confirmar/Modo LAN.
+      El tráfico LAN va en HTTP plano (decisión: aviso en el panel, sin
+      TLS en MVP1). **Bug "carpeta duplicada" corregido** (migración
+      `0005_removed_sources.sql`): la causa era que al quitar una carpeta se
+      borraban sus fuentes y con ellas la única pista de a qué item
+      pertenecía cada fichero (`syncBatch` solo buscaba por `locator`, así
+      que al re-añadir creaba items nuevos y el original quedaba fantasma);
+      lo mismo pasaba con un fichero que desaparecía y volvía (USB
+      intermitente). Ahora `removeStale` anota en `removed_sources` el item
+      de cada fuente retirada y el siguiente escaneo que ve ese fichero
+      reutiliza el item (conserva identificación TMDB, deseos y progreso).
+      Si el item se borra a propósito, el rastro cae por `ON DELETE
+      CASCADE` y el fichero vuelve como item nuevo. Los fantasmas YA
+      duplicados antes de este arreglo no se limpian solos (ver
+      ISSUES-MVP2.md).
+- [ ] Fase 3 (Drive/Mega) · Fase 4 (M9 .gala) · Fase 5 (M11 release)
 (Actualizar esta lista al completar cada módulo/fase.)
 
 ## Estructura
@@ -334,6 +382,7 @@ internal/media/      ffmpeg/ffprobe: localización, sonda, decide  (desde M4)
 internal/stream/     direct play + remux HLS con sesiones         (desde M4)
 internal/ingest/     detector, clasificador, parsers M3U/CSV, pipeline (M5)
 internal/health/     checkers por provider + worker con presupuesto  (M6)
+internal/lan/        Modo LAN: IP local, listener reiniciable, guardián+PIN (M7)
 web/                 frontend: proyecto SvelteKit (src/) + web.go (go:embed de
                      dist/, generado en build, no versionado)             (M10a)
 docs/                especificación, plan, mockup

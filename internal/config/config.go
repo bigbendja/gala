@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 // Config es la configuración persistente de la aplicación.
@@ -23,6 +24,58 @@ type Config struct {
 	TMDBAPIKey string `json:"tmdb_api_key"`
 
 	dir string // directorio base (junto al ejecutable), no se serializa
+
+	// mu protege Bind y LanPIN (M7): los lee el guardián LAN en CADA petición
+	// mientras un handler puede estar cambiándolos. El resto de campos
+	// conservan su acceso sin mutex (ver CLAUDE.md, Ajustes).
+	mu sync.RWMutex
+}
+
+// Loopback y AllInterfaces son los dos valores válidos de Bind.
+const (
+	BindLoopback      = "127.0.0.1"
+	BindAllInterfaces = "0.0.0.0"
+)
+
+// LanState devuelve el bind y el PIN vigentes (M7).
+func (c *Config) LanState() (bind, pin string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Bind, c.LanPIN
+}
+
+// LanEnabled indica si el Modo LAN está activo (bind abierto).
+func (c *Config) LanEnabled() bool {
+	bind, _ := c.LanState()
+	return bind == BindAllInterfaces
+}
+
+// SetBind cambia Bind y lo persiste; si no se puede guardar, deja el valor
+// anterior.
+func (c *Config) SetBind(bind string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	prev := c.Bind
+	c.Bind = bind
+	if err := c.save(); err != nil {
+		c.Bind = prev
+		return err
+	}
+	return nil
+}
+
+// SetLanPIN cambia el PIN ("" lo quita) y lo persiste; si no se puede
+// guardar, deja el valor anterior.
+func (c *Config) SetLanPIN(pin string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	prev := c.LanPIN
+	c.LanPIN = pin
+	if err := c.save(); err != nil {
+		c.LanPIN = prev
+		return err
+	}
+	return nil
 }
 
 // Default devuelve la configuración por defecto.
@@ -82,6 +135,13 @@ func Load() (*Config, error) {
 
 // Save escribe la configuración en gala.json de forma atómica.
 func (c *Config) Save() error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.save()
+}
+
+// save escribe sin tomar el mutex: el llamador ya lo tiene.
+func (c *Config) save() error {
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err

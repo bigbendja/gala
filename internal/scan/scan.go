@@ -171,11 +171,21 @@ func (s *Scanner) syncBatch(chunk []localfs.FoundFile, volID *string, foundSet m
 				continue
 			}
 
-			title := strings.TrimSuffix(filepath.Base(f.Path), filepath.Ext(f.Path))
-			item := catalog.Item{Kind: catalog.KindOther, Title: title, Genres: []string{}, Confirmed: false}
-			itemID, ierr := tx.InsertItem(s.ctx, &item, now)
-			if ierr != nil {
-				return ierr
+			// ¿Este fichero ya tuvo un item y su fuente se retiró (carpeta
+			// quitada y vuelta a añadir, disco que volvió)? Reutilizarlo en
+			// vez de duplicar: conserva identificación, deseos y progreso.
+			itemID, reused, cerr := tx.ClaimRemovedSource(s.ctx, localfs.ProviderID, localfs.NormalizePath(f.Path))
+			if cerr != nil {
+				return cerr
+			}
+			if !reused {
+				title := strings.TrimSuffix(filepath.Base(f.Path), filepath.Ext(f.Path))
+				item := catalog.Item{Kind: catalog.KindOther, Title: title, Genres: []string{}, Confirmed: false}
+				newID, ierr := tx.InsertItem(s.ctx, &item, now)
+				if ierr != nil {
+					return ierr
+				}
+				itemID = newID
 			}
 			src := catalog.Source{
 				ItemID: itemID, Provider: localfs.ProviderID, Locator: f.Path,
@@ -184,7 +194,9 @@ func (s *Scanner) syncBatch(chunk []localfs.FoundFile, volID *string, foundSet m
 			if _, serr := tx.InsertSource(s.ctx, &src, now); serr != nil {
 				return serr
 			}
-			itemsNew++
+			if !reused {
+				itemsNew++
+			}
 		}
 		return nil
 	})
@@ -226,6 +238,12 @@ func removeStale(ctx context.Context, repo *catalog.Repo, folder string, found m
 			if _, ok := found[localfs.NormalizePath(src.Locator)]; ok {
 				continue
 			}
+		}
+		// Dejar rastro del item antes de borrar la fuente: si el fichero
+		// vuelve (carpeta re-añadida, USB reconectado) se reutiliza el item.
+		if err := repo.RememberRemovedSource(ctx, localfs.ProviderID,
+			localfs.NormalizePath(src.Locator), src.ItemID, timeNow()); err != nil {
+			return n, err
 		}
 		if err := repo.DeleteSource(ctx, src.ID); err != nil {
 			return n, err

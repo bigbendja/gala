@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -24,6 +23,7 @@ import (
 	"github.com/bigbendja/gala/internal/health"
 	"github.com/bigbendja/gala/internal/identify"
 	"github.com/bigbendja/gala/internal/ingest"
+	"github.com/bigbendja/gala/internal/lan"
 	"github.com/bigbendja/gala/internal/media"
 	"github.com/bigbendja/gala/internal/providers/httpprovider"
 	"github.com/bigbendja/gala/internal/providers/localfs"
@@ -148,20 +148,24 @@ func main() {
 	apiSrv.Routes(mux)
 	mux.Handle("/", web.Handler())
 
-	addr := net.JoinHostPort(cfg.Bind, fmt.Sprintf("%d", cfg.Port))
+	// Modo LAN (M7): el guardián envuelve TODO el mux. Con bind 127.0.0.1 solo
+	// llegan peticiones del propio PC y no hace nada; con 0.0.0.0 limita a los
+	// demás dispositivos a ver/reproducir (y al PIN, si lo hay).
+	guard := lan.NewGuard(cfg)
+	apiSrv.LanGuard = guard
 	srv := &http.Server{
-		Addr:              addr,
-		Handler:           mux,
+		Handler:           guard.Middleware(mux),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
+	listener := lan.NewController(srv, log)
+	apiSrv.LanListen = func(bind string) error { return listener.Listen(bind, cfg.Port) }
 
-	go func() {
-		log.Info("GALA arrancado", "version", api.Version, "url", localURL(cfg))
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error("servidor http", "err", err)
-			os.Exit(1)
-		}
-	}()
+	bind, _ := cfg.LanState()
+	if err := listener.Listen(bind, cfg.Port); err != nil {
+		log.Error("servidor http", "err", err)
+		os.Exit(1)
+	}
+	log.Info("GALA arrancado", "version", api.Version, "url", localURL(cfg), "modo_lan", cfg.LanEnabled())
 
 	if !*noBrowser {
 		openBrowser(localURL(cfg), log)
@@ -173,6 +177,7 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
+	listener.Close()
 }
 
 // localURL devuelve la URL local aunque el bind sea 0.0.0.0.
