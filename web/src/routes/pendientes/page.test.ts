@@ -16,6 +16,9 @@ vi.mock('$lib/api/client', async () => {
 
 vi.mock('$app/navigation', () => ({ invalidateAll: invalidateAllMock }));
 
+// Datos del layout raíz (Modo LAN, M7): estos tests corren como el PC.
+const layoutLan = { session: { local: true, pin_required: false, authenticated: true }, lanEnabled: false };
+
 function makeItem(overrides: Partial<PendingItem> = {}): PendingItem {
 	return {
 		id: 42,
@@ -43,7 +46,7 @@ describe('Por confirmar — descartar (Brief M10c §3)', () => {
 	it('pide confirmación antes de descartar, y al confirmar llama a DELETE y quita el item de la lista', async () => {
 		deleteItemMock.mockResolvedValueOnce({ status: 'eliminado' });
 		const { getByText, queryByText } = render(Page, {
-			data: { items: [makeItem()], error: null, pendingCount: 1 }
+			data: { items: [makeItem()], error: null, pendingCount: 1, ...layoutLan }
 		});
 
 		expect(getByText('VID-20230101-WA0001')).toBeInTheDocument();
@@ -60,7 +63,7 @@ describe('Por confirmar — descartar (Brief M10c §3)', () => {
 
 	it('cancelar la confirmación no llama a DELETE y conserva el item', async () => {
 		const { getByText, queryByText } = render(Page, {
-			data: { items: [makeItem()], error: null, pendingCount: 1 }
+			data: { items: [makeItem()], error: null, pendingCount: 1, ...layoutLan }
 		});
 
 		await fireEvent.click(getByText('No es un título real — descartar'));
@@ -75,7 +78,7 @@ describe('Por confirmar — descartar (Brief M10c §3)', () => {
 		const { ApiError } = await import('$lib/api/client');
 		deleteItemMock.mockRejectedValueOnce(new ApiError('no encontrado', 404));
 		const { getByText } = render(Page, {
-			data: { items: [makeItem()], error: null, pendingCount: 1 }
+			data: { items: [makeItem()], error: null, pendingCount: 1, ...layoutLan }
 		});
 
 		await fireEvent.click(getByText('No es un título real — descartar'));
@@ -98,7 +101,7 @@ describe('Por confirmar — dejar sin identificar (Fase 0 tarea 0.4)', () => {
 			data: {
 				items: [makeItem({ title: 'Big_Buck_Bunny_360_10s_1MB.mp4' })],
 				error: null,
-				pendingCount: 1
+				pendingCount: 1, ...layoutLan
 			}
 		});
 		const input = getByPlaceholderText('O escribe el título correcto…') as HTMLInputElement;
@@ -108,7 +111,7 @@ describe('Por confirmar — dejar sin identificar (Fase 0 tarea 0.4)', () => {
 	it('"Dejar sin identificar" confirma con el título limpio, ignorando lo que haya en el input', async () => {
 		confirmItemMock.mockResolvedValueOnce({ id: 42 });
 		const { getByText, getByPlaceholderText, queryByText } = render(Page, {
-			data: { items: [makeItem({ title: 'pelicula.rara.2024.mkv' })], error: null, pendingCount: 1 }
+			data: { items: [makeItem({ title: 'pelicula.rara.2024.mkv' })], error: null, pendingCount: 1, ...layoutLan }
 		});
 
 		const input = getByPlaceholderText('O escribe el título correcto…') as HTMLInputElement;
@@ -127,7 +130,7 @@ describe('Por confirmar — dejar sin identificar (Fase 0 tarea 0.4)', () => {
 		const { ApiError } = await import('$lib/api/client');
 		confirmItemMock.mockRejectedValueOnce(new ApiError('error interno', 500));
 		const { getByText } = render(Page, {
-			data: { items: [makeItem()], error: null, pendingCount: 1 }
+			data: { items: [makeItem()], error: null, pendingCount: 1, ...layoutLan }
 		});
 
 		await fireEvent.click(getByText(/Dejar sin identificar/));
@@ -152,7 +155,7 @@ describe('Por confirmar — items en identify_status=error son accionables (diag
 			identify_note: 'tmdb /movie/1: 401 {"status_message":"Invalid API key: You must be granted a valid key."}'
 		});
 		const { getByText, queryByText } = render(Page, {
-			data: { items: [errored], error: null, pendingCount: 1 }
+			data: { items: [errored], error: null, pendingCount: 1, ...layoutLan }
 		});
 
 		expect(getByText('Big Buck Bunny 360 10s 1MB')).toBeInTheDocument();
@@ -165,7 +168,7 @@ describe('Por confirmar — items en identify_status=error son accionables (diag
 		confirmItemMock.mockResolvedValueOnce({ id: 4 });
 		const errored = makeItem({ id: 4, title: 'Big_Buck_Bunny_360_10s_1MB', identify_status: 'error' });
 		const { getByText, queryByText } = render(Page, {
-			data: { items: [errored], error: null, pendingCount: 1 }
+			data: { items: [errored], error: null, pendingCount: 1, ...layoutLan }
 		});
 
 		await fireEvent.click(getByText(/Dejar sin identificar/));

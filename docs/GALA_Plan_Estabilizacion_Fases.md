@@ -147,6 +147,11 @@ de estabilizar y rediseñar, para probarlo sobre una UI sólida y responsive.
   (ya anotado en M10c). Revisar SSRF y validación de rutas con bind abierto.
 (Brief detallado de M7 se escribe al llegar aquí.)
 
+**Estado (2026-10-27): M7 implementado (toggle de bind, QR, PIN con rate-limit,
+guardián de rutas, UI, y el arreglo del bug de carpeta duplicada, que se movió
+aquí desde la deuda técnica). Pendiente: prueba en un móvil real por wifi y CI
+verde confirmada por el titular. Ver CLAUDE.md, entrada M7.**
+
 Cierre de FASE 2: abrir GALA en el móvil del salón por wifi y ver una peli, sin
 instalar nada en el móvil.
 
