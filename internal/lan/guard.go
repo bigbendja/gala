@@ -118,6 +118,11 @@ func RemoteAllowed(method, urlPath string) bool {
 	case "play":
 		return get && len(seg) == 4
 	case "stream":
+		// Un cliente LAN puede liberar SU sesión de remux al salir del
+		// reproductor (DELETE .../hls/{session}); sin esto agotaría el límite.
+		if method == http.MethodDelete {
+			return len(seg) == 6 && seg[4] == "hls"
+		}
 		return get && len(seg) >= 4
 	case "sources":
 		return len(seg) == 5 && seg[4] == "failed" && method == http.MethodPost

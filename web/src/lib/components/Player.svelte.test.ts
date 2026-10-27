@@ -14,6 +14,7 @@ vi.mock('$lib/api/client', () => ({
 	getPlay: getPlayMock,
 	putPlayback: putPlaybackMock,
 	startHLS: vi.fn(),
+	stopHLS: vi.fn(),
 	streamUrl: (id: number) => `/api/v1/stream/${id}`
 }));
 

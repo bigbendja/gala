@@ -93,10 +93,17 @@ export function healthSummary(): Promise<HealthSummary> {
 	return request<HealthSummary>('/api/v1/health/summary');
 }
 
+/** Una lista que el servidor devuelva como `null` (o sin cuerpo) se trata como
+ *  vacía: el frontend recorre las listas sin comprobar, y un `null` de más
+ *  tumbaba toda la app con una BD vacía. */
+async function orEmpty<T>(p: Promise<T[] | null | undefined>): Promise<T[]> {
+	return (await p) ?? [];
+}
+
 /** GET /api/v1/volumes — volúmenes conocidos (M2); usado solo para mostrar
  *  la etiqueta real del disco de origen en el eyebrow del hero. */
 export function listVolumes(): Promise<Volume[]> {
-	return request<Volume[]>('/api/v1/volumes');
+	return orEmpty(request<Volume[] | null>('/api/v1/volumes'));
 }
 
 /**
@@ -129,6 +136,17 @@ export function streamUrl(sourceId: number): string {
 export function startHLS(sourceId: number, t?: number): Promise<{ session_id: string; playlist_url: string }> {
 	const q = t ? `?t=${encodeURIComponent(String(t))}` : '';
 	return request(`/api/v1/stream/${sourceId}/hls/start${q}`);
+}
+
+/** DELETE /api/v1/stream/{source}/hls/{session} — libera la sesión de remux
+ *  (al salir del reproductor, cambiar de fuente o rearrancar). `keepalive`
+ *  la deja salir aunque la pestaña se esté cerrando. Nunca falla hacia fuera:
+ *  si no llega, el servidor igualmente barre las sesiones huérfanas. */
+export function stopHLS(sourceId: number, sessionId: string): void {
+	fetch(`/api/v1/stream/${sourceId}/hls/${encodeURIComponent(sessionId)}`, {
+		method: 'DELETE',
+		keepalive: true
+	}).catch(() => {});
 }
 
 /** POST /api/v1/sources/{id}/failed — el reproductor la llama cuando el
@@ -182,7 +200,7 @@ export function ingest(input: string | File): Promise<ResumenIngesta> {
 /** GET /api/v1/pending — items "Por confirmar" (junk incluidos; el
  *  frontend decide cómo agruparlos). */
 export function listPending(): Promise<PendingItem[]> {
-	return request('/api/v1/pending');
+	return orEmpty(request<PendingItem[] | null>('/api/v1/pending'));
 }
 
 /** POST /api/v1/items/{id}/confirm — elige un candidato TMDB o confirma un
@@ -221,7 +239,7 @@ export function deleteItem(id: number): Promise<{ status: string }> {
 
 /** GET /api/v1/folders — carpetas registradas con su estado de conexión. */
 export function listFolders(): Promise<FolderInfo[]> {
-	return request('/api/v1/folders');
+	return orEmpty(request<FolderInfo[] | null>('/api/v1/folders'));
 }
 
 /** POST /api/v1/folders — añade una carpeta; 400 no existe, 409 duplicada. */
@@ -277,7 +295,7 @@ export function putTMDBSettings(apiKey: string): Promise<{ status: string }> {
 
 /** GET /api/v1/ingest/lists — lotes/M3U ingeridos ("Listas" de la topbar). */
 export function listIngestLists(): Promise<IngestList[]> {
-	return request('/api/v1/ingest/lists');
+	return orEmpty(request<IngestList[] | null>('/api/v1/ingest/lists'));
 }
 
 /** GET /api/v1/ping — versión y disponibilidad de ffmpeg, para Ajustes →

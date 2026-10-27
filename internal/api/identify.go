@@ -22,6 +22,9 @@ func (s *Server) handleListPending(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
+	if items == nil {
+		items = []catalog.PendingItem{}
+	}
 	writeJSON(w, http.StatusOK, items)
 }
 

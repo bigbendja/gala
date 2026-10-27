@@ -350,6 +350,22 @@ func (s *Server) handleHLSFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleHLSStop: DELETE /api/v1/stream/{source_id}/hls/{session_id} — el
+// reproductor libera su sesión de remux al salir, cambiar de fuente o hacer
+// un seek que crea otra. Idempotente: una sesión desconocida o ya limpiada
+// también responde 204 (el cliente solo quiere que no quede viva).
+func (s *Server) handleHLSStop(w http.ResponseWriter, r *http.Request) {
+	sourceID, err := strconv.ParseInt(r.PathValue("source_id"), 10, 64)
+	if err != nil || sourceID <= 0 {
+		badRequest(w, "source_id no válido")
+		return
+	}
+	if s.HLS != nil {
+		s.HLS.StopSessionOf(r.PathValue("session_id"), sourceID)
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // mustSource resuelve {param} como source_id y devuelve la fuente, o escribe
 // la respuesta de error correspondiente (400/404) y devuelve ok=false.
 func (s *Server) mustSource(w http.ResponseWriter, r *http.Request, param string) (*catalog.Source, bool) {

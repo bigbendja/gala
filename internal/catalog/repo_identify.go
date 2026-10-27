@@ -115,7 +115,9 @@ func (r *Repo) ListPendingConfirmation(ctx context.Context) ([]PendingItem, erro
 	}
 	defer rows.Close()
 
-	var out []PendingItem
+	// Nunca nil: la API serializa [] y no null con la BD vacía (el frontend
+	// recorre la lista sin comprobar).
+	out := []PendingItem{}
 	for rows.Next() {
 		var it Item
 		var kind string
