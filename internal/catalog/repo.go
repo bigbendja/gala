@@ -228,10 +228,10 @@ func (r *Repo) InsertSource(ctx context.Context, s *Source, now string) (int64, 
 		s.Health = HealthUnverified
 	}
 	res, err := r.q.ExecContext(ctx, `INSERT INTO sources
-		(item_id, provider, locator, volume_id, quality_label, health, priority, added_at, origin_list_id)
-		VALUES (?,?,?,?,?,?,?,?,?)`,
+		(item_id, provider, locator, volume_id, quality_label, health, priority, added_at, origin_list_id, origin_path)
+		VALUES (?,?,?,?,?,?,?,?,?,?)`,
 		s.ItemID, s.Provider, s.Locator, s.VolumeID, s.QualityLabel, s.Health,
-		s.Priority, now, s.OriginListID)
+		s.Priority, now, s.OriginListID, s.OriginPath)
 	if err != nil {
 		return 0, err
 	}
