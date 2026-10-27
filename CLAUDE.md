@@ -365,8 +365,9 @@ cultura del disco duro que circula.
       CASCADE` y el fichero vuelve como item nuevo. Los fantasmas YA
       duplicados antes de este arreglo no se limpian solos (ver
       ISSUES-MVP2.md).
-- [x] Fase A' Soporte de `.strm` (rama feat/a-strm-support; pendiente de que el
-      titular decida el merge): el escaneo local (`localfs.WalkFolder`) reconoce
+- [x] Fase A' CERRADA — Soporte de `.strm` (PR #2 mergeado; CI verde y prueba
+      en vivo con TMDB real: Big Buck Bunny -> tmdb 10378 (2008), serie por
+      carpeta -> Breaking Bad tmdb 1396 T1E02): el escaneo local (`localfs.WalkFolder`) reconoce
       `.strm` —un puntero de texto, formato abierto de Kodi/Jellyfin— sin
       aplicarle el tamaño mínimo de los vídeos. `localfs.ParseStrm` toma la
       primera URL http/https válida (ignora vacías, `#` y lo que no sea URL).
