@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import SearchBox from './SearchBox.svelte';
 
@@ -40,6 +41,14 @@
 	function closeMobileNav() {
 		mobileNavOpen = false;
 	}
+
+	// En móvil lo esencial es logo, buscar y menú: "Buscar" abre el panel con
+	// el campo ya enfocado.
+	async function openMobileSearch() {
+		mobileNavOpen = true;
+		await tick();
+		document.querySelector<HTMLInputElement>('.mobile-search input')?.focus();
+	}
 </script>
 
 <header class="topbar">
@@ -68,7 +77,14 @@
 	</div>
 
 	{#if local}
-		<a class="settings-link" href="/ajustes" title="Ajustes" aria-label="Ajustes">⚙️</a>
+		<a class="settings-link" href="/ajustes" title="Ajustes" aria-label="Ajustes">
+			<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+				<path d="M20 7h-9" />
+				<path d="M14 17H5" />
+				<circle cx="17" cy="17" r="3" />
+				<circle cx="7" cy="7" r="3" />
+			</svg>
+		</a>
 
 		<button
 			class="lan-pill"
@@ -82,6 +98,13 @@
 
 		<button class="btn-add" onclick={onOpenIngest}>＋ Añadir</button>
 	{/if}
+
+	<button class="mobile-search-btn" aria-label="Buscar" onclick={openMobileSearch}>
+		<svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+			<circle cx="8.5" cy="8.5" r="5.8" stroke="currentColor" stroke-width="1.8" />
+			<path d="M13 13l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+		</svg>
+	</button>
 
 	<button
 		class="hamburger"
@@ -103,7 +126,7 @@
 			{#if pendingCount > 0}
 				<a href="/pendientes" onclick={closeMobileNav}>{pendingCount} por confirmar</a>
 			{/if}
-			<a href="/ajustes" onclick={closeMobileNav}>⚙️ Ajustes</a>
+			<a href="/ajustes" onclick={closeMobileNav}>Ajustes</a>
 			<button
 				class="mobile-lan"
 				onclick={() => {
@@ -157,7 +180,7 @@
 	.nav a {
 		color: var(--muted);
 		text-decoration: none;
-		padding: 7px 12px;
+		padding: 9px 12px;
 		border-radius: 9px;
 		font-weight: 500;
 		transition: 0.15s;
@@ -181,22 +204,32 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 34px;
-		height: 34px;
+		width: 40px;
+		height: 40px;
 		border-radius: 10px;
-		font-size: 15px;
+		color: var(--muted);
 		text-decoration: none;
 		transition: 0.15s;
 	}
 	.settings-link:hover {
 		background: var(--surface);
+		color: var(--text);
+	}
+	.mobile-search-btn {
+		display: none;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		border-radius: 10px;
+		color: var(--text);
 	}
 	.hamburger {
 		display: none;
 		align-items: center;
 		justify-content: center;
-		width: 38px;
-		height: 38px;
+		width: 40px;
+		height: 40px;
 		border-radius: 10px;
 		background: var(--surface);
 		border: 1px solid var(--line);
@@ -275,19 +308,21 @@
 	}
 
 	@media (max-width: 900px) {
+		/* Móvil: logo, buscar y menú. "Por confirmar", Ajustes, Modo LAN y
+		   Añadir viven SOLO en el menú (sin duplicados en la barra). */
 		.nav,
 		.search-slot,
 		.settings-link,
-		.lan-pill {
+		.lan-pill,
+		.pending-pill,
+		.btn-add {
 			display: none;
 		}
 		.topbar {
-			padding: 12px 16px;
-			gap: 10px;
+			padding: 10px 16px;
+			gap: 6px;
 		}
-		.btn-add {
-			padding: 9px 12px;
-		}
+		.mobile-search-btn,
 		.hamburger {
 			display: flex;
 		}

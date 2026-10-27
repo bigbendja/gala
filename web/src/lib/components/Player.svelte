@@ -3,7 +3,7 @@
 	import { onDestroy, untrack } from 'svelte';
 	import { getPlay, putPlayback, reportSourceFailed, startHLS, stopHLS, streamUrl } from '$lib/api/client';
 	import type { Item, PlayResponse, PlaySourceView, Progress } from '$lib/api/types';
-	import { displayTitle, providerLabel } from '$lib/format';
+	import { displayTitle, episodeCode, providerLabel } from '$lib/format';
 	import { isPlayable, pickNextSource } from '$lib/player';
 	import HealthDot from './HealthDot.svelte';
 
@@ -15,6 +15,10 @@
 	let { item, initialPlay, initialProgress }: Props = $props();
 
 	const title = $derived(displayTitle(item));
+	// Un episodio dice de qué serie es: "Breaking Bad · T1 · E1".
+	const context = $derived(
+		item.kind === 'episode' ? [item.series_title, episodeCode(item)].filter((x) => !!x).join(' · ') : ''
+	);
 
 	// Semilla intencional de estado local (untrack): a partir de aquí el
 	// reproductor vive de sus propios eventos (fallback, elección manual,
@@ -218,6 +222,7 @@
 <div class="player">
 	<header>
 		<a class="back" href="/item/{item.id}">← Volver a la ficha</a>
+		{#if context}<p class="context">{context}</p>{/if}
 		<h1>{title}</h1>
 	</header>
 
@@ -238,7 +243,11 @@
 		{:else if exhausted}
 			<div class="empty">
 				<p>Ninguna fuente disponible pudo reproducirse.</p>
-				<p class="muted">Puedes elegir otra manualmente abajo si queda alguna, o inténtalo más tarde.</p>
+				<p class="muted">
+					{play.sources.length > 1
+						? 'Prueba a elegir otra fuente de la lista de abajo, o inténtalo más tarde.'
+						: 'Comprueba que el archivo o el enlace siguen disponibles e inténtalo más tarde.'}
+				</p>
 			</div>
 		{:else if currentSource?.mode === 'reject'}
 			<div class="reject">
@@ -307,6 +316,12 @@
 	}
 	.back:hover {
 		color: var(--text);
+	}
+	.context {
+		color: var(--accent);
+		font-weight: 600;
+		font-size: 13.5px;
+		margin-bottom: 2px;
 	}
 	header h1 {
 		font-family: var(--display);

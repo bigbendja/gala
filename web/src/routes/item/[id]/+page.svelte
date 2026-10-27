@@ -1,39 +1,100 @@
 <script lang="ts">
-	import { imgUrl, setWished } from '$lib/api/client';
+	import { goto, invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
+	import { deleteItem, imgUrl, setWished } from '$lib/api/client';
+	import type { LanSession } from '$lib/api/types';
+	import EpisodeRow from '$lib/components/EpisodeRow.svelte';
 	import SourceStack from '$lib/components/SourceStack.svelte';
-	import { displayTitle, isUnidentified } from '$lib/format';
+	import StateBlock from '$lib/components/StateBlock.svelte';
+	import { displayTitle, episodeCode, errorMessage, isUnidentified } from '$lib/format';
+	import { nextEpisode, seriesStatusText, seriesSummary } from '$lib/series';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 	const item = $derived(data.item);
 
+	const isLocal = $derived((page.data as { session?: LanSession }).session?.local !== false);
+
+	const isEpisode = $derived(item?.kind === 'episode');
+	const isSeries = $derived(item?.kind === 'series');
 	const backdrop = $derived(item ? imgUrl(item.backdrop_path) : null);
 	const poster = $derived(item ? imgUrl(item.poster_path) : null);
 	const title = $derived(item ? displayTitle(item) : '');
 	const unidentified = $derived(item ? isUnidentified(item) : false);
+	const code = $derived(item && isEpisode ? episodeCode(item) : '');
 
-	// Brief M10a-fix B2/C: "+ Mi lista" ahora es funcional. Estado local
-	// optimista (arranca con el wished real del item) para no esperar una
-	// vuelta de red antes de reflejar el clic.
+	// Una serie no tiene fuente propia: su estado y su "Reproducir" salen de
+	// sus episodios (Sistema de Diseño GALA §3.1).
+	const orderedEpisodes = $derived(data.seasons.flatMap((s) => data.episodesBySeason[s.id] ?? []));
+	const summary = $derived(seriesSummary(data.episodesBySeason));
+	const next = $derived(isSeries ? nextEpisode(orderedEpisodes) : null);
+	const playHref = $derived(
+		!item ? '' : isSeries ? (next ? `/ver/${next.id}` : '') : item.source_count > 0 || item.sources?.length ? `/ver/${item.id}` : ''
+	);
+	const canPlay = $derived(playHref !== '');
+	const playText = $derived.by(() => {
+		if (!isSeries) return '▶ Reproducir';
+		if (!next) return '▶ Reproducir';
+		const started = next.progress && !next.progress.watched && next.progress.position_s > 0;
+		return `${started ? '▶ Continuar' : '▶ Empezar'} ${episodeCode(next, seasonOf(next.parent_id))}`.trim();
+	});
+	function seasonOf(parentId: number | undefined): number | undefined {
+		return data.seasons.find((s) => s.id === parentId)?.season_number;
+	}
+
 	let wished = $state(false);
 	let wishPending = $state(false);
 	$effect(() => {
 		wished = item?.wished ?? false;
 	});
-
 	async function toggleWished() {
 		if (!item || wishPending) return;
-		const next = !wished;
+		const nextValue = !wished;
 		wishPending = true;
 		try {
-			await setWished(item.id, next);
-			wished = next;
+			await setWished(item.id, nextValue);
+			wished = nextValue;
 		} catch {
-			// Se ignora: el botón se queda como estaba, el usuario puede reintentar.
+			// el botón se queda como estaba; se puede reintentar
 		} finally {
 			wishPending = false;
 		}
 	}
+
+	// Descartar un título sin identificar (solo el dueño, con confirmación).
+	let confirmingDiscard = $state(false);
+	let discardPending = $state(false);
+	let discardError = $state<string | null>(null);
+	async function discard() {
+		if (!item || discardPending) return;
+		discardPending = true;
+		discardError = null;
+		try {
+			await deleteItem(item.id);
+			await goto('/');
+		} catch (err) {
+			discardError = errorMessage(err, 'No se pudo descartar');
+			discardPending = false;
+		}
+	}
+
+	const identifyNote = $derived.by(() => {
+		switch (item?.identify_status) {
+			case 'pending':
+				return 'GALA está identificando este título…';
+			case 'review':
+				return 'GALA no estuvo segura de qué título es. Puedes elegirlo tú.';
+			case 'error':
+				return 'No se pudo identificar. Puedes elegir el título tú.';
+			case 'junk':
+				return 'GALA lo detectó como un vídeo suelto (no una película ni serie) y no lo ofrece para identificar.';
+			default:
+				return 'Aún no está identificado: se enseña con el nombre del archivo.';
+		}
+	});
+	const canIdentify = $derived(
+		isLocal && (item?.identify_status === 'review' || item?.identify_status === 'error')
+	);
 </script>
 
 <svelte:head>
@@ -41,26 +102,35 @@
 </svelte:head>
 
 {#if data.itemError}
-	<div class="state-page">
-		<p>No se pudo cargar esta ficha.</p>
-		<p class="muted">{data.itemError}</p>
-	</div>
+	<StateBlock
+		tone="error"
+		title="No se pudo cargar esta ficha"
+		text={data.itemError}
+		actionLabel="Reintentar"
+		onAction={() => invalidateAll()}
+	/>
 {:else if item}
 	<section class="detail">
 		{#if backdrop}
 			<div class="backdrop" style:background-image="url({backdrop})"></div>
 		{/if}
-		<div class="detail-inner">
-			<a class="poster" href={poster ?? undefined} aria-hidden={!poster}>
+		<div class="detail-inner" class:ep-layout={isEpisode}>
+			<div class="art" class:still={isEpisode}>
 				{#if poster}
 					<img src={poster} alt="" />
 				{:else}
-					<div class="art"><b>{title}</b></div>
+					<div class="fallback"><b>{isEpisode ? code || title : title}</b></div>
 				{/if}
-			</a>
+			</div>
 
 			<div class="info">
+				{#if isEpisode && item.series_id && item.series_title}
+					<a class="crumb" href="/item/{item.series_id}">← {item.series_title}</a>
+				{/if}
 				<h1>{title}</h1>
+				{#if isEpisode && code}
+					<p class="code">{code}</p>
+				{/if}
 				{#if unidentified}
 					<p class="unidentified-tag">Sin identificar</p>
 				{/if}
@@ -74,38 +144,75 @@
 				</div>
 				{#if item.overview}<p class="overview">{item.overview}</p>{/if}
 
-				<div class="actions">
-					<a class="btn-play" href="/ver/{item.id}">▶ Reproducir</a>
-					<button class="btn-ghost" class:active={wished} disabled={wishPending} onclick={toggleWished}>
-						{wished ? '✓ En tu lista' : '＋ Mi lista'}
-					</button>
-				</div>
-
-				{#if item.sources && item.sources.length > 0}
-					<SourceStack sources={item.sources} />
-				{:else}
-					<p class="muted no-sources">Sin fuentes todavía.</p>
+				{#if unidentified}
+					<p class="identify-note">{identifyNote}</p>
 				{/if}
 
-				{#if item.kind === 'series'}
+				<div class="actions">
+					{#if canPlay}
+						<a class="btn-play" href={playHref}>{playText}</a>
+					{:else}
+						<span
+							class="btn-play off"
+							aria-disabled="true"
+							title={isSeries ? 'Ninguno de sus episodios tiene fuente todavía' : 'Este título aún no tiene fuente'}
+							>{playText}</span
+						>
+					{/if}
+					{#if !isEpisode}
+						<button class="btn btn-secondary" class:active={wished} disabled={wishPending} onclick={toggleWished}>
+							{wished ? '✓ En tu lista' : '＋ Mi lista'}
+						</button>
+					{/if}
+					{#if unidentified && isLocal}
+						{#if canIdentify}
+							<a class="btn btn-secondary" href="/pendientes#item-{item.id}">Identificar</a>
+						{/if}
+						{#if !confirmingDiscard}
+							<button class="btn btn-quiet-danger" onclick={() => (confirmingDiscard = true)}>Descartar</button>
+						{/if}
+					{/if}
+				</div>
+
+				{#if confirmingDiscard}
+					<div class="discard" role="alertdialog" aria-label="Confirmar descarte">
+						<p>¿Descartar este título? Se quita de tu galería junto con sus fuentes; los archivos del disco no se tocan.</p>
+						<div class="discard-actions">
+							<button class="btn btn-quiet-danger btn-sm" disabled={discardPending} onclick={discard}>
+								{discardPending ? 'Descartando…' : 'Sí, descartar'}
+							</button>
+							<button class="btn btn-secondary btn-sm" disabled={discardPending} onclick={() => (confirmingDiscard = false)}>
+								Cancelar
+							</button>
+						</div>
+						{#if discardError}<p class="err" role="alert">{discardError}</p>{/if}
+					</div>
+				{/if}
+
+				{#if isSeries}
+					<p class="series-status" class:none={summary.available === 0}>{seriesStatusText(summary)}</p>
+				{:else if item.sources && item.sources.length > 0}
+					<SourceStack sources={item.sources} />
+				{:else}
+					<p class="no-sources">Este título aún no tiene fuentes.</p>
+				{/if}
+
+				{#if isSeries}
 					<div class="seasons">
 						{#if data.seasons.length === 0}
-							<p class="muted">Todavía no hay temporadas catalogadas de esta serie.</p>
+							<StateBlock compact title="Sin temporadas todavía" text="Aparecerán cuando GALA identifique sus episodios." />
 						{:else}
 							{#each data.seasons as season (season.id)}
+								{@const eps = data.episodesBySeason[season.id] ?? []}
 								<div class="season">
-									<h3>
+									<h2>
 										{season.season_number ? `Temporada ${season.season_number}` : displayTitle(season)}
-									</h3>
-									{#if data.episodesBySeason[season.id]?.length}
+										<span class="season-count">{eps.length} {eps.length === 1 ? 'episodio' : 'episodios'}</span>
+									</h2>
+									{#if eps.length > 0}
 										<ol class="episodes">
-											{#each data.episodesBySeason[season.id] as ep (ep.id)}
-												<li>
-													<a href="/item/{ep.id}">
-														<span class="ep-num">{ep.episode_number ?? '—'}</span>
-														<span class="ep-title">{displayTitle(ep)}</span>
-													</a>
-												</li>
+											{#each eps as ep (ep.id)}
+												<EpisodeRow episode={ep} seasonNumber={season.season_number} />
 											{/each}
 										</ol>
 									{:else}
@@ -150,8 +257,12 @@
 		display: grid;
 		grid-template-columns: 280px 1fr;
 		gap: 40px;
+		align-items: start;
 	}
-	.poster {
+	.detail-inner.ep-layout {
+		grid-template-columns: 380px 1fr;
+	}
+	.art {
 		display: block;
 		aspect-ratio: 2 / 3;
 		border-radius: 16px;
@@ -160,14 +271,17 @@
 		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--line);
 		background: linear-gradient(160deg, #4a3016 0%, #1e1207 55%, #0d0a06 100%);
 	}
-	.poster img {
+	.art.still {
+		aspect-ratio: 16 / 9;
+	}
+	.art img {
 		position: absolute;
 		inset: 0;
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
 	}
-	.poster .art {
+	.fallback {
 		position: absolute;
 		inset: 0;
 		display: flex;
@@ -181,24 +295,39 @@
 	}
 	.info {
 		/* Un track de grid "1fr" sigue teniendo min-width:auto por defecto: sin
-		   esto, el contenido sin ajuste de línea de SourceStack (rutas largas
-		   en fuente monoespaciada) fuerza el track — y con él toda la página —
-		   más ancho que el viewport en móvil, incluso ya colapsado a una sola
-		   columna (@media max-width:700px). */
+		   esto, el contenido sin ajuste de línea de SourceStack (rutas largas)
+		   fuerza el track — y con él toda la página — más ancho que el viewport
+		   en móvil, incluso ya colapsado a una sola columna. */
 		min-width: 0;
 	}
-	.info h1 {
+	.crumb {
+		display: inline-block;
+		color: var(--muted);
+		text-decoration: none;
+		font-size: 14px;
+		margin-bottom: 10px;
+	}
+	.crumb:hover {
+		color: var(--text);
+	}
+	h1 {
 		font-family: var(--display);
 		font-size: clamp(28px, 4vw, 44px);
 		font-weight: 800;
 		line-height: 1.05;
 		letter-spacing: -0.01em;
 		margin-bottom: 6px;
+		overflow-wrap: anywhere;
+	}
+	.code {
+		color: var(--accent);
+		font-weight: 600;
+		font-size: 14px;
+		margin-bottom: 6px;
 	}
 	.unidentified-tag {
 		display: inline-block;
-		font-family: var(--mono);
-		font-size: 12px;
+		font-size: 13px;
 		color: var(--muted);
 		font-style: italic;
 		margin-bottom: 8px;
@@ -228,58 +357,101 @@
 		max-width: 640px;
 		margin-bottom: 22px;
 	}
+	.identify-note {
+		color: var(--muted);
+		max-width: 560px;
+		font-size: 14px;
+		margin-bottom: 18px;
+	}
 	.actions {
 		display: flex;
 		gap: 12px;
 		margin-bottom: 8px;
+		flex-wrap: wrap;
+		align-items: center;
 	}
 	.btn-play {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		gap: 10px;
+		min-height: 44px;
 		background: var(--text);
 		color: #17110a;
 		font-weight: 600;
 		font-size: 15px;
-		padding: 13px 26px;
+		padding: 12px 26px;
 		border-radius: 11px;
+		text-decoration: none;
+		transition: 0.15s;
 	}
-	.btn-play:disabled {
-		opacity: 0.5;
+	a.btn-play:hover {
+		transform: translateY(-1px);
+		box-shadow: 0 8px 24px rgba(244, 237, 227, 0.15);
+	}
+	.btn-play.off {
+		opacity: 0.4;
 		cursor: default;
 	}
-	.btn-ghost {
-		padding: 13px 20px;
+	.actions :global(.btn) {
+		min-height: 44px;
+		padding: 12px 20px;
+		font-size: 15px;
 		border-radius: 11px;
-		border: 1px solid var(--line);
-		color: var(--text);
-		background: rgba(255, 255, 255, 0.03);
-		font-weight: 500;
 	}
-	.btn-ghost.active {
+	.actions :global(.btn.active) {
 		border-color: rgba(242, 169, 59, 0.4);
 		color: var(--accent);
 		background: rgba(242, 169, 59, 0.1);
 	}
-	.btn-ghost:disabled {
-		opacity: 0.6;
-		cursor: default;
+	.discard {
+		margin-top: 14px;
+		max-width: 560px;
+		padding: 14px 16px;
+		border: 1px solid var(--line);
+		border-radius: var(--r);
+		background: rgba(0, 0, 0, 0.25);
+		font-size: 14px;
 	}
-	.no-sources {
+	.discard-actions {
+		display: flex;
+		gap: 10px;
+		margin-top: 12px;
+	}
+	.err {
+		margin-top: 10px;
+		color: var(--bad);
+		font-size: 13.5px;
+	}
+	.no-sources,
+	.series-status {
 		margin-top: 20px;
+		color: var(--muted);
+		font-size: 14px;
+	}
+	.series-status.none {
+		color: var(--text);
 	}
 	.seasons {
 		margin-top: 26px;
-		max-width: 640px;
+		max-width: 760px;
 		display: flex;
 		flex-direction: column;
-		gap: 18px;
+		gap: 24px;
 	}
-	.season h3 {
+	.season h2 {
+		display: flex;
+		align-items: baseline;
+		gap: 12px;
 		font-family: var(--display);
-		font-size: 16px;
+		font-size: 19px;
 		font-weight: 600;
-		margin-bottom: 8px;
+		margin-bottom: 10px;
+	}
+	.season-count {
+		font-family: var(--body);
+		font-size: 13px;
+		font-weight: 400;
+		color: var(--muted);
 	}
 	.episodes {
 		list-style: none;
@@ -288,48 +460,21 @@
 		background: rgba(0, 0, 0, 0.2);
 		overflow: hidden;
 	}
-	.episodes li {
-		border-bottom: 1px solid rgba(51, 38, 25, 0.5);
-	}
-	.episodes li:last-child {
-		border-bottom: none;
-	}
-	.episodes a {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 10px 16px;
-		text-decoration: none;
-		color: inherit;
-		font-size: 13.5px;
-	}
-	.episodes a:hover {
-		background: var(--surface);
-	}
-	.ep-num {
-		font-family: var(--mono);
-		color: var(--muted);
-		font-size: 12px;
-		flex-shrink: 0;
-		width: 1.5em;
-		text-align: right;
-	}
-	.state-page {
-		max-width: 560px;
-		margin: 15vh auto;
-		text-align: center;
-		padding: 0 28px;
-	}
 	.muted {
 		color: var(--muted);
 		font-size: 14px;
 	}
 
-	@media (max-width: 700px) {
-		.detail-inner {
-			grid-template-columns: 1fr;
+	@media (max-width: 900px) {
+		.detail {
+			padding: 28px 16px 48px;
 		}
-		.poster {
+		.detail-inner,
+		.detail-inner.ep-layout {
+			grid-template-columns: 1fr;
+			gap: 24px;
+		}
+		.art:not(.still) {
 			max-width: 220px;
 		}
 	}

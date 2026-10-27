@@ -13,6 +13,8 @@ import type {
 	LanStatus,
 	ListItemsParams,
 	ListResult,
+	GenreCount,
+	HomeSettings,
 	PendingItem,
 	PlayResponse,
 	Progress,
@@ -340,5 +342,24 @@ export function setLanPin(pin: string): Promise<LanStatus> {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ pin })
+	});
+}
+
+/** GET /api/v1/genres — géneros con contenido, de más a menos títulos. */
+export function listGenres(): Promise<GenreCount[]> {
+	return orEmpty(request<GenreCount[] | null>('/api/v1/genres'));
+}
+
+/** GET /api/v1/settings/home — ¿la Home enseña el hero? */
+export function getHomeSettings(): Promise<HomeSettings> {
+	return request<HomeSettings>('/api/v1/settings/home');
+}
+
+/** PUT /api/v1/settings/home — Ajustes › Inicio (solo desde el PC). */
+export function putHomeSettings(settings: HomeSettings): Promise<HomeSettings> {
+	return request<HomeSettings>('/api/v1/settings/home', {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(settings)
 	});
 }

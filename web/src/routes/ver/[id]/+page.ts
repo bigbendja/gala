@@ -1,11 +1,12 @@
 import { error } from '@sveltejs/kit';
 import { ApiError, getItem, getPlay, getPlayback } from '$lib/api/client';
+import { errorMessage } from '$lib/format';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ params }) => {
 	const id = Number(params.id);
 	if (!Number.isInteger(id) || id <= 0) {
-		error(404, 'Item no válido');
+		error(404, 'Este título no existe.');
 	}
 
 	try {
@@ -20,13 +21,13 @@ export const load: PageLoad = async ({ params }) => {
 		return { item, play, progress, loadError: null };
 	} catch (err) {
 		if (err instanceof ApiError && err.status === 404) {
-			error(404, 'No encontrado en el catálogo');
+			error(404, 'Este título ya no está en tu galería.');
 		}
 		return {
 			item: null,
 			play: null,
 			progress: null,
-			loadError: err instanceof Error ? err.message : String(err)
+			loadError: errorMessage(err, 'No se pudo cargar el reproductor')
 		};
 	}
 };

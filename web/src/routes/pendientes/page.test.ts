@@ -3,21 +3,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
 import type { PendingItem } from '$lib/api/types';
 
-const { deleteItemMock, confirmItemMock, invalidateAllMock } = vi.hoisted(() => ({
+const { deleteItemMock, confirmItemMock, listPendingMock, invalidateAllMock } = vi.hoisted(() => ({
 	deleteItemMock: vi.fn(),
 	confirmItemMock: vi.fn(),
+	listPendingMock: vi.fn(),
 	invalidateAllMock: vi.fn()
 }));
 
 vi.mock('$lib/api/client', async () => {
 	const actual = await vi.importActual<typeof import('$lib/api/client')>('$lib/api/client');
-	return { ...actual, deleteItem: deleteItemMock, confirmItem: confirmItemMock };
+	return { ...actual, deleteItem: deleteItemMock, confirmItem: confirmItemMock, listPending: listPendingMock };
 });
 
 vi.mock('$app/navigation', () => ({ invalidateAll: invalidateAllMock }));
-
-// Datos del layout raíz (Modo LAN, M7): estos tests corren como el PC.
-const layoutLan = { session: { local: true, pin_required: false, authenticated: true }, lanEnabled: false };
 
 function makeItem(overrides: Partial<PendingItem> = {}): PendingItem {
 	return {
@@ -36,21 +34,48 @@ function makeItem(overrides: Partial<PendingItem> = {}): PendingItem {
 	};
 }
 
-describe('Por confirmar — descartar (Brief M10c §3)', () => {
-	beforeEach(() => {
-		deleteItemMock.mockReset();
-		confirmItemMock.mockReset();
-		invalidateAllMock.mockReset();
+// La pantalla carga sus datos al montarse: se espera a que aparezca el título.
+async function renderWith(items: PendingItem[]) {
+	listPendingMock.mockResolvedValue(items);
+	const view = render(Page);
+	if (items.length > 0) await view.findAllByRole('heading', { level: 2 });
+	return view;
+}
+
+beforeEach(() => {
+	deleteItemMock.mockReset();
+	confirmItemMock.mockReset();
+	listPendingMock.mockReset();
+	invalidateAllMock.mockReset();
+});
+
+describe('Por confirmar — carga y estados', () => {
+	it('mientras carga enseña skeletons, y vacío invita a volver a la galería', async () => {
+		listPendingMock.mockResolvedValue([]);
+		const { findByText, container } = render(Page);
+		expect(container.querySelector('[aria-busy="true"]')).toBeTruthy();
+		expect(await findByText('Todo está identificado')).toBeInTheDocument();
+		expect(container.querySelector('[aria-busy="true"]')).toBeNull();
 	});
 
+	it('un fallo de red se explica en español y ofrece reintentar', async () => {
+		const { ApiError } = await import('$lib/api/client');
+		listPendingMock.mockRejectedValueOnce(new ApiError('No se pudo conectar con GALA. Comprueba que el programa sigue en marcha.'));
+		const { findByText, getByText } = render(Page);
+		expect(await findByText(/No se pudo conectar con GALA/)).toBeInTheDocument();
+		listPendingMock.mockResolvedValueOnce([makeItem()]);
+		await fireEvent.click(getByText('Reintentar'));
+		expect(await findByText('VID-20230101-WA0001')).toBeInTheDocument();
+	});
+});
+
+describe('Por confirmar — descartar (Brief M10c §3)', () => {
 	it('pide confirmación antes de descartar, y al confirmar llama a DELETE y quita el item de la lista', async () => {
 		deleteItemMock.mockResolvedValueOnce({ status: 'eliminado' });
-		const { getByText, queryByText } = render(Page, {
-			data: { items: [makeItem()], error: null, pendingCount: 1, ...layoutLan }
-		});
+		const { getByText, queryByText } = await renderWith([makeItem()]);
 
 		expect(getByText('VID-20230101-WA0001')).toBeInTheDocument();
-		await fireEvent.click(getByText('No es un título real — descartar'));
+		await fireEvent.click(getByText('Descartar'));
 		expect(getByText(/¿Descartar/)).toBeInTheDocument();
 		expect(deleteItemMock).not.toHaveBeenCalled();
 
@@ -62,11 +87,9 @@ describe('Por confirmar — descartar (Brief M10c §3)', () => {
 	});
 
 	it('cancelar la confirmación no llama a DELETE y conserva el item', async () => {
-		const { getByText, queryByText } = render(Page, {
-			data: { items: [makeItem()], error: null, pendingCount: 1, ...layoutLan }
-		});
+		const { getByText, queryByText } = await renderWith([makeItem()]);
 
-		await fireEvent.click(getByText('No es un título real — descartar'));
+		await fireEvent.click(getByText('Descartar'));
 		await fireEvent.click(getByText('Cancelar'));
 
 		expect(deleteItemMock).not.toHaveBeenCalled();
@@ -77,105 +100,85 @@ describe('Por confirmar — descartar (Brief M10c §3)', () => {
 	it('un fallo al descartar muestra un error y conserva el item', async () => {
 		const { ApiError } = await import('$lib/api/client');
 		deleteItemMock.mockRejectedValueOnce(new ApiError('no encontrado', 404));
-		const { getByText } = render(Page, {
-			data: { items: [makeItem()], error: null, pendingCount: 1, ...layoutLan }
-		});
+		const { getByText, findByRole } = await renderWith([makeItem()]);
 
-		await fireEvent.click(getByText('No es un título real — descartar'));
+		await fireEvent.click(getByText('Descartar'));
 		await fireEvent.click(getByText('Sí, descartar'));
 
-		await waitFor(() => expect(getByText('no encontrado')).toBeInTheDocument());
+		expect((await findByRole('alert')).textContent).toContain('No encontrado');
 		expect(getByText('VID-20230101-WA0001')).toBeInTheDocument();
+	});
+
+	it('Descartar es secundario (destructivo): nunca el botón ámbar', async () => {
+		const { getByText } = await renderWith([makeItem()]);
+		const btn = getByText('Descartar');
+		expect(btn.className).toContain('btn-quiet-danger');
+		expect(btn.className).not.toContain('btn-primary');
 	});
 });
 
 describe('Por confirmar — dejar sin identificar (Fase 0 tarea 0.4)', () => {
-	beforeEach(() => {
-		deleteItemMock.mockReset();
-		confirmItemMock.mockReset();
-		invalidateAllMock.mockReset();
-	});
-
-	it('el campo de título manual viene precargado con el nombre limpio del item', () => {
-		const { getByPlaceholderText } = render(Page, {
-			data: {
-				items: [makeItem({ title: 'Big_Buck_Bunny_360_10s_1MB.mp4' })],
-				error: null,
-				pendingCount: 1, ...layoutLan
-			}
-		});
+	it('el campo de título manual viene precargado con el nombre limpio del item', async () => {
+		const { getByPlaceholderText } = await renderWith([makeItem({ title: 'Big_Buck_Bunny_360_10s_1MB.mp4' })]);
 		const input = getByPlaceholderText('O escribe el título correcto…') as HTMLInputElement;
 		expect(input.value).toBe('Big Buck Bunny 360 10s 1MB mp4');
 	});
 
 	it('"Dejar sin identificar" confirma con el título limpio, ignorando lo que haya en el input', async () => {
 		confirmItemMock.mockResolvedValueOnce({ id: 42 });
-		const { getByText, getByPlaceholderText, queryByText } = render(Page, {
-			data: { items: [makeItem({ title: 'pelicula.rara.2024.mkv' })], error: null, pendingCount: 1, ...layoutLan }
-		});
+		const { getByText, getByPlaceholderText, queryByText } = await renderWith([
+			makeItem({ title: 'pelicula.rara.2024.mkv' })
+		]);
 
 		const input = getByPlaceholderText('O escribe el título correcto…') as HTMLInputElement;
 		await fireEvent.input(input, { target: { value: 'un título a medio escribir' } });
 
-		await fireEvent.click(getByText(/Dejar sin identificar/));
+		await fireEvent.click(getByText('Dejar sin identificar'));
 
-		await waitFor(() =>
-			expect(confirmItemMock).toHaveBeenCalledWith(42, { title: 'pelicula rara 2024 mkv' })
-		);
+		await waitFor(() => expect(confirmItemMock).toHaveBeenCalledWith(42, { title: 'pelicula rara 2024 mkv' }));
 		await waitFor(() => expect(queryByText('pelicula rara 2024 mkv')).toBeNull());
 		expect(invalidateAllMock).toHaveBeenCalled();
 	});
 
-	it('un fallo al dejarlo sin identificar muestra error y conserva el item', async () => {
+	it('un fallo al dejarlo sin identificar muestra el error en español y conserva el item', async () => {
 		const { ApiError } = await import('$lib/api/client');
-		confirmItemMock.mockRejectedValueOnce(new ApiError('error interno', 500));
-		const { getByText } = render(Page, {
-			data: { items: [makeItem()], error: null, pendingCount: 1, ...layoutLan }
-		});
+		confirmItemMock.mockRejectedValueOnce(new ApiError('error interno del servidor', 500));
+		const { getByText, findByRole } = await renderWith([makeItem()]);
 
-		await fireEvent.click(getByText(/Dejar sin identificar/));
+		await fireEvent.click(getByText('Dejar sin identificar'));
 
-		await waitFor(() => expect(getByText('error interno')).toBeInTheDocument());
+		// Un 5xx no enseña el texto crudo del servidor.
+		const alert = await findByRole('alert');
+		expect(alert.textContent).toContain('No se pudo confirmar');
+		expect(alert.textContent).not.toContain('error interno del servidor');
 		expect(getByText('VID-20230101-WA0001')).toBeInTheDocument();
 	});
 });
 
 describe('Por confirmar — items en identify_status=error son accionables (diagnóstico Fase 0)', () => {
-	beforeEach(() => {
-		deleteItemMock.mockReset();
-		confirmItemMock.mockReset();
-		invalidateAllMock.mockReset();
-	});
-
-	it('un item en error (p. ej. clave TMDB inválida) aparece como accionable, no como "procesándose"', () => {
+	it('un item en error (p. ej. clave TMDB inválida) aparece como accionable, no como "procesándose"', async () => {
 		const errored = makeItem({
 			id: 4,
 			title: 'Big_Buck_Bunny_360_10s_1MB',
 			identify_status: 'error',
 			identify_note: 'tmdb /movie/1: 401 {"status_message":"Invalid API key: You must be granted a valid key."}'
 		});
-		const { getByText, queryByText } = render(Page, {
-			data: { items: [errored], error: null, pendingCount: 1, ...layoutLan }
-		});
+		const { getByText, queryByText } = await renderWith([errored]);
 
 		expect(getByText('Big Buck Bunny 360 10s 1MB')).toBeInTheDocument();
 		expect(getByText(/La clave de TMDB no es válida/)).toBeInTheDocument();
 		expect(queryByText('No hay nada por confirmar ahora mismo.')).toBeNull();
-		expect(getByText(/Dejar sin identificar/)).toBeInTheDocument();
+		expect(getByText('Dejar sin identificar')).toBeInTheDocument();
 	});
 
 	it('"Dejar sin identificar" también funciona sobre un item en error', async () => {
 		confirmItemMock.mockResolvedValueOnce({ id: 4 });
 		const errored = makeItem({ id: 4, title: 'Big_Buck_Bunny_360_10s_1MB', identify_status: 'error' });
-		const { getByText, queryByText } = render(Page, {
-			data: { items: [errored], error: null, pendingCount: 1, ...layoutLan }
-		});
+		const { getByText, queryByText } = await renderWith([errored]);
 
-		await fireEvent.click(getByText(/Dejar sin identificar/));
+		await fireEvent.click(getByText('Dejar sin identificar'));
 
-		await waitFor(() =>
-			expect(confirmItemMock).toHaveBeenCalledWith(4, { title: 'Big Buck Bunny 360 10s 1MB' })
-		);
+		await waitFor(() => expect(confirmItemMock).toHaveBeenCalledWith(4, { title: 'Big Buck Bunny 360 10s 1MB' }));
 		await waitFor(() => expect(queryByText('Big Buck Bunny 360 10s 1MB')).toBeNull());
 	});
 });

@@ -10,13 +10,16 @@
 	let { candidate, onChoose, disabled = false }: Props = $props();
 
 	const poster = $derived(candidatePosterUrl(candidate.poster_path));
+	// Si la carátula no carga (sin conexión con el servidor de imágenes de
+	// TMDB, que es online), se cae al respaldo sobrio: nunca un hueco.
+	let imgFailed = $state(false);
 	const scorePct = $derived(Math.round(candidate.score * 100));
 </script>
 
 <button class="candidate" {disabled} onclick={() => onChoose(candidate)}>
 	<div class="poster">
-		{#if poster}
-			<img src={poster} alt="" loading="lazy" />
+		{#if poster && !imgFailed}
+			<img src={poster} alt="" loading="lazy" onerror={() => (imgFailed = true)} />
 		{:else}
 			<span class="no-poster">{candidate.title.slice(0, 1)}</span>
 		{/if}
@@ -75,9 +78,13 @@
 	.t {
 		font-size: 12.5px;
 		font-weight: 600;
-		white-space: nowrap;
+		line-height: 1.3;
+		min-height: 2.6em;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
 		overflow: hidden;
-		text-overflow: ellipsis;
 	}
 	.m {
 		display: flex;
@@ -89,7 +96,7 @@
 	}
 	.score {
 		margin-left: auto;
-		font-family: var(--mono);
-		color: var(--accent);
+		font-weight: 600;
+		color: var(--muted);
 	}
 </style>

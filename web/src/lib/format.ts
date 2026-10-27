@@ -1,6 +1,7 @@
 // Utilidades mínimas de formato para vistas (Brief M10a §3: "utilidades
 // mínimas si hacen falta, justificadas"). Nada de librerías de fechas/i18n:
 // el rango de casos es pequeño y controlado.
+import { ApiError } from './api/client';
 import type { Item } from './api/types';
 
 /** "Añadida hoy" / "Añadida ayer" / "Añadida hace N días", a partir de
@@ -56,7 +57,10 @@ export function cleanHealthDetail(detail: string | undefined | null): string | n
 // escaneo/ingesta (puntos y guiones bajos de un nombre de fichero típico).
 // No se toca ese dato ni la lógica de identificación: esto es solo
 // presentación.
-export function isUnidentified(item: Pick<Item, 'confirmed' | 'tmdb_id'>): boolean {
+export function isUnidentified(item: Pick<Item, 'confirmed' | 'tmdb_id'> & { kind?: Item['kind'] }): boolean {
+	// Temporadas y episodios cuelgan de una serie ya identificada y por diseño
+	// no llevan tmdb_id propio: nunca son "sin identificar".
+	if (item.kind === 'season' || item.kind === 'episode') return false;
 	return !item.confirmed || !item.tmdb_id;
 }
 
@@ -79,10 +83,138 @@ export function friendlyIdentifyError(lastError: string | undefined | null): str
 /** Título de presentación: limpia separadores de nombre de archivo SOLO
  * cuando el item no está identificado; un item ya identificado por TMDB
  * conserva su título real tal cual. */
-export function displayTitle(item: Pick<Item, 'title' | 'confirmed' | 'tmdb_id'>): string {
+export function displayTitle(item: Pick<Item, 'title' | 'confirmed' | 'tmdb_id'> & { kind?: Item['kind'] }): string {
 	if (!isUnidentified(item)) return item.title;
 	return item.title
 		.replace(/[._]+/g, ' ')
 		.replace(/\s+/g, ' ')
 		.trim();
+}
+
+// --- Sistema de Diseño GALA §2.1: nada de texto crudo del sistema ----------
+
+/** Mensaje de error para el usuario: en español, qué pasó y qué hacer. Nunca
+ *  `ApiError: …`, ni el texto de un error 5xx del servidor (jerga de Go). */
+export function errorMessage(err: unknown, action = 'No se pudo completar la operación'): string {
+	if (err instanceof ApiError) {
+		if (err.status === undefined) return err.message; // sin conexión: ya viene redactado
+		if (err.status === 404) return 'No encontrado.';
+		if (err.status >= 500) return `${action}. Reintenta; si sigue, reinicia GALA.`;
+		return err.message;
+	}
+	return `${action}. Reintenta o revisa que GALA siga abierto.`;
+}
+
+/** Título y texto de las páginas de error (SvelteKit +error), en español. */
+export function httpStatusText(status: number): { title: string; hint: string } {
+	switch (status) {
+		case 404:
+			return { title: 'No encontrado', hint: 'Esta página o título no existe, o ya no está en tu galería.' };
+		case 403:
+			return { title: 'Sin permiso', hint: 'Esto solo se puede hacer desde el PC donde corre GALA.' };
+		case 401:
+			return { title: 'Hace falta el PIN', hint: 'Vuelve a la galería para escribirlo.' };
+		default:
+			return { title: 'Algo ha ido mal', hint: 'Reintenta o revisa que GALA siga abierto.' };
+	}
+}
+
+const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/** Fecha humana en español: "hace 5 min", "hoy", "ayer", "hace 3 días",
+ *  y a partir de una semana "23 jul 2026". Nunca ISO. */
+export function formatDate(iso: string | undefined | null, now: number = Date.now()): string {
+	if (!iso) return '';
+	const d = new Date(iso);
+	const t = d.getTime();
+	if (Number.isNaN(t)) return '';
+	const diffMin = Math.floor((now - t) / 60_000);
+	if (diffMin < 1) return 'ahora mismo';
+	if (diffMin < 60) return `hace ${diffMin} min`;
+	const diffH = Math.floor(diffMin / 60);
+	if (diffH < 24) return diffH === 1 ? 'hace 1 hora' : `hace ${diffH} horas`;
+	const days = Math.floor(diffH / 24);
+	if (days === 1) return 'ayer';
+	if (days < 7) return `hace ${days} días`;
+	return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** Detalle de salud sin jerga ("HEAD → http 404", "sin respuesta (GET): …",
+ *  rutas Go): una frase corta de qué le pasa al enlace o archivo. */
+export function friendlyHealthDetail(detail: string | undefined | null): string | null {
+	const d = cleanHealthDetail(detail);
+	if (!d) return null;
+	const low = d.toLowerCase();
+	const http = /http (\d{3})/.exec(d);
+	if (http) {
+		const code = Number(http[1]);
+		if (code === 404 || code === 410) return 'Enlace caído: ya no existe';
+		if (code === 401 || code === 403) return 'Enlace caído: no deja entrar';
+		if (code >= 500) return 'El servidor del enlace falla';
+		return `Enlace caído (error ${code})`;
+	}
+	if (low.startsWith('sin respuesta')) return 'Sin respuesta del servidor';
+	if (low.includes('página web')) return 'El enlace lleva a una web, no a un vídeo';
+	if (low.includes('red privada') || low.includes('bloqueada por seguridad')) {
+		return 'El enlace apunta a una red privada: bloqueado';
+	}
+	if (low.includes('respuesta lenta')) return 'Responde despacio';
+	if (low.includes('pendiente de conector')) return 'Falta el conector (próximamente)';
+	if (low.includes('volumen no está conectado')) return 'Disco desconectado';
+	if (low.includes('archivo no encontrado')) return 'No se encuentra el archivo';
+	if (low.includes('es una carpeta')) return 'La ruta es una carpeta, no un archivo';
+	if (low.includes('disco lento')) return 'Disco lento';
+	return 'No se pudo verificar';
+}
+
+/** Nombre de archivo (o último tramo de una URL) de un locator. */
+export function locatorName(locator: string): string {
+	const clean = locator.split(/[?#]/)[0].replace(/[\\/]+$/, '');
+	const i = Math.max(clean.lastIndexOf('/'), clean.lastIndexOf('\\'));
+	return i >= 0 ? clean.slice(i + 1) || clean : clean;
+}
+
+/** Carpeta contenedora (o host) de un locator, para mostrar en pequeño. */
+export function locatorWhere(locator: string): string {
+	if (/^https?:\/\//i.test(locator)) {
+		try {
+			return new URL(locator).host;
+		} catch {
+			return '';
+		}
+	}
+	const clean = locator.replace(/[\\/]+$/, '');
+	const i = Math.max(clean.lastIndexOf('/'), clean.lastIndexOf('\\'));
+	return i > 0 ? clean.slice(0, i) : '';
+}
+
+/** "T1 · E3" para episodios, "Temporada 2" para temporadas. */
+export function episodeCode(item: Pick<Item, 'kind' | 'season_number' | 'episode_number'>, seasonNumber?: number): string {
+	if (item.kind === 'season') return item.season_number ? `Temporada ${item.season_number}` : 'Temporada';
+	const s = seasonNumber ?? item.season_number;
+	const e = item.episode_number;
+	if (s && e) return `T${s} · E${e}`;
+	if (e) return `E${e}`;
+	return '';
+}
+
+/** Nombre legible de una lista ingerida: el servidor nombra el texto pegado
+ *  "pegado <fecha ISO>" y las M3U remotas con su URL; ninguna de las dos cosas
+ *  se enseña tal cual. */
+export function listDisplayName(name: string, type: string): string {
+	if (/^pegado\s+\d{4}-\d{2}-\d{2}T/.test(name)) {
+		if (type === 'm3u') return 'Lista M3U pegada';
+		if (type === 'csv') return 'CSV pegado';
+		return 'Texto pegado';
+	}
+	if (name.startsWith('http://') || name.startsWith('https://')) {
+		try {
+			const u = new URL(name);
+			const last = locatorName(u.pathname);
+			return last ? `${u.host} · ${last}` : u.host;
+		} catch {
+			return name;
+		}
+	}
+	return name;
 }

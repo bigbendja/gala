@@ -22,6 +22,10 @@ type Config struct {
 	LanPIN string `json:"lan_pin"`
 	// TMDBAPIKey, si no está vacío, sustituye a identify.DefaultTMDBKey (M3).
 	TMDBAPIKey string `json:"tmdb_api_key"`
+	// HomeHeroHidden oculta el bloque hero de la Home (Ajustes › Inicio). La
+	// polaridad es "oculto" para que un gala.json antiguo, sin el campo,
+	// siga mostrando el hero como siempre.
+	HomeHeroHidden bool `json:"home_hero_hidden"`
 
 	dir string // directorio base (junto al ejecutable), no se serializa
 
@@ -73,6 +77,27 @@ func (c *Config) SetLanPIN(pin string) error {
 	c.LanPIN = pin
 	if err := c.save(); err != nil {
 		c.LanPIN = prev
+		return err
+	}
+	return nil
+}
+
+// HomeHeroEnabled dice si la Home enseña el bloque hero (por defecto sí).
+func (c *Config) HomeHeroEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return !c.HomeHeroHidden
+}
+
+// SetHomeHero muestra u oculta el hero de la Home y lo persiste; si no se
+// puede guardar, deja el valor anterior.
+func (c *Config) SetHomeHero(enabled bool) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	prev := c.HomeHeroHidden
+	c.HomeHeroHidden = !enabled
+	if err := c.save(); err != nil {
+		c.HomeHeroHidden = prev
 		return err
 	}
 	return nil

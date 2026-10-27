@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { imgUrl } from '$lib/api/client';
 	import type { Health, Item } from '$lib/api/types';
-	import { displayTitle, isUnidentified } from '$lib/format';
+	import { displayTitle, episodeCode, isUnidentified } from '$lib/format';
 	import HealthDot from './HealthDot.svelte';
 
 	interface Props {
@@ -45,6 +45,12 @@
 	// Brief M10a-fix A4: título de presentación limpio para items sin
 	// identificar, sin tocar la lógica de M3 (solo esta vista).
 	const title = $derived(displayTitle(item));
+	// Un episodio se presenta con su miniatura (16:10) y la serie a la que
+	// pertenece, no como un póster vertical sin contexto.
+	const isEpisode = $derived(item.kind === 'episode');
+	const episodeLine = $derived(
+		[item.series_title, episodeCode(item)].filter((x) => !!x).join(' · ')
+	);
 	// Fase 0 — diagnóstico integral: "wish" también puede ser un item YA con
 	// fuente (M10a-fix permite desear cualquier item existente, no solo
 	// títulos aspiracionales sin fuente — ver más abajo, source_count===0 es
@@ -62,8 +68,9 @@
 
 <a
 	class="card"
-	class:wide-card={variant === 'wide'}
+	class:wide-card={variant === 'wide' || isEpisode}
 	class:wish={variant === 'wish'}
+	class:nosource={variant === 'wish' && item.source_count === 0}
 	href="/item/{item.id}"
 >
 	{#if isNew && variant === 'default'}
@@ -88,7 +95,16 @@
 		<div class="t">{title}</div>
 		<div class="m">
 			{#if variant === 'wish' && item.source_count === 0}
-				<span>{item.year ?? ''} · buscando…</span>
+				<span>{item.year ?? ''} · aún sin fuente</span>
+			{:else if isEpisode}
+				<span class="ep-line">{episodeLine}</span>
+				{#if healthDots.shown.length > 0}
+					<div class="dots">
+						{#each healthDots.shown as h, i (i)}
+							<HealthDot health={h} size={6} />
+						{/each}
+					</div>
+				{/if}
 			{:else if unidentified}
 				<span class="unidentified">Sin identificar</span>
 				{#if healthDots.shown.length > 0}
@@ -194,11 +210,15 @@
 	}
 	/* Brief M10a-fix A4: marca sobria, sin inventar título. */
 	.unidentified {
-		font-family: var(--mono);
-		font-size: 10.5px;
-		letter-spacing: 0.03em;
+		font-size: 12px;
 		color: var(--muted);
 		font-style: italic;
+	}
+	.ep-line {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		min-width: 0;
 	}
 	.extra {
 		font-family: var(--mono);
@@ -225,10 +245,9 @@
 		top: 8px;
 		left: 8px;
 		z-index: 1;
-		font-family: var(--mono);
-		font-size: 9.5px;
-		font-weight: 500;
-		letter-spacing: 0.07em;
+		font-size: 10px;
+		font-weight: 600;
+		letter-spacing: 0.08em;
 		background: rgba(16, 12, 9, 0.5);
 		backdrop-filter: blur(3px);
 		border-radius: 5px;
@@ -270,7 +289,7 @@
 		border-color: #42301b;
 		background: rgba(27, 21, 16, 0.5);
 	}
-	.card.wish .poster {
+	.card.wish.nosource .poster {
 		opacity: 0.55;
 	}
 	.wish-tag {

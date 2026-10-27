@@ -33,13 +33,15 @@ vi.mock('$lib/api/client', async () => {
 });
 
 // Datos del layout raíz (Modo LAN, M7): estos tests corren como el PC.
-const layoutLan = { session: { local: true, pin_required: false, authenticated: true }, lanEnabled: false };
+const layoutLan = {
+	session: { local: true, pin_required: false, authenticated: true },
+	chrome: Promise.resolve({ pendingCount: 0, lanEnabled: false })
+};
 
 function baseData(overrides: Partial<Record<string, unknown>> = {}) {
 	const scan: ScanStatus = { running: false, files_seen: 0, items_new: 0 };
 	const identify: IdentifyStatus = { pending: 0, processing: false, online: true, processed: 3 };
 	return {
-		pendingCount: 0,
 		...layoutLan,
 		folders: [] as FolderInfo[],
 		foldersError: null,

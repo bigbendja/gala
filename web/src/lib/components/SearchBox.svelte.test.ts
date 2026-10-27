@@ -61,7 +61,7 @@ describe('SearchBox', () => {
 		await fireEvent.focus(input);
 		await fireEvent.input(input, { target: { value: 'inexistente' } });
 
-		await waitFor(() => expect(getByText('Sin resultados para "inexistente".')).toBeInTheDocument(), {
+		await waitFor(() => expect(getByText('Sin resultados para «inexistente».')).toBeInTheDocument(), {
 			timeout: 1000
 		});
 	});

@@ -28,8 +28,8 @@ describe('layout raíz con biblioteca vacía', () => {
 			'/api/v1/pending': null,
 			'/api/v1/lan/status': { enabled: false }
 		});
-		const data = await load({} as never);
-		expect(data).toMatchObject({ pendingCount: 0, lanEnabled: false });
+		const data = (await load({} as never)) as { chrome: Promise<unknown> };
+		await expect(data.chrome).resolves.toMatchObject({ pendingCount: 0, lanEnabled: false });
 	});
 
 	it('cuenta solo los pendientes en revisión', async () => {
@@ -41,7 +41,7 @@ describe('layout raíz con biblioteca vacía', () => {
 			],
 			'/api/v1/lan/status': { enabled: true }
 		});
-		const data = await load({} as never);
-		expect(data).toMatchObject({ pendingCount: 1, lanEnabled: true });
+		const data = (await load({} as never)) as { chrome: Promise<unknown> };
+		await expect(data.chrome).resolves.toMatchObject({ pendingCount: 1, lanEnabled: true });
 	});
 });

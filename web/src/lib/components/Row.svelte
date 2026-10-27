@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import Card from './Card.svelte';
 	import type { Item } from '$lib/api/types';
 
@@ -40,11 +41,13 @@
 	let container: HTMLDivElement | undefined = $state();
 	let scrollLeft = $state(0);
 	let clientWidth = $state(0);
+	let scrollWidth = $state(0);
 
 	function measure() {
 		if (!container) return;
 		scrollLeft = container.scrollLeft;
 		clientWidth = container.clientWidth;
+		scrollWidth = container.scrollWidth;
 	}
 
 	function onScroll() {
@@ -70,11 +73,31 @@
 	});
 
 	const visible = $derived(items.slice(range.start, range.end));
+
+	// El ancho de scroll depende de las tarjetas YA pintadas: se vuelve a medir
+	// cuando cambia cuántas hay (al medir el ancho del contenedor se pintan
+	// más), para que las flechas sepan si hay más a la derecha.
+	$effect(() => {
+		void visible.length;
+		void container;
+		tick().then(measure);
+	});
+
+	// Flechas ‹ › (Sistema de Diseño GALA §5): además del scroll táctil y del
+	// teclado. Se desplazan casi una "página" de tarjetas.
+	const canPrev = $derived(scrollLeft > 4);
+	const canNext = $derived(scrollWidth - (scrollLeft + clientWidth) > 4);
+
+	function page(dir: -1 | 1) {
+		if (!container) return;
+		const by = Math.max(step, Math.floor(clientWidth / step) * step - step);
+		container.scrollBy({ left: dir * by, behavior: 'smooth' });
+	}
 </script>
 
 <svelte:window onresize={measure} />
 
-<section class="section">
+<section class="section" aria-label={title}>
 	<div class="sec-head">
 		<h2>{title}</h2>
 		{#if subtitle}<span class="count">{subtitle}</span>{/if}
@@ -84,16 +107,34 @@
 	{#if loading && items.length === 0}
 		<div class="row" class:wide={variant === 'wide'}>
 			{#each { length: 6 } as _, i (i)}
-				<div class="skeleton"></div>
+				<div class="skeleton card-skeleton" class:wide-skel={variant === 'wide'}></div>
 			{/each}
 		</div>
 	{:else}
-		<div class="row" class:wide={variant === 'wide'} bind:this={container} onscroll={onScroll}>
-			{#each visible as item, i (item.id)}
-				<div style:grid-column={range.start + i + 1}>
-					<Card {item} {variant} />
-				</div>
-			{/each}
+		<div class="carousel">
+			<button
+				class="arrow prev"
+				class:show={canPrev}
+				onclick={() => page(-1)}
+				aria-label="Anterior en {title}"
+				tabindex={canPrev ? 0 : -1}
+				disabled={!canPrev}>‹</button
+			>
+			<div class="row" class:wide={variant === 'wide'} bind:this={container} onscroll={onScroll}>
+				{#each visible as item, i (item.id)}
+					<div style:grid-column={range.start + i + 1}>
+						<Card {item} {variant} />
+					</div>
+				{/each}
+			</div>
+			<button
+				class="arrow next"
+				class:show={canNext}
+				onclick={() => page(1)}
+				aria-label="Siguiente en {title}"
+				tabindex={canNext ? 0 : -1}
+				disabled={!canNext}>›</button
+			>
 		</div>
 	{/if}
 </section>
@@ -117,8 +158,7 @@
 		letter-spacing: 0.01em;
 	}
 	.sec-head .count {
-		font-family: var(--mono);
-		font-size: 12px;
+		font-size: 12.5px;
 		color: var(--muted);
 	}
 	.sec-head .link {
@@ -127,6 +167,12 @@
 		font-size: 13.5px;
 		font-weight: 500;
 		text-decoration: none;
+	}
+	.sec-head .link:hover {
+		text-decoration: underline;
+	}
+	.carousel {
+		position: relative;
 	}
 	.row {
 		display: grid;
@@ -141,32 +187,76 @@
 	.row.wide {
 		grid-auto-columns: 236px;
 	}
-	.skeleton {
+	.card-skeleton {
 		aspect-ratio: 2 / 3;
-		border-radius: 12px;
-		background: linear-gradient(100deg, var(--surface) 40%, var(--surface-2) 50%, var(--surface) 60%);
-		background-size: 200% 100%;
-		animation: shimmer 1.4s ease-in-out infinite;
 	}
-	@media (prefers-reduced-motion: reduce) {
-		.skeleton {
-			animation: none;
-		}
+	.card-skeleton.wide-skel {
+		aspect-ratio: 16 / 12;
 	}
-	@keyframes shimmer {
-		from {
-			background-position: 200% 0;
+	/* Flechas: aparecen al pasar el ratón/enfocar la fila (desktop) y siempre
+	   en táctil, donde no hay "hover". Área táctil de 44px. */
+	.arrow {
+		position: absolute;
+		top: calc(50% - 40px);
+		z-index: 3;
+		width: 44px;
+		height: 44px;
+		border-radius: 50%;
+		border: 1px solid var(--line);
+		background: rgba(16, 12, 9, 0.88);
+		color: var(--text);
+		font-size: 26px;
+		line-height: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.15s, background 0.15s;
+		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+	}
+	.arrow.prev {
+		left: -14px;
+	}
+	.arrow.next {
+		right: -14px;
+	}
+	.carousel:hover .arrow.show,
+	.carousel:focus-within .arrow.show {
+		opacity: 1;
+		pointer-events: auto;
+	}
+	.arrow:hover {
+		background: var(--surface-2);
+	}
+	@media (hover: none) {
+		.arrow.show {
+			opacity: 0.92;
+			pointer-events: auto;
 		}
-		to {
-			background-position: -200% 0;
+		.arrow.prev {
+			left: -8px;
+		}
+		.arrow.next {
+			right: -8px;
 		}
 	}
 	@media (max-width: 900px) {
+		.section {
+			padding-left: 16px;
+			padding-right: 16px;
+		}
 		.row {
 			grid-auto-columns: 138px;
 		}
 		.row.wide {
 			grid-auto-columns: 200px;
+		}
+		.arrow.prev {
+			left: -6px;
+		}
+		.arrow.next {
+			right: -6px;
 		}
 	}
 </style>

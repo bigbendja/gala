@@ -197,3 +197,25 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   alternativas como varias fuentes); .strm que apunte a una ruta local
   (Kodi lo permite) o a otro esquema (`plugin://`); contador de .strm
   omitidos en `/scan/status`.
+- 2026-10-27 (Fase 1 Home): `docs/briefs/GALA_Mockup_Home.html`, citado como
+  el mockup aprobado, NO existe en el repositorio; la Home se construyó con
+  la descripción textual del Sistema de Diseño (§5) y el plan de la Fase 1.
+  Si el mockup difiere, se ajusta sobre esta base.
+- 2026-10-27 (Fase 1 Home): «Mis Listas» de la Home muestra los deseos («+ Mi
+  lista»), no los lotes de «Listas» (ingestas). Y en la pantalla «Listas», dar
+  acceso a los títulos de cada lote exige un endpoint nuevo
+  (`GET /ingest/lists/{id}/items`): no se hizo.
+- 2026-10-27 (Fase 1 Home): un archivo con solo el nombre de una serie
+  (p. ej. `Dark.mp4`) se identifica como «Temporada 0 · Episodio 0» (duda ya
+  anotada en M3: `parsed.Season = 0`). Ahora se ve como «Episodio 0»; decidir
+  qué hacer con un episodio sin temporada ni número reales.
+- 2026-10-27 (Fase 1 Home): si la miniatura de un episodio falla al
+  descargarse (CDN de imágenes de TMDB), no se reintenta: el título del
+  episodio ya dejó de ser el provisional que lo marca como pendiente. Un
+  backfill de miniaturas faltantes (como `backfillImages` de películas) lo
+  resolvería.
+- 2026-10-27 (Fase 1 Home): «Destacados» no es un ranking (no guardamos la
+  puntuación de TMDB): es una rotación diaria estable. Guardar `vote_average`
+  permitiría ordenar de verdad.
+- 2026-10-27 (Fase 1 Home): «Escanear disco USB» e «Importar .gala» del modal
+  de ingesta siguen sin existir (deshabilitados con «Próximamente»).

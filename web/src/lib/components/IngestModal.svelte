@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { ApiError, ingest } from '$lib/api/client';
+	import { ingest } from '$lib/api/client';
+	import { errorMessage } from '$lib/format';
 	import type { ResumenIngesta } from '$lib/api/types';
 
 	interface Props {
@@ -8,8 +9,11 @@
 		/** Se llama tras un ingest con éxito (Brief M10b §2: "refrescar la
 		 *  galería para que aparezca lo nuevo"). */
 		onIngested: () => void;
+		/** "Elegir carpeta": lleva al flujo real de añadir carpeta (Ajustes ›
+		 *  Carpetas). */
+		onOpenSettings?: () => void;
 	}
-	let { open, onClose, onIngested }: Props = $props();
+	let { open, onClose, onIngested, onOpenSettings }: Props = $props();
 
 	let text = $state('');
 	let droppedFile = $state<File | null>(null);
@@ -67,7 +71,7 @@
 			status = 'done';
 			onIngested();
 		} catch (err) {
-			errorMsg = err instanceof ApiError ? err.message : 'Error inesperado. Inténtalo de nuevo.';
+			errorMsg = errorMessage(err, 'No se pudo añadir');
 			status = 'error';
 		}
 	}
@@ -115,7 +119,7 @@
 						{/if}
 						{#if resumen.pendientes_conector > 0}
 							<div class="detect-row">
-								<span class="ic">🔌</span> Pendientes de conector (Drive/Mega)
+								<span class="ic">◌</span> Pendientes de conector (Drive/Mega)
 								<span class="n">{resumen.pendientes_conector}</span>
 							</div>
 						{/if}
@@ -133,7 +137,7 @@
 						{/if}
 						{#if resumen.basura > 0}
 							<div class="detect-row">
-								<span class="ic">🗑</span> Basura descartada
+								<span class="ic">✕</span> Basura descartada
 								<span class="n">{resumen.basura}</span>
 							</div>
 						{/if}
@@ -167,7 +171,7 @@
 					>
 						{#if droppedFile}
 							<div class="dropped-file">
-								<span>📄 {droppedFile.name}</span>
+								<span>{droppedFile.name}</span>
 								<button class="link-btn" onclick={clearDroppedFile}>Quitar</button>
 							</div>
 						{:else}
@@ -184,10 +188,17 @@
 						<p class="error">{errorMsg}</p>
 					{/if}
 
+					<!-- Un control o funciona, o se ve deshabilitado con su motivo. -->
 					<div class="alt-src">
-						<a href="/ajustes" onclick={close}>📁 Elegir carpeta</a>
-						<a href="/ajustes" onclick={close}>💽 Escanear disco</a>
-						<button disabled title="Formato .gala: llega en M9">📦 Importar .gala</button>
+						<button
+							class="chip"
+							onclick={() => {
+								close();
+								onOpenSettings?.();
+							}}>Elegir carpeta</button
+						>
+						<button class="chip" disabled title="Próximamente">Escanear disco USB</button>
+						<button class="chip" disabled title="Próximamente">Importar .gala</button>
 					</div>
 
 					<div class="modal-actions">
@@ -296,8 +307,8 @@
 		overflow: hidden;
 	}
 	.detect-head {
-		font-family: var(--mono);
 		font-size: 11.5px;
+		font-weight: 600;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--muted);
@@ -389,22 +400,26 @@
 		margin-top: 16px;
 		flex-wrap: wrap;
 	}
-	.alt-src button,
-	.alt-src a {
-		font-size: 12.5px;
-		color: var(--muted);
+	.chip {
+		min-height: 40px;
+		font-size: 13px;
+		font-weight: 500;
+		color: var(--text);
 		border: 1px solid var(--line);
 		border-radius: 99px;
-		padding: 7px 14px;
+		padding: 7px 16px;
+		background: rgba(255, 255, 255, 0.03);
 		transition: 0.15s;
-		text-decoration: none;
 	}
-	.alt-src a:hover {
-		color: var(--text);
+	.chip:hover:not(:disabled) {
 		background: var(--surface-2);
 	}
-	.alt-src button:disabled {
-		opacity: 0.55;
+	/* Aún no existe: se ve apagado y con borde discontinuo (el motivo va en el
+	   tooltip), nunca como un botón que invita a pulsar y no hace nada. */
+	.chip:disabled {
+		opacity: 0.4;
+		border-style: dashed;
+		color: var(--muted);
 		cursor: default;
 	}
 </style>

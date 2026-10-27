@@ -1,139 +1,143 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
-	import Hero from '$lib/components/Hero.svelte';
-	import Row from '$lib/components/Row.svelte';
-	import { listItems } from '$lib/api/client';
+	import { onMount } from 'svelte';
+	import { page } from '$app/state';
+	import { getHomeSettings, listGenres, listItems } from '$lib/api/client';
+	import type { GenreCount, Item, LanSession } from '$lib/api/types';
 	import { galleryVisible } from '$lib/gallery';
-	import type { Item } from '$lib/api/types';
-	import type { PageData } from './$types';
+	import { errorMessage } from '$lib/format';
+	import { DOCUMENTARY_GENRE, genreRows, playableMovies } from '$lib/home';
+	import HeroSlider from '$lib/components/HeroSlider.svelte';
+	import HomeSection from '$lib/components/HomeSection.svelte';
+	import StateBlock from '$lib/components/StateBlock.svelte';
 
-	let { data }: { data: PageData } = $props();
+	// Un dispositivo de la red (Modo LAN) no gestiona la galería: no ve el botón
+	// de añadir contenido (el backend además lo rechazaría).
+	const isLocal = $derived((page.data as { session?: LanSession }).session?.local !== false);
 
-	// Semilla intencional de estado LOCAL de paginación a partir del primer
-	// load: a partir de aquí este estado vive independiente de `data` (crece
-	// con loadMoreGallery), por eso se lee con untrack — no es un olvido de
-	// $derived, es la semántica que queremos (Svelte, state_referenced_locally).
-	let galleryItems = $state<Item[]>(untrack(() => galleryVisible(data.gallery?.items ?? [])));
-	let galleryRawOffset = $state(untrack(() => data.gallery?.items.length ?? 0));
-	let galleryRawTotal = $state(untrack(() => data.gallery?.total ?? 0));
-	let galleryLoadingMore = $state(false);
+	// La Home se compone de secciones que cargan solas. Aquí solo se pide lo
+	// que decide la estructura: ¿hay algo en la biblioteca?, ¿se ve el hero?,
+	// qué géneros tienen contenido, y los títulos que alimentan el hero.
+	let phase = $state<'loading' | 'ready' | 'empty' | 'error'>('loading');
+	let errorText = $state('');
+	let heroPool = $state<Item[]>([]);
+	let heroEnabled = $state(true);
+	let genres = $state<GenreCount[]>([]);
 
-	async function loadMoreGallery() {
-		if (galleryLoadingMore || galleryRawOffset >= galleryRawTotal) return;
-		galleryLoadingMore = true;
+	async function boot() {
+		phase = 'loading';
 		try {
-			const page = await listItems({ limit: 200, offset: galleryRawOffset });
-			galleryItems = [...galleryItems, ...galleryVisible(page.items)];
-			galleryRawOffset += page.items.length;
-			galleryRawTotal = page.total;
-		} catch {
-			// Se ignora: la fila se queda con lo que ya tenía; un nuevo scroll
-			// vuelve a intentarlo. No hay más de un error mostrable por fila
-			// sin complicar el estado; el error inicial ya se ve arriba si
-			// falló la primera página (data.galleryError).
-		} finally {
-			galleryLoadingMore = false;
+			const [pool, settings, genreList] = await Promise.all([
+				listItems({ parent_id: 'null', limit: 200 }),
+				getHomeSettings().catch(() => ({ hero: true })),
+				listGenres().catch(() => [] as GenreCount[])
+			]);
+			heroPool = pool.items;
+			heroEnabled = settings.hero;
+			genres = genreList;
+			phase = pool.total === 0 ? 'empty' : 'ready';
+		} catch (err) {
+			errorText = errorMessage(err, 'No se pudo cargar la galería');
+			phase = 'error';
 		}
 	}
+	onMount(boot);
 
-	const wishlistItems = $derived(data.wishlist?.items ?? []);
+	function openIngest() {
+		window.dispatchEvent(new CustomEvent('gala:open-ingest'));
+	}
 
-	// "Continuar viendo" (Brief M10a-fix B3/C): alimentada por el filtro
-	// in_progress, mira todo el catálogo, no solo la página ya cargada de
-	// "Tu galería" (limitación de M10a, ya resuelta). Si viene vacía —o
-	// falló la petición—, la fila se oculta, nunca se muestra vacía.
-	const continuingItems = $derived(data.continuing?.items ?? []);
-
-	const isEmptyCatalog = $derived(
-		!data.galleryError && !data.wishlistError && galleryItems.length === 0 && wishlistItems.length === 0
-	);
+	const rows = $derived(genreRows(genres));
 </script>
 
 <svelte:head>
 	<title>GALA — Tu galería</title>
 </svelte:head>
 
-{#if data.galleryError && data.wishlistError}
-	<div class="state-page">
-		<p>No se pudo conectar con GALA.</p>
-		<p class="muted">Comprueba que el programa sigue en marcha y recarga la página.</p>
-	</div>
-{:else if isEmptyCatalog}
-	<div class="state-page">
-		<p>Aún no hay nada.</p>
-		<p class="muted">Añade una carpeta o pega enlaces para empezar tu galería.</p>
-	</div>
-{:else}
-	{#if data.hero}
-		<Hero item={data.hero} volumes={data.volumes} />
-	{/if}
-
-	{#if continuingItems.length > 0}
-		<Row
-			title="Continuar viendo"
-			subtitle="sigue donde lo dejaste, en cualquier dispositivo"
-			items={continuingItems}
-			variant="wide"
+{#if phase === 'error'}
+	<StateBlock
+		tone="error"
+		title="No se pudo cargar la galería"
+		text={errorText}
+		actionLabel="Reintentar"
+		onAction={boot}
+	/>
+{:else if phase === 'empty'}
+	{#if isLocal}
+		<StateBlock
+			title="Aún no hay nada aquí"
+			text="Añade una carpeta o pega enlaces para empezar tu galería."
+			actionLabel="＋ Añadir"
+			onAction={openIngest}
 		/>
-	{/if}
-
-	{#if data.galleryError}
-		<section class="section">
-			<div class="sec-head"><h2>Tu galería</h2></div>
-			<p class="muted">No se pudo cargar tu galería: {data.galleryError}</p>
-		</section>
 	{:else}
-		<Row
-			title="Tu galería"
-			subtitle="{galleryItems.length} títulos"
-			items={galleryItems}
-			total={galleryRawTotal}
-			loading={galleryLoadingMore}
-			onNeedMore={loadMoreGallery}
+		<StateBlock
+			title="Aún no hay nada aquí"
+			text="La galería está vacía. El contenido se añade desde el PC donde corre GALA."
 		/>
+	{/if}
+{:else}
+	{#if phase === 'loading'}
+		<div class="hero-skel skeleton" aria-busy="true" aria-label="Cargando"></div>
+	{:else if heroEnabled && heroPool.length > 0}
+		<HeroSlider items={heroPool} />
 	{/if}
 
-	{#if data.wishlistError}
-		<section class="section">
-			<div class="sec-head"><h2>Deseos</h2></div>
-			<p class="muted">No se pudo cargar tu lista de deseos: {data.wishlistError}</p>
-		</section>
-	{:else if wishlistItems.length > 0}
-		<Row
-			title="Deseos"
-			subtitle="se completan solos cuando llega una fuente"
-			items={wishlistItems}
-			variant="wish"
+	<HomeSection
+		title="Continuar viendo"
+		subtitle="en este dispositivo"
+		variant="wide"
+		lazy={false}
+		fetchPage={(offset) => listItems({ in_progress: true, limit: 30, offset })}
+	/>
+	<HomeSection
+		title="Películas"
+		linkHref="/peliculas"
+		fetchPage={(offset) => listItems({ kind: 'movie', parent_id: 'null', limit: 40, offset })}
+		filter={playableMovies}
+	/>
+	<HomeSection
+		title="Series"
+		linkHref="/series"
+		fetchPage={(offset) => listItems({ kind: 'series', parent_id: 'null', limit: 40, offset })}
+	/>
+	<HomeSection
+		title="Documentales"
+		fetchPage={(offset) => listItems({ genre: DOCUMENTARY_GENRE, parent_id: 'null', limit: 40, offset })}
+		filter={playableMovies}
+	/>
+	<HomeSection
+		title="Añadidas recientemente"
+		fetchPage={(offset) => listItems({ parent_id: 'null', limit: 40, offset })}
+		filter={galleryVisible}
+	/>
+	<HomeSection
+		title="Mis Listas"
+		linkHref="/deseos"
+		variant="wish"
+		fetchPage={(offset) => listItems({ wished: true, limit: 40, offset })}
+	/>
+	{#each rows as g (g.name)}
+		<HomeSection
+			title={g.name}
+			subtitle="{g.count} {g.count === 1 ? 'título' : 'títulos'}"
+			fetchPage={(offset) => listItems({ genre: g.name, parent_id: 'null', limit: 40, offset })}
+			filter={playableMovies}
 		/>
-	{/if}
+	{/each}
+	<div class="end-space"></div>
 {/if}
 
 <style>
-	.section {
-		max-width: 1236px;
-		margin: 0 auto;
-		padding: 34px 28px 0;
+	.hero-skel {
+		height: 440px;
+		border-radius: 0;
 	}
-	.sec-head {
-		margin-bottom: 16px;
+	.end-space {
+		height: 40px;
 	}
-	.sec-head h2 {
-		font-family: var(--display);
-		font-size: 21px;
-		font-weight: 600;
-	}
-	.state-page {
-		max-width: 560px;
-		margin: 15vh auto;
-		text-align: center;
-		padding: 0 28px;
-	}
-	.state-page p {
-		font-size: 16px;
-	}
-	.muted {
-		color: var(--muted);
-		font-size: 14px;
-		margin-top: 6px;
+	@media (max-width: 900px) {
+		.hero-skel {
+			height: 360px;
+		}
 	}
 </style>

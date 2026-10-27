@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import {
 		addFolder,
-		ApiError,
+		getHomeSettings,
 		healthSummary,
 		identifyStatus,
 		listFolders,
+		putHomeSettings,
 		putTMDBSettings,
 		removeFolder,
 		scanStatus,
@@ -13,7 +14,7 @@
 		startScan
 	} from '$lib/api/client';
 	import type { FolderInfo, HealthSummary, IdentifyStatus, ScanStatus } from '$lib/api/types';
-	import { friendlyIdentifyError } from '$lib/format';
+	import { errorMessage, formatDate, friendlyIdentifyError } from '$lib/format';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -44,7 +45,7 @@
 			newFolderPath = '';
 			await reloadFolders();
 		} catch (err) {
-			addFolderError = err instanceof ApiError ? err.message : 'No se pudo añadir la carpeta.';
+			addFolderError = errorMessage(err, 'No se pudo añadir la carpeta');
 		} finally {
 			addFolderBusy = false;
 		}
@@ -62,6 +63,30 @@
 		} finally {
 			removeBusyPaths.delete(path);
 			removeBusyPaths = new Set(removeBusyPaths);
+		}
+	}
+
+	// --- Inicio (Sistema de Diseño GALA §5: el hero de la Home se puede ocultar) --
+	let heroEnabled = $state<boolean | null>(null);
+	let heroBusy = $state(false);
+	let heroError = $state('');
+	onMount(async () => {
+		try {
+			heroEnabled = (await getHomeSettings()).hero;
+		} catch {
+			heroError = 'No se pudo leer esta preferencia.';
+		}
+	});
+	async function toggleHero() {
+		if (heroEnabled === null || heroBusy) return;
+		heroBusy = true;
+		heroError = '';
+		try {
+			heroEnabled = (await putHomeSettings({ hero: !heroEnabled })).hero;
+		} catch (err) {
+			heroError = errorMessage(err, 'No se pudo guardar');
+		} finally {
+			heroBusy = false;
 		}
 	}
 
@@ -139,10 +164,7 @@
 			tmdbMessage = { kind: 'ok', text: 'Clave guardada y verificada contra TMDB.' };
 			await reloadIdentify(); // el last_error de una clave anterior debería desaparecer
 		} catch (err) {
-			tmdbMessage = {
-				kind: 'error',
-				text: err instanceof ApiError ? err.message : 'No se pudo guardar la clave.'
-			};
+			tmdbMessage = { kind: 'error', text: errorMessage(err, 'No se pudo guardar la clave') };
 		} finally {
 			tmdbBusy = false;
 		}
@@ -209,7 +231,7 @@
 		<p class="muted">Todo lo que antes había que hacer a mano, desde aquí.</p>
 	</header>
 
-	<section class="card">
+	<section class="card" id="carpetas">
 		<h2>Carpetas</h2>
 		{#if data.foldersError}
 			<p class="error">No se pudieron cargar las carpetas: {data.foldersError}</p>
@@ -257,6 +279,31 @@
 		<p class="hint">Al quitar una carpeta, los items se conservan: solo se quitan sus fuentes locales.</p>
 	</section>
 
+	<section class="card" id="inicio">
+		<h2>Inicio</h2>
+		<div class="switch-row">
+			<div>
+				<p class="switch-title">Bloque destacado</p>
+				<p class="muted">
+					El carrusel grande de títulos que abre la pantalla de inicio. Apágalo si prefieres ir directo a las
+					filas.
+				</p>
+			</div>
+			<button
+				class="switch"
+				class:on={heroEnabled === true}
+				role="switch"
+				aria-checked={heroEnabled === true}
+				aria-label="Mostrar el bloque destacado en Inicio"
+				disabled={heroEnabled === null || heroBusy}
+				onclick={toggleHero}
+			>
+				<span class="knob"></span>
+			</button>
+		</div>
+		{#if heroError}<p class="error">{heroError}</p>{/if}
+	</section>
+
 	<section class="card">
 		<h2>Escaneo</h2>
 		{#if data.scanError && !scan}
@@ -267,11 +314,11 @@
 					Escaneando… {scan.files_seen} archivos vistos, {scan.items_new} items nuevos
 				</p>
 			{:else if scan.last_finished}
-				<p class="muted">Último escaneo: {new Date(scan.last_finished).toLocaleString('es-ES')}</p>
+				<p class="muted">Último escaneo: {formatDate(scan.last_finished)}</p>
 			{:else}
 				<p class="muted">Todavía no se ha escaneado nada.</p>
 			{/if}
-			<button class="btn-add" disabled={scan.running || scanStartBusy} onclick={handleStartScan}>
+			<button class="btn-add sec" disabled={scan.running || scanStartBusy} onclick={handleStartScan}>
 				{scan.running ? 'Escaneando…' : 'Escanear ahora'}
 			</button>
 		{/if}
@@ -313,7 +360,7 @@
 				bind:value={tmdbKeyInput}
 				onkeydown={(e) => e.key === 'Enter' && handleSaveTMDBKey()}
 			/>
-			<button class="btn-add" disabled={tmdbBusy || !tmdbKeyInput.trim()} onclick={handleSaveTMDBKey}>
+			<button class="btn-add sec" disabled={tmdbBusy || !tmdbKeyInput.trim()} onclick={handleSaveTMDBKey}>
 				{tmdbBusy ? 'Comprobando…' : 'Guardar clave'}
 			</button>
 		</div>
@@ -336,7 +383,7 @@
 				<span>{health.desconectada} desconectadas</span>
 				<span>{health.sin_verificar} sin verificar</span>
 			</div>
-			<button class="btn-add" disabled={health.running || healthCheckBusy} onclick={handleStartHealthCheck}>
+			<button class="btn-add sec" disabled={health.running || healthCheckBusy} onclick={handleStartHealthCheck}>
 				{health.running ? 'Verificando…' : 'Verificar ahora'}
 			</button>
 		{/if}
@@ -484,6 +531,59 @@
 		opacity: 0.5;
 		cursor: default;
 	}
+	/* Un solo primario por pantalla ("Añadir carpeta"): el resto, secundarios. */
+	.btn-add.sec {
+		background: rgba(255, 255, 255, 0.03);
+		color: var(--text);
+		border: 1px solid var(--line);
+		font-weight: 500;
+	}
+	.btn-add.sec:hover:not(:disabled) {
+		background: var(--surface-2);
+	}
+	.btn-add {
+		min-height: 40px;
+	}
+	.switch-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 20px;
+	}
+	.switch-title {
+		font-weight: 600;
+		margin-bottom: 2px;
+	}
+	.switch {
+		position: relative;
+		flex-shrink: 0;
+		width: 48px;
+		height: 28px;
+		border-radius: 99px;
+		background: var(--off);
+		transition: 0.2s;
+	}
+	.switch.on {
+		background: var(--accent);
+	}
+	.switch:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+	.knob {
+		position: absolute;
+		top: 3px;
+		left: 3px;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		background: var(--text);
+		transition: 0.2s;
+	}
+	.switch.on .knob {
+		left: 23px;
+		background: #1a1207;
+	}
 	.btn-ghost {
 		padding: 9px 16px;
 		border-radius: 8px;
@@ -495,7 +595,8 @@
 		white-space: nowrap;
 	}
 	.btn-ghost.small {
-		padding: 4px 10px;
+		padding: 8px 12px;
+		min-height: 36px;
 		font-size: 12.5px;
 	}
 	.btn-ghost:disabled {

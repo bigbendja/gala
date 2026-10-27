@@ -313,9 +313,34 @@ cultura del disco duro que circula.
       ISSUES-MVP2.md y la propia Fase 0 en el plan). Pendiente de que el
       titular confirme el run verde en GitHub Actions antes de dar la fase
       por cerrada del todo.
-- [ ] Fase 1 (rediseño de la Home) ← SIGUIENTE — ver
-      `docs/GALA_Plan_Estabilizacion_Fases.md`; no empieza sin mockup
-      acordado con el titular.
+- [x] Fase 1 (rediseño de la Home + acabado visual; rama feat/home-redesign,
+      pendiente de que el titular verifique en vivo): Sistema de Diseño GALA
+      aplicado a toda la app. **Home**: `HeroSlider` (rota solo cada 8 s, se
+      detiene con ratón/foco/pestaña oculta/`prefers-reduced-motion`; filtros
+      Destacados = selección diaria estable de lo identificado con sinopsis
+      —no hay puntuación TMDB guardada, no es un ranking—, Nuevos = más
+      recientes, Sin ver = lo que este dispositivo no ha empezado; el filtro
+      se recuerda en localStorage; se apaga desde Ajustes › Inicio, ajuste
+      `home_hero_hidden` en gala.json vía `GET/PUT /settings/home`, lectura
+      permitida a clientes LAN, escritura solo del PC) y filas en carrusel
+      con flechas ‹ › (`Row`, virtualización de M10a intacta): Continuar
+      viendo (por dispositivo), Películas, Series, Documentales (género TMDB
+      «Documental»), Añadidas recientemente, Mis Listas (= los deseos de «+
+      Mi lista») y filas por género dinámicas (`GET /genres`, solo con
+      contenido, máx. 6). Cada fila (`HomeSection`) carga sola y perezosa.
+      **Reglas transversales**: sin pantalla negra (cascarón en `app.html`,
+      skeletons, barra de progreso al navegar), errores en español con qué
+      hacer (`errorMessage`; nunca `ApiError:` ni texto de un 5xx), fechas
+      humanas, salud sin jerga, estados vacíos con acción, botones
+      (`.btn-primary/-secondary/-quiet-danger` globales; deshabilitado =
+      apagado + tooltip). **Fichas**: episodios con título, sinopsis y
+      miniatura reales de TMDB (`/tv/{id}/season/{n}`, `Queue.enrichEpisodes`,
+      cubre también los ya existentes), estado de fuentes de una serie
+      derivado de sus episodios, «Continuar/Empezar T1·E1», ficha de
+      episodio, ficha sin identificar con Identificar/Descartar y fuente con
+      nombre de archivo destacado. Por confirmar, modal de ingesta,
+      Listas, topbar móvil y Ajustes pulidos. Detalle y huecos en
+      ISSUES-MVP2.md.
 - [x] M7 Modo LAN (Fase 2; pendiente de la prueba en móvil real y del CI
       verde, que confirma el titular): `internal/lan` (detección de la IP
       local — `Candidates()` ordena IPv4 física privada > pública > virtual
