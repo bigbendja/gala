@@ -257,6 +257,11 @@ func (q *Queue) processOne(it catalog.Item) error {
 		return q.repo.SetIdentifyStatus(q.ctx, it.ID, catalog.IdentifyError, &note)
 	}
 	locator := full.Sources[0].Locator
+	if op := full.Sources[0].OriginPath; op != nil {
+		// Fuente nacida de un .strm: la obra se identifica por el nombre del
+		// .strm y su carpeta (el locator es la URL, que no dice qué es).
+		locator = *op
+	}
 	filename := filepath.Base(locator)
 	folder := filepath.Base(filepath.Dir(locator))
 

@@ -89,6 +89,9 @@ type Source struct {
 	// M6 §3: "por qué" además del estado) — p. ej. "http 404", "archivo no
 	// encontrado", "pendiente de conector". nil hasta el primer chequeo.
 	HealthDetail *string `json:"health_detail,omitempty"`
+	// OriginPath es la ruta del archivo .strm del que salió esta fuente http
+	// (nil si no viene de uno). Es una ruta del disco: nunca se serializa.
+	OriginPath *string `json:"-"`
 }
 
 // Estados de salud de una fuente.

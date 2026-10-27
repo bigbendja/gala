@@ -36,6 +36,7 @@ var ignoredDirs = map[string]bool{
 type FoundFile struct {
 	Path string // ruta absoluta
 	Size int64
+	Strm bool // es un .strm (puntero a una URL), no un vídeo
 }
 
 // WalkFolder recorre root y devuelve los vídeos que superan los filtros de
@@ -73,6 +74,12 @@ func WalkFolder(ctx context.Context, root string, log *slog.Logger) ([]FoundFile
 			return nil
 		}
 		ext := strings.ToLower(filepath.Ext(name))
+		if ext == StrmExt {
+			// Un .strm es un puntero de pocos bytes: no pasa por el filtro de
+			// tamaño mínimo de los vídeos.
+			found = append(found, FoundFile{Path: path, Strm: true})
+			return nil
+		}
 		if !Extensions[ext] {
 			return nil
 		}

@@ -175,3 +175,25 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
 - 2026-10-27 (M7): las sesiones del PIN viven en memoria: reiniciar GALA
   obliga a los móviles a teclear el PIN otra vez. Persistirlas en la BD si
   molesta en uso real.
+- 2026-10-27 (A' .strm): decisiones del soporte de .strm. (1) Un .strm vacío,
+  sin URL http/https, ilegible, o cuya URL apunta a una red interna (SSRF
+  de M5) NO crea item ni fuente: se omite con un aviso en el log (nunca una
+  fuente rota ni un item sin fuente). Si un .strm que ya estaba catalogado
+  se vacía o se invalida, su fuente se retira en el siguiente escaneo (el
+  item se conserva con su rastro, como en M7). Esos avisos solo están en el
+  log: el panel de Ajustes no cuenta ".strm omitidos" (mostrarlo sería
+  ampliar la API de estado del escaneo). (2) Que el DNS no resuelva (sin
+  conexión) NO rechaza el .strm: solo un destino interno lo rechaza; la
+  salud (M6) marcará el enlace si de verdad está caído. (3) Si la URL de un
+  .strm ya está catalogada (de otro .strm o de una ingesta) el .strm se
+  omite: UNIQUE(provider, locator); el segundo se recoge en cuanto el
+  primero desaparezca. (4) Si el .strm se reescribe con otra URL, la fuente
+  la sigue (vuelve a "sin verificar"). (5) La ruta del .strm vive en
+  `sources.origin_path` (migración 0006) y nunca sale por la API. (6) Un
+  .strm en un volumen USB desconectado se trata como cualquier otro
+  fichero: no se retira nada mientras la carpeta raíz no sea accesible.
+- 2026-10-27 (A' .strm): fuera de alcance, anotado. Leer `.nfo`/`.nfo.json`
+  junto al .strm para identificar sin TMDB; varias URLs por .strm (calidades
+  alternativas como varias fuentes); .strm que apunte a una ruta local
+  (Kodi lo permite) o a otro esquema (`plugin://`); contador de .strm
+  omitidos en `/scan/status`.

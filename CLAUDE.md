@@ -365,6 +365,20 @@ cultura del disco duro que circula.
       CASCADE` y el fichero vuelve como item nuevo. Los fantasmas YA
       duplicados antes de este arreglo no se limpian solos (ver
       ISSUES-MVP2.md).
+- [x] Fase A' Soporte de `.strm` (rama feat/a-strm-support; pendiente de que el
+      titular decida el merge): el escaneo local (`localfs.WalkFolder`) reconoce
+      `.strm` —un puntero de texto, formato abierto de Kodi/Jellyfin— sin
+      aplicarle el tamaño mínimo de los vídeos. `localfs.ParseStrm` toma la
+      primera URL http/https válida (ignora vacías, `#` y lo que no sea URL).
+      La fuente es de tipo `http` (reutiliza `/play` 302, `HTTPChecker` de M6 y
+      el SSRF de M5, que se aplica ANTES de la transacción y solo rechaza
+      destinos internos: un DNS que no resuelve no rechaza). El item se llama
+      como el .strm y la cola de M3 lo identifica por el nombre del .strm y su
+      carpeta (`sources.origin_path`, migración `0006`, nunca serializada por
+      la API), sin lógica nueva de matching. .strm inválido/vacío/SSRF = no
+      crea item ni fuente (aviso en log); bajas, regreso del .strm y
+      re-añadir carpeta reconcilian con `removed_sources` como en M7. Detalle
+      y lo descartado en ISSUES-MVP2.md.
 - [ ] Fase 3 (Drive/Mega) · Fase 4 (M9 .gala) · Fase 5 (M11 release)
 (Actualizar esta lista al completar cada módulo/fase.)
 

@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
+	"github.com/bigbendja/gala/internal/providers/httpprovider"
 	"github.com/bigbendja/gala/internal/providers/localfs"
 )
 
@@ -24,6 +26,14 @@ var ErrAlreadyRunning = errors.New("ya hay un escaneo en curso")
 // batchSize agrupa las altas en transacciones para no castigar el disco con
 // un commit por fichero (Brief M2 §Alta en catálogo).
 const batchSize = 200
+
+// strmRemovedProvider es el "provider" bajo el que removed_sources recuerda
+// qué item tenía un .strm retirado (la clave es la ruta del .strm).
+const strmRemovedProvider = "strm"
+
+// strmDNSTimeout acota la comprobación SSRF de la URL de cada .strm: sin red
+// el escaneo no debe quedarse esperando a un DNS que no responde.
+const strmDNSTimeout = 3 * time.Second
 
 // Status es el estado consultable de un escaneo (GET /api/v1/scan/status).
 type Status struct {
@@ -155,8 +165,29 @@ func (s *Scanner) syncBatch(chunk []localfs.FoundFile, volID *string, foundSet m
 	now := timeNow()
 	filesSeen, itemsNew := 0, 0
 
+	// Los .strm se leen y validan (SSRF, con DNS) ANTES de abrir la
+	// transacción: no se retiene el candado de escritura de SQLite esperando
+	// a la red.
+	strmURLs := s.prepareStrm(chunk)
+
 	err := s.repo.Tx(s.ctx, func(tx *catalog.Repo) error {
 		for _, f := range chunk {
+			if f.Strm {
+				rawURL, ok := strmURLs[f.Path]
+				if !ok {
+					continue // inválido: sin fuente; si tenía una, removeStale la retira
+				}
+				foundSet[localfs.NormalizePath(f.Path)] = struct{}{}
+				filesSeen++
+				isNew, serr := s.syncStrm(tx, f.Path, rawURL, now)
+				if serr != nil {
+					return serr
+				}
+				if isNew {
+					itemsNew++
+				}
+				continue
+			}
 			foundSet[localfs.NormalizePath(f.Path)] = struct{}{}
 			filesSeen++
 
@@ -211,6 +242,110 @@ func (s *Scanner) syncBatch(chunk []localfs.FoundFile, volID *string, foundSet m
 	return nil
 }
 
+// prepareStrm lee cada .strm del lote y devuelve ruta -> URL de los válidos.
+// Un .strm vacío, sin URL http/https, ilegible o cuya URL apunta a una red
+// interna (SSRF de M5) NO crea fuente: se registra el motivo y se omite, de
+// modo que nunca hay una fuente rota ni un item sin fuente por su causa.
+// Que el DNS no resuelva (p. ej. sin conexión) no rechaza: la URL es
+// sintácticamente válida y la salud (M6) dirá si está viva.
+func (s *Scanner) prepareStrm(chunk []localfs.FoundFile) map[string]string {
+	var out map[string]string
+	hostVerdict := map[string]error{} // un solo DNS por host y lote
+	for _, f := range chunk {
+		if !f.Strm {
+			continue
+		}
+		rawURL, err := localfs.ReadStrmURL(f.Path)
+		if err != nil {
+			s.log.Warn(".strm omitido", "path", f.Path, "err", err)
+			continue
+		}
+		if verr := s.checkStrmURL(rawURL, hostVerdict); verr != nil {
+			s.log.Warn(".strm omitido: URL no permitida", "path", f.Path, "err", verr)
+			continue
+		}
+		if out == nil {
+			out = map[string]string{}
+		}
+		out[f.Path] = rawURL
+	}
+	return out
+}
+
+// checkStrmURL aplica el bloqueo SSRF a la URL de un .strm. Solo un destino
+// interno (ErrBlockedTarget) la rechaza.
+func (s *Scanner) checkStrmURL(rawURL string, cache map[string]error) error {
+	host := rawURL
+	if u, err := url.Parse(rawURL); err == nil {
+		host = u.Hostname()
+	}
+	if verdict, ok := cache[host]; ok {
+		return verdict
+	}
+	ctx, cancel := context.WithTimeout(s.ctx, strmDNSTimeout)
+	defer cancel()
+	var verdict error
+	if err := httpprovider.ValidateExternalURL(ctx, rawURL); errors.Is(err, httpprovider.ErrBlockedTarget) {
+		verdict = err
+	}
+	cache[host] = verdict
+	return verdict
+}
+
+// syncStrm da de alta o actualiza la fuente http de un .strm. Devuelve true
+// si creó un item nuevo. El item se llama como el .strm (sin extensión) y la
+// cola de identificación (M3) lo identificará por ese nombre y su carpeta.
+func (s *Scanner) syncStrm(tx *catalog.Repo, path, rawURL, now string) (bool, error) {
+	existing, err := tx.SourceByOriginPath(s.ctx, path)
+	if err != nil && !errors.Is(err, catalog.ErrNotFound) {
+		return false, err
+	}
+	if err == nil {
+		// Mismo .strm de siempre. Si su enlace cambió (las herramientas que
+		// los escriben rotan URLs), la fuente sigue al archivo.
+		if existing.Locator != rawURL {
+			if _, cerr := tx.SourceByLocator(s.ctx, httpprovider.ProviderID, rawURL); cerr == nil {
+				s.log.Warn(".strm con una URL que ya está en el catálogo; se deja la anterior", "path", path)
+				return false, nil
+			} else if !errors.Is(cerr, catalog.ErrNotFound) {
+				return false, cerr
+			}
+			return false, tx.UpdateSourceLocator(s.ctx, existing.ID, rawURL)
+		}
+		return false, nil
+	}
+
+	// Una URL ya catalogada (de otro .strm o de una ingesta) no se duplica:
+	// UNIQUE(provider, locator) y un mismo enlace no es dos fuentes.
+	if _, cerr := tx.SourceByLocator(s.ctx, httpprovider.ProviderID, rawURL); cerr == nil {
+		s.log.Warn(".strm omitido: su URL ya está catalogada", "path", path)
+		return false, nil
+	} else if !errors.Is(cerr, catalog.ErrNotFound) {
+		return false, cerr
+	}
+
+	itemID, reused, err := tx.ClaimRemovedSource(s.ctx, strmRemovedProvider, localfs.NormalizePath(path))
+	if err != nil {
+		return false, err
+	}
+	if !reused {
+		title := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+		item := catalog.Item{Kind: catalog.KindOther, Title: title, Genres: []string{}, Confirmed: false}
+		if itemID, err = tx.InsertItem(s.ctx, &item, now); err != nil {
+			return false, err
+		}
+	}
+	origin := path
+	src := catalog.Source{
+		ItemID: itemID, Provider: httpprovider.ProviderID, Locator: rawURL,
+		Health: catalog.HealthUnverified, OriginPath: &origin,
+	}
+	if _, err := tx.InsertSource(s.ctx, &src, now); err != nil {
+		return false, err
+	}
+	return !reused, nil
+}
+
 // RemoveFolderSources elimina todas las fuentes localfs bajo folder (los
 // items se conservan). Usado por DELETE /api/v1/folders al desregistrar una
 // carpeta entera.
@@ -243,6 +378,31 @@ func removeStale(ctx context.Context, repo *catalog.Repo, folder string, found m
 		// vuelve (carpeta re-añadida, USB reconectado) se reutiliza el item.
 		if err := repo.RememberRemovedSource(ctx, localfs.ProviderID,
 			localfs.NormalizePath(src.Locator), src.ItemID, timeNow()); err != nil {
+			return n, err
+		}
+		if err := repo.DeleteSource(ctx, src.ID); err != nil {
+			return n, err
+		}
+		n++
+	}
+
+	// Fuentes nacidas de un .strm bajo la carpeta: se retiran si el .strm ya
+	// no está (o dejó de ser válido). El item se conserva con su rastro.
+	strms, err := repo.SourcesWithOriginPath(ctx)
+	if err != nil {
+		return n, err
+	}
+	for _, src := range strms {
+		if src.OriginPath == nil || !underFolder(*src.OriginPath, prefix) {
+			continue
+		}
+		key := localfs.NormalizePath(*src.OriginPath)
+		if found != nil {
+			if _, ok := found[key]; ok {
+				continue
+			}
+		}
+		if err := repo.RememberRemovedSource(ctx, strmRemovedProvider, key, src.ItemID, timeNow()); err != nil {
 			return n, err
 		}
 		if err := repo.DeleteSource(ctx, src.ID); err != nil {
