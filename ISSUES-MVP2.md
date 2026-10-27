@@ -149,11 +149,13 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   de decisión de reproducción, fuera de alcance para una ficha de solo
   lectura en M10a). Se omitieron ambos campos en vez de inventarlos o
   acoplar la ficha a `/play` antes de que exista el reproductor (M10b).
-- 2026-10-27 (M7): "Continuar viendo" entre PC y móvil. La identidad es la
-  cookie `gala_device` (una por navegador/dispositivo, decisión cerrada del
-  brief M7), así que el progreso de un dispositivo NO aparece en otro: empezar
-  en el PC y seguir en el móvil exige una identidad de hogar compartida o
-  cuentas. Pendiente de decisión del titular (ver informe M7).
+- 2026-10-27 (M7): progreso compartido en LAN (requiere decidir: por
+  dispositivo vs por hogar vs por título). La identidad es la cookie
+  `gala_device` (una por navegador/dispositivo, decisión cerrada del brief
+  M7), así que el progreso de un dispositivo NO aparece en otro: empezar en
+  el PC y seguir en el móvil exige un modelo distinto. Decidido por el
+  titular: NO entra en M7; tarea pequeña propia, a decidir con calma (¿si
+  otra persona pausa una peli en su móvil, debe aparecer a medias en el PC?).
 - 2026-10-27 (M7): fantasmas anteriores al arreglo de "carpeta duplicada".
   Los items que ya quedaron duplicados (uno con 0 fuentes, oculto, y otro
   nuevo con la fuente) antes de `0005_removed_sources.sql` no tienen rastro
