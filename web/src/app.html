@@ -1,12 +1,108 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
+		<meta name="theme-color" content="#100c09" />
+		<style>
+			/* Cascarón de arranque: la estructura (barra superior y bloques) se
+			   ve al instante, antes de que cargue el JS; la app lo retira al
+			   montarse (+layout.svelte). Nunca pantalla negra (Sistema de
+			   Diseño GALA §2.3). Colores = tokens, repetidos aquí porque
+			   todavía no ha cargado tokens.css. */
+			html,
+			body {
+				background: #100c09;
+				margin: 0;
+			}
+			#gala-shell {
+				position: fixed;
+				inset: 0;
+				z-index: 200;
+				background: #100c09;
+				overflow: hidden;
+			}
+			#gala-shell .bar {
+				height: 64px;
+				border-bottom: 1px solid #332619;
+				display: flex;
+				align-items: center;
+				gap: 14px;
+				padding: 0 28px;
+			}
+			#gala-shell .logo {
+				width: 26px;
+				height: 26px;
+				border-radius: 50%;
+				border: 2.4px solid #f2a93b;
+			}
+			#gala-shell .brand {
+				font: 800 22px/1 system-ui, sans-serif;
+				letter-spacing: 0.04em;
+				color: #f4ede3;
+			}
+			#gala-shell .blk {
+				border-radius: 12px;
+				background: linear-gradient(100deg, #1b1510 40%, #261d14 50%, #1b1510 60%);
+				background-size: 200% 100%;
+				animation: gala-shell 1.6s ease-in-out infinite;
+			}
+			#gala-shell .hero {
+				margin: 28px;
+				height: 38vh;
+				max-height: 360px;
+			}
+			#gala-shell .row {
+				display: flex;
+				gap: 16px;
+				padding: 0 28px;
+			}
+			#gala-shell .row .blk {
+				flex: 0 0 160px;
+				aspect-ratio: 2 / 3;
+			}
+			@keyframes gala-shell {
+				from {
+					background-position: 200% 0;
+				}
+				to {
+					background-position: -200% 0;
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				#gala-shell .blk {
+					animation: none;
+				}
+			}
+			@media (max-width: 900px) {
+				#gala-shell .bar {
+					padding: 0 16px;
+				}
+				#gala-shell .hero {
+					margin: 16px;
+				}
+				#gala-shell .row {
+					padding: 0 16px;
+				}
+			}
+		</style>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
+		<div id="gala-shell" aria-hidden="true">
+			<div class="bar"><span class="logo"></span><span class="brand">GALA</span></div>
+			<div class="blk hero"></div>
+			<div class="row">
+				<div class="blk"></div>
+				<div class="blk"></div>
+				<div class="blk"></div>
+				<div class="blk"></div>
+				<div class="blk"></div>
+				<div class="blk"></div>
+				<div class="blk"></div>
+			</div>
+		</div>
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

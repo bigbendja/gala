@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { ApiError, getItem, listItems } from '$lib/api/client';
+import { errorMessage } from '$lib/format';
 import type { Item } from '$lib/api/types';
 import type { PageLoad } from './$types';
 
@@ -10,7 +11,7 @@ function byNumber<T>(get: (v: T) => number | undefined) {
 export const load: PageLoad = async ({ params }) => {
 	const id = Number(params.id);
 	if (!Number.isInteger(id) || id <= 0) {
-		error(404, 'Item no válido');
+		error(404, 'Este título no existe.');
 	}
 
 	let item: Item;
@@ -18,7 +19,7 @@ export const load: PageLoad = async ({ params }) => {
 		item = await getItem(id);
 	} catch (err) {
 		if (err instanceof ApiError && err.status === 404) {
-			error(404, 'No encontrado en el catálogo');
+			error(404, 'Este título ya no está en tu galería.');
 		}
 		// Fallo de conexión u otro error de servidor: no es un 404 de
 		// SvelteKit (el item podría existir), se muestra inline con mensaje
@@ -26,7 +27,7 @@ export const load: PageLoad = async ({ params }) => {
 		const emptyEpisodesBySeason: Record<number, Item[]> = {};
 		return {
 			item: null,
-			itemError: err instanceof Error ? err.message : String(err),
+			itemError: errorMessage(err, 'No se pudo cargar esta ficha'),
 			seasons: [] as Item[],
 			episodesBySeason: emptyEpisodesBySeason
 		};

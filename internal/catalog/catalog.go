@@ -49,6 +49,11 @@ type Item struct {
 	IdentifyStatus string  `json:"identify_status,omitempty"`
 	IdentifyNote   *string `json:"identify_note,omitempty"`
 
+	// SeriesID/SeriesTitle: serie a la que pertenece un episodio o temporada
+	// (los rellena la API; "Continuar viendo" dice de qué serie es el capítulo).
+	SeriesID    *int64  `json:"series_id,omitempty"`
+	SeriesTitle *string `json:"series_title,omitempty"`
+
 	// Sources solo se rellena en la ficha de detalle.
 	Sources []Source `json:"sources,omitempty"`
 	// SourceCount y HealthSummary se rellenan en listados (para los puntos de la tarjeta).

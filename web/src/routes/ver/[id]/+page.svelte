@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import Player from '$lib/components/Player.svelte';
+	import StateBlock from '$lib/components/StateBlock.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -10,23 +12,13 @@
 </svelte:head>
 
 {#if data.loadError}
-	<div class="state-page">
-		<p>No se pudo cargar el reproductor.</p>
-		<p class="muted">{data.loadError}</p>
-	</div>
+	<StateBlock
+		tone="error"
+		title="No se pudo cargar el reproductor"
+		text={data.loadError}
+		actionLabel="Reintentar"
+		onAction={() => invalidateAll()}
+	/>
 {:else if data.item && data.play}
 	<Player item={data.item} initialPlay={data.play} initialProgress={data.progress} />
 {/if}
-
-<style>
-	.state-page {
-		max-width: 560px;
-		margin: 15vh auto;
-		text-align: center;
-		padding: 0 28px;
-	}
-	.muted {
-		color: var(--muted);
-		font-size: 14px;
-	}
-</style>

@@ -18,6 +18,7 @@
 	let total = $state(0);
 	let loading = $state(false);
 	let searched = $state(false);
+	let failed = $state(false);
 	let focused = $state(false);
 	let debounceHandle: ReturnType<typeof setTimeout> | undefined;
 	let requestSeq = 0;
@@ -37,6 +38,7 @@
 
 	async function runSearch(q: string) {
 		loading = true;
+		failed = false;
 		const seq = ++requestSeq;
 		try {
 			const res = await listItems({ q, limit: MAX_RESULTS, offset: 0 });
@@ -48,6 +50,7 @@
 			if (seq !== requestSeq) return;
 			results = [];
 			total = 0;
+			failed = true;
 			searched = true;
 		} finally {
 			if (seq === requestSeq) loading = false;
@@ -64,6 +67,7 @@
 		results = [];
 		total = 0;
 		searched = false;
+		failed = false;
 		requestSeq++; // descarta cualquier búsqueda en vuelo
 	}
 
@@ -89,7 +93,10 @@
 
 <div class="search-box">
 	<div class="search-input">
-		<span class="icon" aria-hidden="true">🔍</span>
+		<svg class="icon" width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+			<circle cx="8.5" cy="8.5" r="5.8" stroke="currentColor" stroke-width="1.8" />
+			<path d="M13 13l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+		</svg>
 		<input
 			type="search"
 			placeholder="Buscar en tu galería…"
@@ -109,8 +116,10 @@
 		<div class="dropdown">
 			{#if loading && results.length === 0}
 				<p class="hint">Buscando…</p>
+			{:else if failed}
+				<p class="hint">No se pudo buscar. Reintenta o revisa que GALA siga abierto.</p>
 			{:else if searched && results.length === 0}
-				<p class="hint">Sin resultados para "{query.trim()}".</p>
+				<p class="hint">Sin resultados para «{query.trim()}».</p>
 			{:else if results.length > 0}
 				<!-- Delegación de click: los hijos reales son <a> de <Card>, ya
 				     interactivos y accesibles por teclado por sí mismos; este div
@@ -149,8 +158,8 @@
 		border-color: var(--accent);
 	}
 	.icon {
-		font-size: 13px;
-		opacity: 0.8;
+		color: var(--muted);
+		flex-shrink: 0;
 	}
 	input[type='search'] {
 		flex: 1;
@@ -170,7 +179,9 @@
 	.clear {
 		color: var(--muted);
 		font-size: 12px;
-		padding: 2px 4px;
+		min-width: 32px;
+		min-height: 32px;
+		margin: -6px -8px -6px 0;
 	}
 	.clear:hover {
 		color: var(--text);
@@ -179,7 +190,9 @@
 		position: absolute;
 		top: calc(100% + 8px);
 		right: 0;
-		width: min(560px, 88vw);
+		width: max-content;
+		min-width: 260px;
+		max-width: min(560px, 88vw);
 		max-height: 70vh;
 		overflow-y: auto;
 		background: var(--surface-2);
@@ -195,10 +208,14 @@
 		padding: 8px 4px;
 		text-align: center;
 	}
+	/* Tarjetas de ancho fijo: un solo resultado no deja un panel enorme vacío. */
 	.results {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+		display: flex;
+		flex-wrap: wrap;
 		gap: 12px;
+	}
+	.results > :global(*) {
+		width: 130px;
 	}
 	.more {
 		color: var(--muted);
@@ -218,6 +235,11 @@
 			right: 12px;
 			top: auto;
 			width: auto;
+			min-width: 0;
+			max-width: none;
+		}
+		.results > :global(*) {
+			width: calc(50% - 6px);
 		}
 	}
 </style>

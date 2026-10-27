@@ -113,6 +113,12 @@ func RemoteAllowed(method, urlPath string) bool {
 		case 5:
 			return seg[4] == "wish" && (method == http.MethodPost || method == http.MethodDelete)
 		}
+	case "genres":
+		return get && len(seg) == 3
+	case "settings":
+		// Solo la preferencia de la Home (la leen también los dispositivos de
+		// la red); la clave TMDB y el resto de ajustes siguen siendo del PC.
+		return get && len(seg) == 4 && seg[3] == "home"
 	case "img":
 		return get && len(seg) == 4
 	case "play":

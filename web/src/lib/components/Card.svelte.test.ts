@@ -60,13 +60,13 @@ describe('Card', () => {
 		expect(container.querySelectorAll('[role="img"]')).toHaveLength(3);
 	});
 
-	it('variante wish SIN fuente (deseo aspiracional) muestra "Sin fuente" y "buscando…"', () => {
+	it('variante wish SIN fuente (deseo aspiracional) muestra "Sin fuente" y "aún sin fuente"', () => {
 		const { getByText, container } = render(Card, {
 			item: makeItem({ wished: true, source_count: 0, health_summary: {} }),
 			variant: 'wish'
 		});
 		expect(getByText('Sin fuente')).toBeInTheDocument();
-		expect(container.querySelector('.m')?.textContent).toContain('buscando');
+		expect(container.querySelector('.m')?.textContent).toContain('aún sin fuente');
 	});
 
 	// Fase 0 — diagnóstico integral: M10a-fix permite desear cualquier item

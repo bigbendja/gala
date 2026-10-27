@@ -85,6 +85,7 @@ func (q *Queue) Run() {
 		offline := q.drain()
 		if !offline && q.ctx.Err() == nil {
 			q.backfillImages()
+			q.enrichEpisodes()
 		}
 
 		wait := retryInterval + time.Duration(rand.Int63n(int64(retryJitter)))

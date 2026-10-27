@@ -99,6 +99,9 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/health/check", s.handleHealthCheck)
 	mux.HandleFunc("GET /api/v1/health/status", s.handleHealthStatus)
 
+	mux.HandleFunc("GET /api/v1/genres", s.handleGenres)
+	mux.HandleFunc("GET /api/v1/settings/home", s.handleGetHomeSettings)
+	mux.HandleFunc("PUT /api/v1/settings/home", s.handlePutHomeSettings)
 	mux.HandleFunc("GET /api/v1/settings/tmdb", s.handleGetTMDBSettings)
 	mux.HandleFunc("PUT /api/v1/settings/tmdb", s.handlePutTMDBSettings)
 
@@ -209,6 +212,10 @@ func (s *Server) handleListItems(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
+	if err := s.Catalog.AttachSeriesInfo(r.Context(), res.Items); err != nil {
+		s.fail(w, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, res)
 }
 
@@ -229,6 +236,10 @@ func (s *Server) handleGetItem(w http.ResponseWriter, r *http.Request) {
 	}
 	items := []catalog.Item{*it}
 	if err := s.Catalog.AttachProgress(r.Context(), items, readDeviceID(r)); err != nil {
+		s.fail(w, err)
+		return
+	}
+	if err := s.Catalog.AttachSeriesInfo(r.Context(), items); err != nil {
 		s.fail(w, err)
 		return
 	}

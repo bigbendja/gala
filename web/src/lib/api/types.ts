@@ -54,6 +54,20 @@ export interface Item {
 	source_count: number;
 	health_summary?: Partial<Record<Health, number>>;
 	progress?: Progress;
+	/** Serie a la que pertenece un episodio o una temporada. */
+	series_id?: number;
+	series_title?: string;
+}
+
+/** GET /api/v1/genres — género con contenido y cuántos títulos lo tienen. */
+export interface GenreCount {
+	name: string;
+	count: number;
+}
+
+/** GET/PUT /api/v1/settings/home — preferencias de la Home. */
+export interface HomeSettings {
+	hero: boolean;
 }
 
 export interface ListResult {

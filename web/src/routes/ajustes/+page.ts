@@ -6,6 +6,7 @@ import {
 	ping,
 	scanStatus
 } from '$lib/api/client';
+import { errorMessage } from '$lib/format';
 import type { PageLoad } from './$types';
 
 // Brief M10c §2: todo lo que hoy se hace por curl, desde la UI. Cada
@@ -23,7 +24,7 @@ export const load: PageLoad = async () => {
 	]);
 
 	const val = <T>(r: PromiseSettledResult<T>) => (r.status === 'fulfilled' ? r.value : null);
-	const err = <T>(r: PromiseSettledResult<T>) => (r.status === 'rejected' ? String(r.reason) : null);
+	const err = <T>(r: PromiseSettledResult<T>) => (r.status === 'rejected' ? errorMessage(r.reason, 'No se pudo cargar') : null);
 
 	return {
 		folders: val(folders),
