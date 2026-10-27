@@ -255,3 +255,52 @@ export interface LanSession {
 	pin_required: boolean;
 	authenticated: boolean;
 }
+
+/** GET /api/v1/items/{id}/details — lo que TMDB da además de lo básico. */
+export interface CastMember {
+	id: number;
+	name: string;
+	character?: string;
+	/** Fichero para /img/{archivo}; vacío = se enseñan las iniciales. */
+	photo?: string;
+}
+
+export interface CrewGroup {
+	role: string;
+	names: string[];
+}
+
+export interface SimilarTitle {
+	tmdb_id: number;
+	kind: 'movie' | 'tv';
+	title: string;
+	year?: number;
+	poster?: string;
+	/** Item de la biblioteca (se puede abrir su ficha); sin él, no está en tu galería. */
+	item_id?: number;
+}
+
+export interface MediaFile {
+	source_id: number;
+	container?: string;
+	video_codec?: string;
+	audio_codec?: string;
+	width?: number;
+	height?: number;
+	bitrate?: number;
+	duration_s?: number;
+	size_bytes?: number;
+}
+
+export interface ItemDetails {
+	has_details: boolean;
+	runtime_min?: number;
+	vote_average?: number;
+	original_language?: string;
+	countries: string[];
+	tagline?: string;
+	cast: CastMember[];
+	crew: CrewGroup[];
+	similar: SimilarTitle[];
+	files: MediaFile[];
+}

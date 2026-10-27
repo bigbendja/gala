@@ -193,33 +193,31 @@
 	.card-skeleton.wide-skel {
 		aspect-ratio: 16 / 12;
 	}
-	/* Flechas: aparecen al pasar el ratón/enfocar la fila (desktop) y siempre
-	   en táctil, donde no hay "hover". Área táctil de 44px. */
+	/* Flechas (mockup de la Home): bandas a los lados con degradado hacia el
+	   fondo; aparecen al pasar el ratón o enfocar la fila y, en táctil, siempre
+	   (donde no hay "hover"). Ancho táctil de 52px. */
 	.arrow {
 		position: absolute;
-		top: calc(50% - 40px);
+		top: 0;
+		bottom: 14px;
+		width: 52px;
 		z-index: 3;
-		width: 44px;
-		height: 44px;
-		border-radius: 50%;
-		border: 1px solid var(--line);
-		background: rgba(16, 12, 9, 0.88);
+		display: grid;
+		place-items: center;
 		color: var(--text);
-		font-size: 26px;
+		font-size: 30px;
 		line-height: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
 		opacity: 0;
 		pointer-events: none;
-		transition: opacity 0.15s, background 0.15s;
-		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+		transition: opacity 0.2s, color 0.15s;
 	}
 	.arrow.prev {
-		left: -14px;
+		left: 0;
+		background: linear-gradient(90deg, var(--bg) 30%, transparent);
 	}
 	.arrow.next {
-		right: -14px;
+		right: 0;
+		background: linear-gradient(270deg, var(--bg) 30%, transparent);
 	}
 	.carousel:hover .arrow.show,
 	.carousel:focus-within .arrow.show {
@@ -227,18 +225,12 @@
 		pointer-events: auto;
 	}
 	.arrow:hover {
-		background: var(--surface-2);
+		color: var(--accent);
 	}
 	@media (hover: none) {
 		.arrow.show {
-			opacity: 0.92;
+			opacity: 0.9;
 			pointer-events: auto;
-		}
-		.arrow.prev {
-			left: -8px;
-		}
-		.arrow.next {
-			right: -8px;
 		}
 	}
 	@media (max-width: 900px) {
@@ -251,12 +243,6 @@
 		}
 		.row.wide {
 			grid-auto-columns: 200px;
-		}
-		.arrow.prev {
-			left: -6px;
-		}
-		.arrow.next {
-			right: -6px;
 		}
 	}
 </style>

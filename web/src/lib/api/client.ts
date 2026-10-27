@@ -15,6 +15,7 @@ import type {
 	ListResult,
 	GenreCount,
 	HomeSettings,
+	ItemDetails,
 	PendingItem,
 	PlayResponse,
 	Progress,
@@ -362,4 +363,18 @@ export function putHomeSettings(settings: HomeSettings): Promise<HomeSettings> {
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(settings)
 	});
+}
+
+/** GET /api/v1/items/{id}/details — reparto, equipo, similares, duración,
+ *  nota y ficha técnica (listas vacías si TMDB aún no se ha consultado). */
+export async function getItemDetails(id: number): Promise<ItemDetails> {
+	const d = await request<ItemDetails>(`/api/v1/items/${id}/details`);
+	return {
+		...d,
+		countries: d.countries ?? [],
+		cast: d.cast ?? [],
+		crew: d.crew ?? [],
+		similar: d.similar ?? [],
+		files: d.files ?? []
+	};
 }

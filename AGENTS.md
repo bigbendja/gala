@@ -341,6 +341,30 @@ cultura del disco duro que circula.
       nombre de archivo destacado. Por confirmar, modal de ingesta,
       Listas, topbar móvil y Ajustes pulidos. Detalle y huecos en
       ISSUES-MVP2.md.
+- [x] Fase 1 — segunda pasada (mockups de la Home y de la Ficha de
+      `docs/briefs/`; rama feat/home-redesign, pendiente de verificación en
+      vivo): **Diseño**: hero de la Home con el backdrop apaisado de TMDB a toda
+      la anchura y degradado hacia el fondo (diapositivas apiladas con fundido,
+      filtros arriba a la derecha, puntos-barra, flechas), flechas de los
+      carruseles como bandas laterales, ficha con hero atmosférico, póster con
+      elevación y secciones. Los fondos nuevos se descargan en w1280 y
+      `Queue.upgradeBackdrops` pasa los antiguos (w780) a w1280. **Ficha
+      enriquecida** (migración `0007_item_details.sql`, tabla `item_details`):
+      UNA petición a TMDB con `append_to_response` (créditos, similares,
+      clasificación) en `Client.FullDetail` (caché offline `movie_full`/
+      `tv_full`); duración, nota, países en español, reparto (12), equipo
+      (Dirección/Guion/Música/Fotografía; «Creación» en series), similares (10)
+      y la edad de España (`rating_cert`, solo numérica). Fotos del reparto
+      (w185) y carátulas de similares con el mismo reintento/caché que las
+      carátulas; si una falla queda `images_pending` y se reintenta hasta 3
+      veces (la web enseña iniciales). `Queue.enrichDetails` rellena también lo
+      que ya estaba en la biblioteca. `GET /items/{id}/details` (siempre 200;
+      `has_details=false` si TMDB aún no se ha consultado; ficha técnica de
+      `media_info` + tamaño en disco; un similar que ya tienes lleva su
+      `item_id`; lectura permitida a clientes LAN, sin rutas). Frontend:
+      Reparto, Equipo, «Este archivo» y «Más como esto» (`CastRail`,
+      `FileSpecs`, `SimilarRail`); un título sin identificar NO enseña
+      secciones de TMDB. El stack de fuentes de GALA se conserva.
 - [x] M7 Modo LAN (Fase 2; pendiente de la prueba en móvil real y del CI
       verde, que confirma el titular): `internal/lan` (detección de la IP
       local — `Candidates()` ordena IPv4 física privada > pública > virtual

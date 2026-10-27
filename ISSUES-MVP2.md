@@ -219,3 +219,25 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   permitiría ordenar de verdad.
 - 2026-10-27 (Fase 1 Home): «Escanear disco USB» e «Importar .gala» del modal
   de ingesta siguen sin existir (deshabilitados con «Próximamente»).
+- 2026-10-28 (Fase 1, ficha): los títulos de «Más como esto» que NO están en
+  la biblioteca se enseñan apagados («Fuera de tu galería»): no se pueden
+  desear porque desear un título sin fuente es M8. Cuando exista, esa tarjeta
+  debería ofrecer «Añadir a deseos».
+- 2026-10-28 (Fase 1, ficha): el mockup de la ficha muestra «Anclar a local»
+  (descargar una fuente remota a disco): no existe esa función, no se pintó el
+  botón. Tampoco hay forma de enlazar a la ficha de una persona del reparto.
+- 2026-10-28 (Fase 1, ficha): la clasificación por edad solo sale si TMDB tiene
+  la de España y es numérica (7, 12, 16, 18); «TP» u otras etiquetas, y los
+  títulos sin clasificación española, no la enseñan.
+- 2026-10-28 (REPRODUCTOR — a decidir en la fase del reproductor): un MKV con
+  subtítulos de texto embebidos (muy común) NO se puede remuxear: `ffmpeg -c
+  copy` sin `-map` incluye el subtítulo y el muxer HLS falla («webvtt muxer
+  supports only codec webvtt»), así que el reproductor dice «Ninguna fuente
+  pudo reproducirse». Arreglo mínimo: `-sn` (o `-map 0:v:0 -map 0:a`) en
+  `buildHLSArgs`; la fase del reproductor debería además convertir los
+  subtítulos a WebVTT para poder elegirlos. Además, el remux solo lleva la
+  primera pista de audio y `media_info` solo guarda el códec de la primera.
+- 2026-10-28: al arrancar con una biblioteca grande se vio una vez
+  `database is locked (SQLITE_BUSY)` en un escaneo mientras la cola de TMDB
+  escribía (a pesar de `busy_timeout=5000`); el siguiente escaneo lo recoge.
+  Conviene reintentar el lote o serializar las escrituras largas.

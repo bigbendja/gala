@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GALA — Home (mockup)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#100C09; --surface:#1B1510; --surface-2:#261D14; --line:#332619;
+  --text:#F4EDE3; --muted:#A6937E; --accent:#F2A93B; --accent-deep:#C97E1B;
+  --ok:#6FCF8E; --warn:#F2A93B; --bad:#E1604F; --off:#6E6157; --r:14px;
+  --display:'Bricolage Grotesque',system-ui,sans-serif;
+  --body:'Instrument Sans',system-ui,sans-serif;
+  --mono:'Spline Sans Mono',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-size:15px;line-height:1.5;overflow-x:hidden}
+button{font-family:var(--body);cursor:pointer;border:none;background:none;color:inherit}
+::selection{background:var(--accent);color:#1a1207}
+a{color:inherit;text-decoration:none}
+
+/* ---------- Topbar ---------- */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:22px;
+  padding:14px 28px;background:linear-gradient(180deg,rgba(16,12,9,.97),rgba(16,12,9,.82));
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:.04em}
+.nav{display:flex;gap:4px;margin-left:6px}
+.nav a{color:var(--muted);padding:7px 12px;border-radius:9px;font-weight:500;transition:.15s}
+.nav a:hover{color:var(--text);background:var(--surface)}
+.nav a.active{color:var(--text);background:var(--surface-2)}
+.spacer{flex:1}
+.search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);
+  border-radius:10px;padding:8px 14px;color:var(--muted);min-width:220px}
+.lan-pill{display:flex;align-items:center;gap:8px;background:rgba(111,207,142,.1);border:1px solid rgba(111,207,142,.3);
+  border-radius:99px;padding:7px 14px;font-size:13px;color:var(--ok);font-weight:500}
+.lan-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--surface);
+  display:grid;place-items:center;color:var(--muted);transition:.15s;font-size:17px}
+.icon-btn:hover{color:var(--text);border-color:#4d3a22}
+.pending-pill{background:rgba(242,169,59,.12);border:1px solid rgba(242,169,59,.35);color:var(--accent);
+  border-radius:99px;padding:7px 14px;font-size:13px;font-weight:500}
+.btn-add{display:flex;align-items:center;gap:8px;background:var(--accent);color:#1a1207;font-weight:600;
+  padding:9px 18px;border-radius:10px;font-size:14px;transition:.15s;box-shadow:0 4px 18px rgba(242,169,59,.25)}
+.btn-add:hover{background:#ffbf58;transform:translateY(-1px)}
+
+/* ---------- HERO SLIDER ---------- */
+.hero{position:relative;height:clamp(420px,56vw,620px);overflow:hidden}
+.slide{position:absolute;inset:0;opacity:0;transition:opacity 1s ease;pointer-events:none}
+.slide.active{opacity:1;pointer-events:auto}
+.slide-bg{position:absolute;inset:0;background-size:cover;background-position:center 30%}
+.slide-bg::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,var(--bg) 0%,rgba(16,12,9,.75) 38%,rgba(16,12,9,.1) 70%,transparent 100%),
+             linear-gradient(0deg,var(--bg) 2%,transparent 40%)}
+.s1 .slide-bg{background:radial-gradient(120% 90% at 75% 20%,#4a3016,#1e1207 55%,#0d0a06)}
+.s2 .slide-bg{background:radial-gradient(120% 90% at 70% 25%,#173a33,#0a1a17 55%,#060d0b)}
+.s3 .slide-bg{background:radial-gradient(120% 90% at 72% 20%,#3a1f3f,#170b1c 55%,#0a0510)}
+.slide-inner{position:relative;z-index:2;max-width:1240px;margin:0 auto;height:100%;
+  display:flex;flex-direction:column;justify-content:flex-end;padding:0 28px 54px;max-width:640px;margin-left:max(28px,calc((100vw - 1240px)/2))}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--accent);text-transform:uppercase;margin-bottom:12px}
+.hero h1{font-family:var(--display);font-size:clamp(34px,4.6vw,56px);font-weight:800;line-height:1.02;letter-spacing:-.01em;margin-bottom:14px}
+.hero-meta{display:flex;gap:14px;align-items:center;color:var(--muted);font-size:14px;margin-bottom:12px;flex-wrap:wrap}
+.hero-meta .cert{border:1px solid var(--line);border-radius:5px;padding:1px 7px;font-size:12px}
+.hero p{color:#d9cab8;max-width:540px;margin-bottom:20px;font-size:15.5px}
+.hero-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.btn-play{display:flex;align-items:center;gap:10px;background:var(--text);color:#17110a;font-weight:600;
+  font-size:15px;padding:13px 28px;border-radius:11px;transition:.15s}
+.btn-play:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(244,237,227,.15)}
+.btn-ghost{padding:13px 20px;border-radius:11px;border:1px solid rgba(244,237,227,.2);color:var(--text);
+  background:rgba(255,255,255,.06);font-weight:500;transition:.15s}
+.btn-ghost:hover{background:rgba(255,255,255,.12)}
+
+/* filtros del hero */
+.hero-filters{position:absolute;top:24px;right:max(28px,calc((100vw - 1240px)/2));z-index:3;
+  display:flex;gap:8px;align-items:center}
+.hero-filters .flabel{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.chip{font-size:13px;padding:6px 14px;border-radius:99px;border:1px solid var(--line);
+  background:rgba(16,12,9,.6);color:var(--muted);transition:.15s;backdrop-filter:blur(6px)}
+.chip:hover{color:var(--text);border-color:#4d3a22}
+.chip.on{background:var(--accent);color:#1a1207;border-color:var(--accent);font-weight:600}
+
+/* dots + flechas del slider */
+.hero-dots{position:absolute;bottom:22px;right:max(28px,calc((100vw - 1240px)/2));z-index:3;display:flex;gap:8px}
+.hero-dots span{width:28px;height:4px;border-radius:2px;background:rgba(244,237,227,.25);cursor:pointer;transition:.2s}
+.hero-dots span.on{background:var(--accent);width:40px}
+.hero-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:44px;height:44px;border-radius:50%;
+  background:rgba(16,12,9,.55);border:1px solid var(--line);display:grid;place-items:center;color:var(--text);
+  font-size:20px;opacity:0;transition:.2s;backdrop-filter:blur(6px)}
+.hero:hover .hero-arrow{opacity:1}
+.hero-arrow.prev{left:20px}.hero-arrow.next{right:20px}
+.hero-arrow:hover{background:rgba(16,12,9,.85);border-color:#4d3a22}
+
+/* ---------- ROWS ---------- */
+.rows{max-width:1296px;margin:0 auto;padding:30px 0 60px}
+.row-block{margin-bottom:34px;position:relative}
+.sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;padding:0 28px}
+.sec-head h2{font-family:var(--display);font-size:20px;font-weight:600}
+.sec-head .count{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.sec-head .seeall{margin-left:auto;color:var(--accent);font-size:13px;font-weight:500;opacity:0;transition:.2s}
+.row-block:hover .seeall{opacity:1}
+.rail-wrap{position:relative}
+.rail{display:grid;grid-auto-flow:column;grid-auto-columns:168px;gap:14px;overflow-x:auto;
+  padding:4px 28px 10px;scrollbar-width:none;scroll-behavior:smooth}
+.rail::-webkit-scrollbar{display:none}
+.rail.wide{grid-auto-columns:300px}
+.rail-arrow{position:absolute;top:0;bottom:14px;width:52px;z-index:4;display:grid;place-items:center;
+  color:var(--text);font-size:24px;opacity:0;transition:.2s;cursor:pointer;border:none}
+.rail-wrap:hover .rail-arrow{opacity:1}
+.rail-arrow.l{left:0;background:linear-gradient(90deg,var(--bg) 30%,transparent)}
+.rail-arrow.r{right:0;background:linear-gradient(270deg,var(--bg) 30%,transparent)}
+.rail-arrow:hover{color:var(--accent)}
+
+/* tarjetas */
+.card{position:relative;border-radius:12px;overflow:hidden;background:var(--surface);
+  border:1px solid var(--line);transition:.18s;cursor:pointer}
+.card:hover{transform:translateY(-4px);border-color:#4d3a22;box-shadow:0 14px 34px rgba(0,0,0,.5)}
+.poster{aspect-ratio:2/3;position:relative;display:flex;align-items:flex-end;padding:12px;
+  font-family:var(--display);font-weight:800;font-size:16px;line-height:1.1}
+.poster::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(10,7,4,.9));pointer-events:none}
+.poster b{position:relative;z-index:1}
+.info{padding:9px 11px 11px;display:flex;flex-direction:column;gap:5px}
+.t{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted)}
+.dots{display:flex;gap:4px;margin-left:auto}
+.dots span{width:6px;height:6px;border-radius:50%}
+.h-ok{background:var(--ok)}.h-warn{background:var(--warn)}.h-bad{background:var(--bad)}.h-off{background:var(--off)}
+.progress{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(0,0,0,.5);z-index:2}
+.progress i{display:block;height:100%;background:var(--accent)}
+.badge{position:absolute;top:9px;left:9px;z-index:2;font-family:var(--mono);font-size:10px;letter-spacing:.05em;
+  background:rgba(16,12,9,.55);border-radius:6px;padding:3px 7px;color:#e8d9c5;backdrop-filter:blur(4px)}
+
+/* wide card (continuar viendo) */
+.card.wide .poster{aspect-ratio:16/10;font-size:17px}
+
+/* posters de relleno */
+.p1{background:linear-gradient(150deg,#59331a,#241206 60%,#0e0804)}
+.p2{background:linear-gradient(150deg,#173a33,#0a1a17 60%,#060d0b)}
+.p3{background:linear-gradient(150deg,#3a1f3f,#170b1c 60%,#0a0510)}
+.p4{background:linear-gradient(150deg,#1d3050,#0c1424 60%,#05080f)}
+.p5{background:linear-gradient(150deg,#5c1f1f,#230a0a 60%,#0f0404)}
+.p6{background:linear-gradient(150deg,#4d4416,#1e1a06 60%,#0d0b03)}
+.p7{background:linear-gradient(150deg,#20423b,#0d1d1a 60%,#060f0d)}
+.p8{background:linear-gradient(150deg,#513a5e,#1f1426 60%,#0e0813)}
+
+/* nota admin */
+.admin-note{max-width:1296px;margin:0 auto 10px;padding:10px 28px 0}
+.admin-note .box{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);
+  background:var(--surface);border:1px dashed var(--line);border-radius:10px;padding:9px 14px}
+.admin-note b{color:var(--accent)}
+.admin-note .box .sp{margin-left:auto;font-family:var(--mono);font-size:11px}
+
+footer{border-top:1px solid var(--line);padding:22px 28px;display:flex;gap:16px;align-items:center;
+  color:var(--muted);font-size:12.5px;max-width:1296px;margin:0 auto;flex-wrap:wrap}
+footer .f-dot{width:4px;height:4px;border-radius:50%;background:var(--line)}
+footer .right{margin-left:auto;font-family:var(--mono);font-size:11.5px}
+
+@media (max-width:900px){
+  .nav,.search{display:none}
+  .topbar{padding:12px 16px;gap:10px}
+  .hero-filters{display:none}
+  .slide-inner{padding:0 16px 40px}
+  .sec-head,.rail,.admin-note{padding-left:16px;padding-right:16px}
+  .rail{grid-auto-columns:132px}
+  .rail.wide{grid-auto-columns:240px}
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="11.5" stroke="#F2A93B" stroke-width="2.4"/><path d="M10.5 8.5L18 13l-7.5 4.5v-9z" fill="#F2A93B"/></svg>
+    GALA
+  </div>
+  <nav class="nav">
+    <a href="#" class="active">Inicio</a><a href="#">Películas</a><a href="#">Series</a>
+    <a href="#">Listas</a><a href="#">Deseos</a>
+  </nav>
+  <div class="spacer"></div>
+  <button class="pending-pill">6 por confirmar</button>
+  <div class="search">🔍 Buscar en tu galería…</div>
+  <button class="icon-btn" title="Ajustes">⚙</button>
+  <button class="lan-pill"><span class="lan-dot"></span> Modo LAN · activo</button>
+  <button class="btn-add">＋ Añadir</button>
+</header>
+
+<!-- HERO SLIDER -->
+<section class="hero" id="hero">
+  <div class="hero-filters">
+    <span class="flabel">Destacar</span>
+    <button class="chip on">Destacados</button>
+    <button class="chip">Nuevos</button>
+    <button class="chip">Sin ver</button>
+  </div>
+
+  <div class="slide s1 active">
+    <div class="slide-bg"></div>
+    <div class="slide-inner">
+      <div class="eyebrow">Destacado · Película</div>
+      <h1>Cielo de Harmattan</h1>
+      <div class="hero-meta"><span class="cert">12+</span><span>2023</span><span>1 h 58 min</span><span>Drama</span><span style="color:var(--accent)">★ 7,8</span></div>
+      <p>Tras diez años fuera, Nadia vuelve a la ciudad costera de su infancia para vender la casa familiar y descubre que el barrio entero guarda una deuda con su padre.</p>
+      <div class="hero-actions"><button class="btn-play">▶ Reproducir</button><button class="btn-ghost">＋ Mi lista</button><button class="btn-ghost">Detalles</button></div>
+    </div>
+  </div>
+  <div class="slide s2">
+    <div class="slide-bg"></div>
+    <div class="slide-inner">
+      <div class="eyebrow">Destacado · Serie</div>
+      <h1>Ruta 3</h1>
+      <div class="hero-meta"><span class="cert">16+</span><span>2024</span><span>1 temporada</span><span>Drama · Crimen</span><span style="color:var(--accent)">★ 8,1</span></div>
+      <p>Tres conductores de larga distancia cruzan la frontera cada semana con cargas que no deberían llevar. Cuando uno desaparece, los otros dos descubren que la ruta tiene dueño.</p>
+      <div class="hero-actions"><button class="btn-play">▶ Reproducir</button><button class="btn-ghost">＋ Mi lista</button><button class="btn-ghost">Detalles</button></div>
+    </div>
+  </div>
+  <div class="slide s3">
+    <div class="slide-bg"></div>
+    <div class="slide-inner">
+      <div class="eyebrow">Destacado · Película</div>
+      <h1>Marea Negra</h1>
+      <div class="hero-meta"><span class="cert">12+</span><span>2019</span><span>2 h 06 min</span><span>Thriller</span><span style="color:var(--accent)">★ 7,2</span></div>
+      <p>Un pueblo pesquero despierta con la costa cubierta de petróleo y una sola persona dispuesta a averiguar de qué barco vino.</p>
+      <div class="hero-actions"><button class="btn-play">▶ Reproducir</button><button class="btn-ghost">＋ Mi lista</button><button class="btn-ghost">Detalles</button></div>
+    </div>
+  </div>
+
+  <button class="hero-arrow prev" onclick="heroGo(-1)">‹</button>
+  <button class="hero-arrow next" onclick="heroGo(1)">›</button>
+  <div class="hero-dots" id="dots">
+    <span class="on" onclick="heroSet(0)"></span><span onclick="heroSet(1)"></span><span onclick="heroSet(2)"></span>
+  </div>
+</section>
+
+<!-- NOTA ADMIN (solo indicativa en el mockup) -->
+<div class="admin-note">
+  <div class="box">⚙ <span>El bloque <b>Hero destacado</b> y sus filtros se activan o desactivan desde <b>Ajustes › Inicio</b>. Aquí se muestra activado.</span><span class="sp">vista admin</span></div>
+</div>
+
+<!-- ROWS -->
+<main class="rows">
+
+  <!-- CONTINUAR VIENDO (wide) -->
+  <section class="row-block">
+    <div class="sec-head"><h2>Continuar viendo</h2><span class="count">en este dispositivo</span></div>
+    <div class="rail-wrap">
+      <button class="rail-arrow l" onclick="railScroll(this,-1)">‹</button>
+      <div class="rail wide">
+        <article class="card wide"><div class="poster p2"><b>El Barrio Duerme</b><div class="progress"><i style="width:64%"></i></div></div><div class="info"><div class="t">El Barrio Duerme</div><div class="m">Quedan 43 min<div class="dots"><span class="h-ok"></span></div></div></div></article>
+        <article class="card wide"><div class="poster p4"><b>Ruta 3 · T1E4</b><div class="progress"><i style="width:22%"></i></div></div><div class="info"><div class="t">Ruta 3 — T1 E4</div><div class="m">Empezada hoy<div class="dots"><span class="h-ok"></span></div></div></div></article>
+        <article class="card wide"><div class="poster p6"><b>Marea Negra</b><div class="progress"><i style="width:87%"></i></div></div><div class="info"><div class="t">Marea Negra</div><div class="m">Quedan 12 min<div class="dots"><span class="h-warn"></span></div></div></div></article>
+        <article class="card wide"><div class="poster p8"><b>La Casa del Puerto</b><div class="progress"><i style="width:41%"></i></div></div><div class="info"><div class="t">La Casa del Puerto</div><div class="m">Quedan 1 h 05<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      </div>
+      <button class="rail-arrow r" onclick="railScroll(this,1)">›</button>
+    </div>
+  </section>
+
+  <!-- PELICULAS -->
+  <section class="row-block">
+    <div class="sec-head"><h2>Películas</h2><span class="count">148 títulos</span><a class="seeall" href="#">Ver todas →</a></div>
+    <div class="rail-wrap"><button class="rail-arrow l" onclick="railScroll(this,-1)">‹</button>
+    <div class="rail">
+      <article class="card"><div class="badge">NUEVO</div><div class="poster p1"><b>Ébano</b></div><div class="info"><div class="t">Ébano</div><div class="m">2024<div class="dots"><span class="h-ok"></span><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p3"><b>Media Noche</b></div><div class="info"><div class="t">Media Noche</div><div class="m">2021<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p5"><b>Fuego Cruzado</b></div><div class="info"><div class="t">Fuego Cruzado</div><div class="m">2019<div class="dots"><span class="h-warn"></span></div></div></div></article>
+      <article class="card"><div class="poster p4"><b>Kilómetro Cero</b></div><div class="info"><div class="t">Kilómetro Cero</div><div class="m">2020<div class="dots"><span class="h-off"></span></div></div></div></article>
+      <article class="card"><div class="poster p6"><b>Sombra y Sal</b></div><div class="info"><div class="t">Sombra y Sal</div><div class="m">2018<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p8"><b>Tres Lunas</b></div><div class="info"><div class="t">Tres Lunas</div><div class="m">2025<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p2"><b>La Frontera Verde</b></div><div class="info"><div class="t">La Frontera Verde</div><div class="m">2023<div class="dots"><span class="h-ok"></span><span class="h-bad"></span></div></div></div></article>
+      <article class="card"><div class="poster p7"><b>El Vado</b></div><div class="info"><div class="t">El Vado</div><div class="m">2022<div class="dots"><span class="h-ok"></span></div></div></div></article>
+    </div><button class="rail-arrow r" onclick="railScroll(this,1)">›</button></div>
+  </section>
+
+  <!-- SERIES -->
+  <section class="row-block">
+    <div class="sec-head"><h2>Series</h2><span class="count">22 títulos</span><a class="seeall" href="#">Ver todas →</a></div>
+    <div class="rail-wrap"><button class="rail-arrow l" onclick="railScroll(this,-1)">‹</button>
+    <div class="rail">
+      <article class="card"><div class="poster p3"><b>Distrito Sur</b></div><div class="info"><div class="t">Distrito Sur</div><div class="m">3 temp.<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p7"><b>Voces del Río</b></div><div class="info"><div class="t">Voces del Río</div><div class="m">2 temp.<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p1"><b>Harmattan</b></div><div class="info"><div class="t">Harmattan</div><div class="m">1 temp.<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p4"><b>La Línea</b></div><div class="info"><div class="t">La Línea</div><div class="m">4 temp.<div class="dots"><span class="h-warn"></span></div></div></div></article>
+      <article class="card"><div class="poster p5"><b>Ceniza</b></div><div class="info"><div class="t">Ceniza</div><div class="m">1 temp.<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p6"><b>Puerto Franco</b></div><div class="info"><div class="t">Puerto Franco</div><div class="m">2 temp.<div class="dots"><span class="h-ok"></span></div></div></div></article>
+    </div><button class="rail-arrow r" onclick="railScroll(this,1)">›</button></div>
+  </section>
+
+  <!-- DOCUMENTALES -->
+  <section class="row-block">
+    <div class="sec-head"><h2>Documentales</h2><span class="count">por género · TMDB</span></div>
+    <div class="rail-wrap"><button class="rail-arrow l" onclick="railScroll(this,-1)">‹</button>
+    <div class="rail">
+      <article class="card"><div class="poster p6"><b>El Último Bosque</b></div><div class="info"><div class="t">El Último Bosque</div><div class="m">2022<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p7"><b>Agua Dulce</b></div><div class="info"><div class="t">Agua Dulce</div><div class="m">2021<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p2"><b>Malabo 1968</b></div><div class="info"><div class="t">Malabo 1968</div><div class="m">2020<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p4"><b>Cacao</b></div><div class="info"><div class="t">Cacao</div><div class="m">2023<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p1"><b>La Travesía</b></div><div class="info"><div class="t">La Travesía</div><div class="m">2019<div class="dots"><span class="h-warn"></span></div></div></div></article>
+    </div><button class="rail-arrow r" onclick="railScroll(this,1)">›</button></div>
+  </section>
+
+  <!-- AÑADIDAS RECIENTEMENTE -->
+  <section class="row-block">
+    <div class="sec-head"><h2>Añadidas recientemente</h2><span class="count">última semana</span></div>
+    <div class="rail-wrap"><button class="rail-arrow l" onclick="railScroll(this,-1)">‹</button>
+    <div class="rail">
+      <article class="card"><div class="badge">HOY</div><div class="poster p8"><b>Tres Lunas</b></div><div class="info"><div class="t">Tres Lunas</div><div class="m">2025<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="badge">HOY</div><div class="poster p1"><b>Ébano</b></div><div class="info"><div class="t">Ébano</div><div class="m">2024<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="badge">AYER</div><div class="poster p3"><b>Media Noche</b></div><div class="info"><div class="t">Media Noche</div><div class="m">2021<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p4"><b>Kilómetro Cero</b></div><div class="info"><div class="t">Kilómetro Cero</div><div class="m">2020<div class="dots"><span class="h-off"></span></div></div></div></article>
+      <article class="card"><div class="poster p7"><b>El Vado</b></div><div class="info"><div class="t">El Vado</div><div class="m">2022<div class="dots"><span class="h-ok"></span></div></div></div></article>
+    </div><button class="rail-arrow r" onclick="railScroll(this,1)">›</button></div>
+  </section>
+
+  <!-- MIS LISTAS -->
+  <section class="row-block">
+    <div class="sec-head"><h2>Mis Listas</h2><span class="count">3 listas</span><a class="seeall" href="#">Gestionar →</a></div>
+    <div class="rail-wrap"><button class="rail-arrow l" onclick="railScroll(this,-1)">‹</button>
+    <div class="rail wide">
+      <article class="card wide"><div class="poster p5"><b>Para el finde</b></div><div class="info"><div class="t">Para el finde</div><div class="m">12 títulos</div></div></article>
+      <article class="card wide"><div class="poster p3"><b>Cine africano</b></div><div class="info"><div class="t">Cine africano</div><div class="m">28 títulos</div></div></article>
+      <article class="card wide"><div class="poster p7"><b>Pendientes</b></div><div class="info"><div class="t">Pendientes</div><div class="m">7 títulos</div></div></article>
+    </div><button class="rail-arrow r" onclick="railScroll(this,1)">›</button></div>
+  </section>
+
+  <!-- POR GENERO (dinamico) -->
+  <section class="row-block">
+    <div class="sec-head"><h2>Drama</h2><span class="count">por género · dinámico</span></div>
+    <div class="rail-wrap"><button class="rail-arrow l" onclick="railScroll(this,-1)">‹</button>
+    <div class="rail">
+      <article class="card"><div class="poster p1"><b>Cielo de Harmattan</b></div><div class="info"><div class="t">Cielo de Harmattan</div><div class="m">2023<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p2"><b>El Barrio Duerme</b></div><div class="info"><div class="t">El Barrio Duerme</div><div class="m">2022<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p4"><b>La Casa del Puerto</b></div><div class="info"><div class="t">La Casa del Puerto</div><div class="m">2021<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p6"><b>Sombra y Sal</b></div><div class="info"><div class="t">Sombra y Sal</div><div class="m">2018<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p8"><b>Ceniza</b></div><div class="info"><div class="t">Ceniza</div><div class="m">2020<div class="dots"><span class="h-ok"></span></div></div></div></article>
+    </div><button class="rail-arrow r" onclick="railScroll(this,1)">›</button></div>
+  </section>
+
+  <section class="row-block">
+    <div class="sec-head"><h2>Acción</h2><span class="count">por género · dinámico</span></div>
+    <div class="rail-wrap"><button class="rail-arrow l" onclick="railScroll(this,-1)">‹</button>
+    <div class="rail">
+      <article class="card"><div class="poster p5"><b>Fuego Cruzado</b></div><div class="info"><div class="t">Fuego Cruzado</div><div class="m">2019<div class="dots"><span class="h-warn"></span></div></div></div></article>
+      <article class="card"><div class="poster p4"><b>Kilómetro Cero</b></div><div class="info"><div class="t">Kilómetro Cero</div><div class="m">2020<div class="dots"><span class="h-off"></span></div></div></div></article>
+      <article class="card"><div class="poster p7"><b>El Vado</b></div><div class="info"><div class="t">El Vado</div><div class="m">2022<div class="dots"><span class="h-ok"></span></div></div></div></article>
+      <article class="card"><div class="poster p1"><b>La Línea</b></div><div class="info"><div class="t">La Línea</div><div class="m">2023<div class="dots"><span class="h-ok"></span></div></div></div></article>
+    </div><button class="rail-arrow r" onclick="railScroll(this,1)">›</button></div>
+  </section>
+
+</main>
+
+<footer>
+  <span>GALA v0.1 · código abierto</span><span class="f-dot"></span>
+  <span>Metadatos: TMDB (offline listo)</span><span class="f-dot"></span>
+  <span>Tu contenido nunca sale de tus dispositivos</span>
+  <span class="right">gala.local · 192.168.2.121:7420</span>
+</footer>
+
+<script>
+// Hero slider
+let hi=0; const slides=document.querySelectorAll('.slide'); const dots=document.querySelectorAll('#dots span');
+let timer=setInterval(()=>heroGo(1),6000);
+function render(){slides.forEach((s,i)=>s.classList.toggle('active',i===hi));dots.forEach((d,i)=>d.classList.toggle('on',i===hi));}
+function heroGo(d){hi=(hi+d+slides.length)%slides.length;render();}
+function heroSet(i){hi=i;render();resetTimer();}
+function resetTimer(){clearInterval(timer);timer=setInterval(()=>heroGo(1),6000);}
+document.getElementById('hero').addEventListener('mouseenter',()=>clearInterval(timer));
+document.getElementById('hero').addEventListener('mouseleave',resetTimer);
+// Rail arrows
+function railScroll(btn,dir){const rail=btn.parentElement.querySelector('.rail');rail.scrollBy({left:dir*rail.clientWidth*0.8,behavior:'smooth'});}
+</script>
+</body>
+</html>

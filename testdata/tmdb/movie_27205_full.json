@@ -1,0 +1,48 @@
+{
+  "id": 27205,
+  "title": "Origen",
+  "original_title": "Inception",
+  "original_language": "en",
+  "release_date": "2010-07-15",
+  "overview": "Un ladrón que roba secretos corporativos a través del uso de tecnología de sueños compartidos.",
+  "poster_path": "/poster27205.jpg",
+  "backdrop_path": "/backdrop27205.jpg",
+  "runtime": 148,
+  "vote_average": 8.364,
+  "tagline": "Tu mente es la escena del crimen.",
+  "genres": [{"id": 28, "name": "Acción"}, {"id": 878, "name": "Ciencia ficción"}],
+  "production_countries": [
+    {"iso_3166_1": "GB", "name": "United Kingdom"},
+    {"iso_3166_1": "US", "name": "United States of America"}
+  ],
+  "credits": {
+    "cast": [
+      {"id": 6193, "name": "Leonardo DiCaprio", "character": "Dom Cobb", "profile_path": "/leo.jpg", "order": 0},
+      {"id": 24045, "name": "Joseph Gordon-Levitt", "character": "Arthur", "profile_path": "/jgl.jpg", "order": 1},
+      {"id": 2524, "name": "Tom Hardy", "character": "Eames", "profile_path": null, "order": 3},
+      {"id": 27578, "name": "Elliot Page", "character": "Ariadne", "profile_path": "/ep.jpg", "order": 2},
+      {"id": 99, "name": "", "character": "Sin nombre", "profile_path": null, "order": 4}
+    ],
+    "crew": [
+      {"id": 525, "name": "Christopher Nolan", "job": "Director", "department": "Directing"},
+      {"id": 525, "name": "Christopher Nolan", "job": "Screenplay", "department": "Writing"},
+      {"id": 525, "name": "Christopher Nolan", "job": "Writer", "department": "Writing"},
+      {"id": 947, "name": "Hans Zimmer", "job": "Original Music Composer", "department": "Sound"},
+      {"id": 1011, "name": "Wally Pfister", "job": "Director of Photography", "department": "Camera"},
+      {"id": 1, "name": "Alguien", "job": "Catering", "department": "Crew"}
+    ]
+  },
+  "similar": {
+    "results": [
+      {"id": 157336, "title": "Interstellar", "release_date": "2014-11-05", "poster_path": "/inter.jpg"},
+      {"id": 603, "title": "Matrix", "release_date": "1999-03-30", "poster_path": null},
+      {"id": 0, "title": "Sin id", "release_date": "2000-01-01"}
+    ]
+  },
+  "release_dates": {
+    "results": [
+      {"iso_3166_1": "US", "release_dates": [{"certification": "PG-13"}]},
+      {"iso_3166_1": "ES", "release_dates": [{"certification": ""}, {"certification": "12"}]}
+    ]
+  }
+}

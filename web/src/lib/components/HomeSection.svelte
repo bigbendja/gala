@@ -23,6 +23,8 @@
 		filter?: (items: Item[]) => Item[];
 		/** false = pide ya (arriba del pliegue); true = espera a estar cerca. */
 		lazy?: boolean;
+		/** Enseña "N títulos" junto al título (mockup: contador de la fila). */
+		showCount?: boolean;
 		/** Se avisa con el número de títulos al cargar (para decidir si hay Home). */
 		onLoaded?: (count: number) => void;
 	}
@@ -35,6 +37,7 @@
 		fetchPage,
 		filter = (items) => items,
 		lazy = true,
+		showCount = false,
 		onLoaded
 	}: Props = $props();
 
@@ -128,7 +131,7 @@
 	{:else if done && items.length > 0}
 		<Row
 			{title}
-			{subtitle}
+			subtitle={subtitle ?? (showCount ? `${rawTotal} ${rawTotal === 1 ? 'título' : 'títulos'}` : undefined)}
 			{linkHref}
 			{linkText}
 			{variant}
