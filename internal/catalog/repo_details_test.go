@@ -171,3 +171,50 @@ func TestMediaFilesForItem(t *testing.T) {
 		t.Fatalf("ficha técnica = %+v (%v)", files, err)
 	}
 }
+
+func TestSeasonCountInListingAndSetYearOnlyFillsEmpty(t *testing.T) {
+	ctx := context.Background()
+	r := newTestRepo(t)
+	tmdb := int64(77)
+	series := catalog.Item{Kind: catalog.KindSeries, Title: "Serie", TMDBID: &tmdb, Genres: []string{}, Confirmed: true, IdentifyStatus: catalog.IdentifyOK}
+	sid, err := r.InsertItem(ctx, &series, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for n := 1; n <= 3; n++ {
+		num := n
+		season := catalog.Item{Kind: catalog.KindSeason, ParentID: &sid, Title: "T", SeasonNumber: &num, Genres: []string{}}
+		if _, err := r.InsertItem(ctx, &season, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	movieID := addMovie(t, ctx, r, "Peli", 5, true)
+
+	res, err := r.List(ctx, catalog.ListFilter{Limit: 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, it := range res.Items {
+		switch it.ID {
+		case sid:
+			if it.SeasonCount != 3 {
+				t.Errorf("season_count de la serie = %d, quiero 3", it.SeasonCount)
+			}
+		case movieID:
+			if it.SeasonCount != 0 {
+				t.Errorf("una película no lleva season_count: %d", it.SeasonCount)
+			}
+		}
+	}
+
+	if err := r.SetYear(ctx, sid, 2008); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.SetYear(ctx, sid, 1999); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := r.Get(ctx, sid)
+	if got.Year == nil || *got.Year != 2008 {
+		t.Errorf("year = %v (no se pisa uno ya guardado)", got.Year)
+	}
+}

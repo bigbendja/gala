@@ -183,6 +183,16 @@ func (r *Repo) SetRatingCert(ctx context.Context, itemID int64, cert string) err
 	return err
 }
 
+// SetYear guarda el año (solo si el item no tenía): las series identificadas
+// por episodio llegaban sin año.
+func (r *Repo) SetYear(ctx context.Context, itemID int64, year int) error {
+	if year <= 0 {
+		return nil
+	}
+	_, err := r.q.ExecContext(ctx, `UPDATE items SET year = ? WHERE id = ? AND year IS NULL`, year, itemID)
+	return err
+}
+
 // SetBackdrop sustituye el fichero del fondo de un item.
 func (r *Repo) SetBackdrop(ctx context.Context, itemID int64, file string) error {
 	_, err := r.q.ExecContext(ctx, `UPDATE items SET backdrop_path = ? WHERE id = ?`, file, itemID)

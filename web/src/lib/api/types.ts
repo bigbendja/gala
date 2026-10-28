@@ -52,6 +52,8 @@ export interface Item {
 	identify_note?: string;
 	sources?: Source[];
 	source_count: number;
+	/** Nº de temporadas (solo series, solo en listados). */
+	season_count?: number;
 	health_summary?: Partial<Record<Health, number>>;
 	progress?: Progress;
 	/** Serie a la que pertenece un episodio o una temporada. */

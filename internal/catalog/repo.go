@@ -151,6 +151,9 @@ func (r *Repo) List(ctx context.Context, f ListFilter) (*ListResult, error) {
 	if err := r.attachHealthSummaries(ctx, items, ids); err != nil {
 		return nil, err
 	}
+	if err := r.attachSeasonCounts(ctx, items); err != nil {
+		return nil, err
+	}
 
 	return &ListResult{Items: items, Total: total, Limit: f.Limit, Offset: f.Offset}, nil
 }
@@ -282,6 +285,38 @@ func (r *Repo) attachHealthSummaries(ctx context.Context, items []Item, ids []in
 		items[i].HealthSummary = byItem[items[i].ID]
 	}
 	return nil
+}
+
+// attachSeasonCounts rellena SeasonCount de las series del listado (las
+// tarjetas de serie enseñan "N temporadas").
+func (r *Repo) attachSeasonCounts(ctx context.Context, items []Item) error {
+	var ids []any
+	pos := map[int64]int{}
+	for i, it := range items {
+		if it.Kind == KindSeries {
+			ids = append(ids, it.ID)
+			pos[it.ID] = i
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	ph := strings.TrimRight(strings.Repeat("?,", len(ids)), ",")
+	rows, err := r.q.QueryContext(ctx, `SELECT parent_id, COUNT(*) FROM items
+		WHERE kind = 'season' AND parent_id IN (`+ph+`) GROUP BY parent_id`, ids...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var parent int64
+		var n int
+		if err := rows.Scan(&parent, &n); err != nil {
+			return err
+		}
+		items[pos[parent]].SeasonCount = n
+	}
+	return rows.Err()
 }
 
 // scanner abstrae *sql.Row y *sql.Rows.

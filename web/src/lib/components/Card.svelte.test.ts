@@ -32,6 +32,21 @@ describe('Card', () => {
 		expect(getByText('2023')).toBeInTheDocument();
 	});
 
+	it('una serie enseña el año y el nº de temporadas', () => {
+		const { getByText } = render(Card, {
+			item: makeItem({ kind: 'series', year: 2008, season_count: 5 })
+		});
+		expect(getByText('2008 · 5 temp.')).toBeInTheDocument();
+	});
+
+	it('una serie sin temporadas conocidas se queda en el año (nada inventado)', () => {
+		const { getByText, queryByText } = render(Card, {
+			item: makeItem({ kind: 'series', year: 2008 })
+		});
+		expect(getByText('2008')).toBeInTheDocument();
+		expect(queryByText(/temp\./)).toBeNull();
+	});
+
 	it('muestra el badge NUEVO recién añadido', () => {
 		const { getByText } = render(Card, {
 			item: makeItem({ added_at: new Date().toISOString() })

@@ -318,6 +318,7 @@ func (q *Queue) enrichDetails() {
 		if cert != "" {
 			_ = q.repo.SetRatingCert(q.ctx, it.ID, cert)
 		}
+		_ = q.repo.SetYear(q.ctx, it.ID, fd.Year())
 	}
 }
 

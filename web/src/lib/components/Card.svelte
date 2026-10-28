@@ -114,6 +114,18 @@
 						{/each}
 					</div>
 				{/if}
+			{:else if item.kind === 'series' && item.season_count}
+				<span>{[item.year, `${item.season_count} temp.`].filter((x) => !!x).join(' · ')}</span>
+				{#if healthDots.shown.length > 0}
+					<div class="dots">
+						{#each healthDots.shown as h, i (i)}
+							<HealthDot health={h} size={6} />
+						{/each}
+						{#if healthDots.extra > 0}
+							<span class="extra">+{healthDots.extra}</span>
+						{/if}
+					</div>
+				{/if}
 			{:else}
 				<span>{item.year ?? ''}</span>
 				{#if healthDots.shown.length > 0}

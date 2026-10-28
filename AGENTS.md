@@ -371,6 +371,9 @@ cultura del disco duro que circula.
       «Ver todo» al pasar el ratón); una fila diferida aún sin pedir NO pinta
       cajas (el skeleton es solo mientras carga de verdad), se pide sola a los
       1,5 s si no llegó a verse y, vacía, desaparece.
+      Retoques: las series enseñan «año · N temp.» (`season_count` en el
+      listado; el año que faltaba en las series identificadas por episodio se
+      rellena desde TMDB en `enrichDetails`) y el hero se acota a 5 títulos.
 - [x] M7 Modo LAN (Fase 2; pendiente de la prueba en móvil real y del CI
       verde, que confirma el titular): `internal/lan` (detección de la IP
       local — `Candidates()` ordena IPv4 física privada > pública > virtual

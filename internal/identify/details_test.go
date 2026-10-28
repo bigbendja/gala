@@ -61,7 +61,7 @@ func TestEnrichDetailsStoresEverythingAndPhotos(t *testing.T) {
 	client := tmdbRoutes(t, map[string]string{"/movie/27205": "movie_27205_full.json"})
 	id := insertProvisionalItem(t, ctx, repo, "Inception.2010")
 	tmdb := int64(27205)
-	if err := repo.ApplyMovieIdentification(ctx, id, tmdb, "Origen", nil, nil, nil, nil, nil, intPtr(2010), []string{"Acción"}, ""); err != nil {
+	if err := repo.ApplyMovieIdentification(ctx, id, tmdb, "Origen", nil, nil, nil, nil, nil, nil, []string{"Acción"}, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -87,6 +87,9 @@ func TestEnrichDetailsStoresEverythingAndPhotos(t *testing.T) {
 	it, _ := repo.Get(ctx, id)
 	if it.RatingCert == nil || *it.RatingCert != "12" {
 		t.Errorf("rating_cert = %v", it.RatingCert)
+	}
+	if it.Year == nil || *it.Year != 2010 {
+		t.Errorf("el año que faltaba se rellena desde TMDB: %v", it.Year)
 	}
 	// Auto-terminante: ya no está pendiente.
 	if left, _ := repo.ItemsNeedingDetails(ctx); len(left) != 0 {
