@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
-import { ApiError, getItem, listItems } from '$lib/api/client';
+import { ApiError, getItem, getItemDetails, listItems } from '$lib/api/client';
 import { errorMessage } from '$lib/format';
-import type { Item } from '$lib/api/types';
+import type { Item, ItemDetails } from '$lib/api/types';
 import type { PageLoad } from './$types';
 
 function byNumber<T>(get: (v: T) => number | undefined) {
@@ -29,7 +29,8 @@ export const load: PageLoad = async ({ params }) => {
 			item: null,
 			itemError: errorMessage(err, 'No se pudo cargar esta ficha'),
 			seasons: [] as Item[],
-			episodesBySeason: emptyEpisodesBySeason
+			episodesBySeason: emptyEpisodesBySeason,
+			details: null as ItemDetails | null
 		};
 	}
 
@@ -51,5 +52,9 @@ export const load: PageLoad = async ({ params }) => {
 		});
 	}
 
-	return { item, itemError: null, seasons, episodesBySeason };
+	// Reparto, equipo, similares y ficha técnica (Fase 1, Parte B). De mejor
+	// esfuerzo: sin esto la ficha se pinta igual, solo sin esas secciones.
+	const details = item.kind === 'season' ? null : await getItemDetails(item.id).catch(() => null);
+
+	return { item, itemError: null, seasons, episodesBySeason, details };
 };

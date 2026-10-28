@@ -207,12 +207,14 @@
 		width: 40px;
 		height: 40px;
 		border-radius: 10px;
+		border: 1px solid var(--line);
+		background: var(--surface);
 		color: var(--muted);
 		text-decoration: none;
 		transition: 0.15s;
 	}
 	.settings-link:hover {
-		background: var(--surface);
+		border-color: #4d3a22;
 		color: var(--text);
 	}
 	.mobile-search-btn {

@@ -119,3 +119,30 @@ describe('episodios', () => {
 		expect(episodeCode({ kind: 'season', season_number: 2 })).toBe('Temporada 2');
 	});
 });
+
+describe('ficha enriquecida: formatos', () => {
+  it('duración, nota y tamaño legibles en español', async () => {
+    const { formatRuntime, formatRating, formatBytes, initials, nameHue, videoCodecLabel, audioCodecLabel, containerLabel } = await import('./format');
+    expect(formatRuntime(132)).toBe('2 h 12 min');
+    expect(formatRuntime(120)).toBe('2 h');
+    expect(formatRuntime(45)).toBe('45 min');
+    expect(formatRuntime(0)).toBe('');
+    expect(formatRuntime(undefined)).toBe('');
+    expect(formatRating(8.4)).toBe('8,4');
+    expect(formatRating(0)).toBe('');
+    expect(formatBytes(2254857830)).toBe('2,1 GB');
+    expect(formatBytes(523 * 1024 * 1024)).toBe('523 MB');
+    expect(formatBytes(0)).toBe('');
+    expect(initials('Song Kang-ho')).toBe('SK');
+    expect(initials('Cher')).toBe('C');
+    expect(initials('  ')).toBe('?');
+    expect(nameHue('Song Kang-ho')).toBe(nameHue('Song Kang-ho'));
+    expect(nameHue('Song Kang-ho')).toBeGreaterThanOrEqual(0);
+    expect(videoCodecLabel('h264')).toBe('H.264');
+    expect(videoCodecLabel('raro')).toBe('RARO');
+    expect(audioCodecLabel('eac3')).toBe('Dolby Digital Plus');
+    expect(containerLabel('mov,mp4,m4a,3gp,3g2,mj2')).toBe('MP4');
+    expect(containerLabel('matroska,webm')).toBe('MKV');
+    expect(containerLabel(undefined)).toBe('');
+  });
+});

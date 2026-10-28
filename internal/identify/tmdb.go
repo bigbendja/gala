@@ -27,7 +27,7 @@ const (
 	tmdbBaseURL   = "https://api.themoviedb.org/3"
 	tmdbImageBase = "https://image.tmdb.org/t/p"
 	posterSize    = "w342"
-	backdropSize  = "w780"
+	backdropSize  = "w1280"
 
 	maxAttempts  = 3
 	rateInterval = 250 * time.Millisecond // 4 req/s (Brief §2)
@@ -57,13 +57,16 @@ type Cache interface {
 // Client es el cliente TMDB: HTTP estándar de la librería estándar, sin SDK
 // de terceros (Brief M3 §2).
 type Client struct {
-	APIKey    string
-	CacheDir  string // cache/img/ vive aquí
-	Cache     Cache
-	HTTP      *http.Client
-	BaseURL   string       // sobreescribible en tests (httptest)
-	ImageBase string       // sobreescribible en tests
-	Log       *slog.Logger // opcional; nil = sin log (Warn tras agotar reintentos de imagen)
+	APIKey   string
+	CacheDir string // cache/img/ vive aquí
+	Cache    Cache
+	// BackoffUnit es la unidad de espera entre reintentos (0 = 500 ms); los
+	// tests la reducen para no esperar segundos por cada descarga fallida.
+	BackoffUnit time.Duration
+	HTTP        *http.Client
+	BaseURL     string       // sobreescribible en tests (httptest)
+	ImageBase   string       // sobreescribible en tests
+	Log         *slog.Logger // opcional; nil = sin log (Warn tras agotar reintentos de imagen)
 
 	limiterMu sync.Mutex
 	lastReq   time.Time
@@ -389,7 +392,11 @@ func (c *Client) throttle() {
 }
 
 func (c *Client) backoff(ctx context.Context, attempt int) {
-	t := time.NewTimer(time.Duration(attempt) * 500 * time.Millisecond)
+	unit := c.BackoffUnit
+	if unit <= 0 {
+		unit = 500 * time.Millisecond
+	}
+	t := time.NewTimer(time.Duration(attempt) * unit)
 	defer t.Stop()
 	select {
 	case <-ctx.Done():

@@ -99,6 +99,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/health/check", s.handleHealthCheck)
 	mux.HandleFunc("GET /api/v1/health/status", s.handleHealthStatus)
 
+	mux.HandleFunc("GET /api/v1/items/{id}/details", s.handleItemDetails)
 	mux.HandleFunc("GET /api/v1/genres", s.handleGenres)
 	mux.HandleFunc("GET /api/v1/settings/home", s.handleGetHomeSettings)
 	mux.HandleFunc("PUT /api/v1/settings/home", s.handlePutHomeSettings)

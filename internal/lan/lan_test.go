@@ -46,6 +46,8 @@ func TestRemoteAllowedList(t *testing.T) {
 		{"POST", "/api/v1/items/7/confirm", false},
 		{"GET", "/api/v1/img/p.jpg", true},
 		{"GET", "/api/v1/genres", true},
+		{"GET", "/api/v1/items/7/details", true},
+		{"POST", "/api/v1/items/7/details", false},
 		{"GET", "/api/v1/settings/home", true},
 		{"PUT", "/api/v1/settings/home", false},
 		{"GET", "/api/v1/settings/tmdb", false},

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GALA — Ficha de detalle (mockup)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#100C09; --surface:#1B1510; --surface-2:#261D14; --line:#332619;
+  --text:#F4EDE3; --muted:#A6937E; --accent:#F2A93B; --accent-deep:#C97E1B;
+  --ok:#6FCF8E; --warn:#F2A93B; --bad:#E1604F; --off:#6E6157; --r:14px;
+  --display:'Bricolage Grotesque',system-ui,sans-serif;
+  --body:'Instrument Sans',system-ui,sans-serif;
+  --mono:'Spline Sans Mono',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-size:15px;line-height:1.55;overflow-x:hidden}
+button{font-family:var(--body);cursor:pointer;border:none;background:none;color:inherit}
+a{color:inherit;text-decoration:none}
+::selection{background:var(--accent);color:#1a1207}
+
+/* topbar */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:22px;padding:14px 28px;
+  background:linear-gradient(180deg,rgba(16,12,9,.9),transparent);backdrop-filter:blur(6px)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:.04em}
+.nav{display:flex;gap:4px;margin-left:6px}
+.nav a{color:var(--muted);padding:7px 12px;border-radius:9px;font-weight:500}
+.nav a:hover{color:var(--text)}
+.spacer{flex:1}
+.lan-pill{display:flex;align-items:center;gap:8px;background:rgba(111,207,142,.1);border:1px solid rgba(111,207,142,.3);border-radius:99px;padding:7px 14px;font-size:13px;color:var(--ok)}
+.lan-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.btn-add{background:var(--accent);color:#1a1207;font-weight:600;padding:9px 18px;border-radius:10px;font-size:14px}
+
+/* HERO con backdrop atmosférico */
+.hero{position:relative;margin-top:-72px;padding-top:72px;min-height:560px;overflow:hidden}
+.backdrop{position:absolute;inset:0;z-index:-2;
+  background:radial-gradient(120% 100% at 72% 15%,#3b5a52 0%,#1a2a26 38%,#0d0a06 72%)}
+.backdrop::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,var(--bg) 0%,rgba(16,12,9,.82) 42%,rgba(16,12,9,.3) 72%,transparent 100%),
+             linear-gradient(0deg,var(--bg) 1%,transparent 48%)}
+.hero-grid{max-width:1200px;margin:0 auto;padding:40px 28px 36px;display:grid;grid-template-columns:260px 1fr;gap:40px;align-items:end;position:relative;z-index:2}
+.poster{aspect-ratio:2/3;border-radius:14px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px var(--line);
+  background:linear-gradient(160deg,#2a4a42,#13201d 60%,#0a1210);display:flex;align-items:flex-end;padding:16px;
+  font-family:var(--display);font-weight:800;font-size:22px;color:#cfe3dd}
+.h-info .back{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13.5px;margin-bottom:16px}
+.h-info h1{font-family:var(--display);font-size:clamp(34px,4.4vw,52px);font-weight:800;line-height:1.03;letter-spacing:-.01em;margin-bottom:6px}
+.orig{color:var(--muted);font-size:14px;margin-bottom:14px}
+.meta{display:flex;gap:12px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:14px;margin-bottom:16px}
+.meta .cert{border:1px solid var(--line);border-radius:5px;padding:1px 7px;font-size:12px}
+.meta .star{color:var(--accent);font-weight:600}
+.meta .genre{background:var(--surface-2);border-radius:99px;padding:3px 11px;font-size:12.5px;color:#d9cab8}
+.synopsis{max-width:620px;color:#e0d2c0;margin-bottom:22px;font-size:15.5px}
+.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:26px}
+.btn-play{display:flex;align-items:center;gap:10px;background:var(--text);color:#17110a;font-weight:600;font-size:15px;padding:13px 30px;border-radius:11px;transition:.15s}
+.btn-play:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(244,237,227,.15)}
+.btn-ic{display:flex;align-items:center;gap:8px;padding:13px 20px;border-radius:11px;border:1px solid rgba(244,237,227,.2);background:rgba(255,255,255,.06);font-weight:500;transition:.15s}
+.btn-ic:hover{background:rgba(255,255,255,.12)}
+
+/* stack de fuentes (firma de GALA) */
+.sources{max-width:560px;border:1px solid var(--line);border-radius:var(--r);background:rgba(0,0,0,.28);overflow:hidden}
+.src-head{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.src-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(51,38,25,.5);font-size:13.5px}
+.src-row:last-child{border-bottom:none}
+.src-row .hd{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.h-ok{background:var(--ok);box-shadow:0 0 7px rgba(111,207,142,.5)}.h-bad{background:var(--bad)}.h-warn{background:var(--warn)}
+.src-row .tag{font-family:var(--mono);font-size:11px;color:var(--bg);background:var(--muted);border-radius:5px;padding:2px 8px;flex-shrink:0}
+.src-row .tag.local{background:var(--accent);color:#1a1207}
+.src-row .path{color:var(--muted);font-family:var(--mono);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.src-row .q{color:var(--muted);font-size:12px;flex-shrink:0}
+
+/* secciones del cuerpo */
+.body{max-width:1200px;margin:0 auto;padding:10px 28px 60px}
+.section{margin-top:40px}
+.section h2{font-family:var(--display);font-size:21px;font-weight:600;margin-bottom:18px}
+
+/* reparto */
+.cast{display:grid;grid-auto-flow:column;grid-auto-columns:120px;gap:18px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
+.cast::-webkit-scrollbar{display:none}
+.actor{text-align:center}
+.actor .ph{width:92px;height:92px;border-radius:50%;margin:0 auto 10px;display:grid;place-items:center;
+  font-family:var(--display);font-weight:800;font-size:28px;color:#1a1207;border:2px solid var(--line)}
+.a1{background:linear-gradient(145deg,#d8a24a,#9a6a1e)}.a2{background:linear-gradient(145deg,#6fae9a,#2f5a4c)}
+.a3{background:linear-gradient(145deg,#c77b7b,#7a3838)}.a4{background:linear-gradient(145deg,#8a7bb0,#443a66)}
+.a5{background:linear-gradient(145deg,#b0956f,#6a5333)}.a6{background:linear-gradient(145deg,#7b9ac7,#38527a)}
+.actor .nm{font-weight:600;font-size:13px;line-height:1.25}
+.actor .ch{color:var(--muted);font-size:12px;margin-top:2px}
+
+/* equipo + ficha técnica en dos columnas */
+.twocol{display:grid;grid-template-columns:1fr 1fr;gap:40px}
+.crew-item{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.crew-item .role{color:var(--muted)}
+.crew-item .name{font-weight:500}
+.tech{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:4px 18px}
+.tech .crew-item:last-child{border-bottom:none}
+
+/* similares */
+.similar{display:grid;grid-auto-flow:column;grid-auto-columns:150px;gap:14px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
+.similar::-webkit-scrollbar{display:none}
+.scard{border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--surface);cursor:pointer;transition:.15s}
+.scard:hover{transform:translateY(-3px);border-color:#4d3a22}
+.scard .sp{aspect-ratio:2/3;display:flex;align-items:flex-end;padding:11px;font-family:var(--display);font-weight:800;font-size:15px}
+.scard .sp::after{content:'';position:absolute}
+.scard .sinfo{padding:8px 10px;font-size:12.5px}
+.scard .sinfo .y{color:var(--muted);font-size:11.5px}
+.sp1{background:linear-gradient(150deg,#59331a,#241206 60%)}.sp2{background:linear-gradient(150deg,#173a33,#0a1a17 60%)}
+.sp3{background:linear-gradient(150deg,#3a1f3f,#170b1c 60%)}.sp4{background:linear-gradient(150deg,#1d3050,#0c1424 60%)}
+.sp5{background:linear-gradient(150deg,#4d4416,#1e1a06 60%)}
+
+footer{border-top:1px solid var(--line);padding:22px 28px;color:var(--muted);font-size:12.5px;max-width:1200px;margin:40px auto 0;display:flex;gap:16px;flex-wrap:wrap}
+footer .right{margin-left:auto;font-family:var(--mono);font-size:11.5px}
+
+@media (max-width:880px){
+  .nav{display:none}
+  .hero-grid{grid-template-columns:1fr;gap:20px;padding:20px 16px 28px}
+  .poster{width:150px}
+  .body,.topbar{padding-left:16px;padding-right:16px}
+  .twocol{grid-template-columns:1fr;gap:24px}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="11.5" stroke="#F2A93B" stroke-width="2.4"/><path d="M10.5 8.5L18 13l-7.5 4.5v-9z" fill="#F2A93B"/></svg> GALA</div>
+  <nav class="nav"><a href="#">Inicio</a><a href="#">Películas</a><a href="#">Series</a><a href="#">Listas</a><a href="#">Deseos</a></nav>
+  <div class="spacer"></div>
+  <button class="lan-pill"><span class="lan-dot"></span> Modo LAN · activo</button>
+  <button class="btn-add">＋ Añadir</button>
+</header>
+
+<!-- HERO con backdrop -->
+<section class="hero">
+  <div class="backdrop"></div>
+  <div class="hero-grid">
+    <div class="poster">Parásitos</div>
+    <div class="h-info">
+      <a href="#" class="back">← Volver a Películas</a>
+      <h1>Parásitos</h1>
+      <div class="orig">Título original: 기생충 · Corea del Sur</div>
+      <div class="meta">
+        <span class="cert">16+</span><span>2019</span><span>2 h 12 min</span>
+        <span class="star">★ 8,5</span>
+        <span class="genre">Drama</span><span class="genre">Suspense</span><span class="genre">Comedia</span>
+      </div>
+      <p class="synopsis">Toda la familia de Ki-taek está en el paro. Cuando su hijo mayor empieza a dar clases particulares en casa de los Park, una familia adinerada, las dos familias —de mundos opuestos— empiezan una relación de resultados imprevisibles.</p>
+      <div class="actions">
+        <button class="btn-play">▶ Reproducir</button>
+        <button class="btn-ic">＋ Mi lista</button>
+        <button class="btn-ic">⤓ Anclar a local</button>
+      </div>
+      <div class="sources">
+        <div class="src-head"><span>2 fuentes</span><span>se reproduce la mejor disponible</span></div>
+        <div class="src-row"><span class="hd h-ok"></span><span class="tag local">LOCAL</span><span class="path">E:\Pelis\Parasitos.2019.1080p.mkv</span><span class="q">1080p · remux</span></div>
+        <div class="src-row"><span class="hd h-ok"></span><span class="tag">DRIVE</span><span class="path">drive.google.com/file/d/1xK…</span><span class="q">720p</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<main class="body">
+
+  <!-- REPARTO -->
+  <section class="section">
+    <h2>Reparto</h2>
+    <div class="cast">
+      <div class="actor"><div class="ph a1">SK</div><div class="nm">Song Kang-ho</div><div class="ch">Ki-taek</div></div>
+      <div class="actor"><div class="ph a2">LS</div><div class="nm">Lee Sun-kyun</div><div class="ch">Sr. Park</div></div>
+      <div class="actor"><div class="ph a3">CY</div><div class="nm">Cho Yeo-jeong</div><div class="ch">Yeon-kyo</div></div>
+      <div class="actor"><div class="ph a4">CW</div><div class="nm">Choi Woo-sik</div><div class="ch">Ki-woo</div></div>
+      <div class="actor"><div class="ph a5">PS</div><div class="nm">Park So-dam</div><div class="ch">Ki-jung</div></div>
+      <div class="actor"><div class="ph a6">JH</div><div class="nm">Jang Hye-jin</div><div class="ch">Chung-sook</div></div>
+    </div>
+  </section>
+
+  <!-- EQUIPO + FICHA TECNICA -->
+  <section class="section">
+    <div class="twocol">
+      <div>
+        <h2>Equipo</h2>
+        <div class="crew-item"><span class="role">Dirección</span><span class="name">Bong Joon-ho</span></div>
+        <div class="crew-item"><span class="role">Guion</span><span class="name">Bong Joon-ho · Han Jin-won</span></div>
+        <div class="crew-item"><span class="role">Música</span><span class="name">Jung Jae-il</span></div>
+        <div class="crew-item"><span class="role">Fotografía</span><span class="name">Hong Kyung-pyo</span></div>
+      </div>
+      <div>
+        <h2>Este archivo</h2>
+        <div class="tech">
+          <div class="crew-item"><span class="role">Resolución</span><span class="name">1920 × 1080</span></div>
+          <div class="crew-item"><span class="role">Vídeo</span><span class="name">H.264</span></div>
+          <div class="crew-item"><span class="role">Audio</span><span class="name">AAC · se recodifica</span></div>
+          <div class="crew-item"><span class="role">Tamaño</span><span class="name">2,1 GB</span></div>
+          <div class="crew-item"><span class="role">Añadida</span><span class="name">hace 3 días</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SIMILARES -->
+  <section class="section">
+    <h2>Más como esto</h2>
+    <div class="similar">
+      <article class="scard"><div class="sp sp3"><b>Burning</b></div><div class="sinfo">Burning<div class="y">2018</div></div></article>
+      <article class="scard"><div class="sp sp1"><b>Oldboy</b></div><div class="sinfo">Oldboy<div class="y">2003</div></div></article>
+      <article class="scard"><div class="sp sp4"><b>El hoyo</b></div><div class="sinfo">El hoyo<div class="y">2019</div></div></article>
+      <article class="scard"><div class="sp sp2"><b>Shoplifters</b></div><div class="sinfo">Shoplifters<div class="y">2018</div></div></article>
+      <article class="scard"><div class="sp sp5"><b>Snowpiercer</b></div><div class="sinfo">Snowpiercer<div class="y">2013</div></div></article>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <span>GALA v0.1 · código abierto</span><span>·</span>
+  <span>Metadatos: TMDB (offline listo)</span><span>·</span>
+  <span>Tu contenido nunca sale de tus dispositivos</span>
+  <span class="right">127.0.0.1:7420</span>
+</footer>
+
+</body>
+</html>

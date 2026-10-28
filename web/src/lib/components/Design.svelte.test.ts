@@ -8,7 +8,20 @@ import type { Item } from '$lib/api/types';
 
 vi.mock('$lib/api/client', async () => {
 	const actual = await vi.importActual<typeof import('$lib/api/client')>('$lib/api/client');
-	return { ...actual, setWished: vi.fn().mockResolvedValue({ status: 'ok', wished: true }) };
+	return {
+		...actual,
+		setWished: vi.fn().mockResolvedValue({ status: 'ok', wished: true }),
+		getItemDetails: vi.fn().mockResolvedValue({
+			has_details: true,
+			runtime_min: 148,
+			vote_average: 8.4,
+			countries: [],
+			cast: [],
+			crew: [],
+			similar: [],
+			files: []
+		})
+	};
 });
 
 // jsdom no implementa la Web Animations API que usan las transiciones de Svelte.
@@ -97,10 +110,10 @@ describe('HeroSlider', () => {
 		const { container } = render(HeroSlider, { items: [viejo, nuevo, visto], intervalMs: 60_000 });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Nuevos' }));
-		expect(container.querySelector('h1')?.textContent).toBe('Visto'); // el más reciente primero
+		expect(container.querySelector('.slide.active h1')?.textContent).toBe('Visto'); // el más reciente primero
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Sin ver' }));
-		expect(container.querySelector('h1')?.textContent).toBe('Nuevo'); // "Visto" ya no sale
+		expect(container.querySelector('.slide.active h1')?.textContent).toBe('Nuevo'); // "Visto" ya no sale
 		expect(screen.getByRole('button', { name: 'Sin ver' }).getAttribute('aria-pressed')).toBe('true');
 	});
 
@@ -109,13 +122,13 @@ describe('HeroSlider', () => {
 		const b = item({ title: 'B', added_at: '2026-10-02T00:00:00Z' });
 		const { container } = render(HeroSlider, { items: [a, b], intervalMs: 60_000 });
 		await fireEvent.click(screen.getByRole('button', { name: 'Nuevos' }));
-		expect(container.querySelector('h1')?.textContent).toBe('A');
+		expect(container.querySelector('.slide.active h1')?.textContent).toBe('A');
 		await fireEvent.click(screen.getByRole('button', { name: 'Título siguiente' }));
-		expect(container.querySelector('h1')?.textContent).toBe('B');
+		expect(container.querySelector('.slide.active h1')?.textContent).toBe('B');
 		await fireEvent.click(screen.getByRole('button', { name: 'Título siguiente' }));
-		expect(container.querySelector('h1')?.textContent).toBe('A');
+		expect(container.querySelector('.slide.active h1')?.textContent).toBe('A');
 		await fireEvent.click(screen.getByRole('button', { name: 'Título anterior' }));
-		expect(container.querySelector('h1')?.textContent).toBe('B');
+		expect(container.querySelector('.slide.active h1')?.textContent).toBe('B');
 	});
 
 	it('una serie lleva a sus episodios; una película, al reproductor', async () => {
@@ -123,10 +136,10 @@ describe('HeroSlider', () => {
 		const serie = item({ title: 'Serie', kind: 'series', source_count: 0, added_at: '2026-10-04T00:00:00Z' });
 		const { container } = render(HeroSlider, { items: [peli, serie], intervalMs: 60_000 });
 		await fireEvent.click(screen.getByRole('button', { name: 'Nuevos' }));
-		expect(container.querySelector('a.btn-play')?.getAttribute('href')).toBe(`/ver/${peli.id}`);
+		expect(container.querySelector('.slide.active a.btn-play')?.getAttribute('href')).toBe(`/ver/${peli.id}`);
 		await fireEvent.click(screen.getByRole('button', { name: 'Título siguiente' }));
-		expect(container.querySelector('a.btn-play')?.getAttribute('href')).toBe(`/item/${serie.id}`);
-		expect(container.querySelector('a.btn-play')?.textContent).toContain('episodios');
+		expect(container.querySelector('.slide.active a.btn-play')?.getAttribute('href')).toBe(`/item/${serie.id}`);
+		expect(container.querySelector('.slide.active a.btn-play')?.textContent).toContain('episodios');
 	});
 
 	it('gira solo, y deja de girar con prefers-reduced-motion', async () => {
@@ -136,9 +149,9 @@ describe('HeroSlider', () => {
 			const b = item({ title: 'B', added_at: '2026-10-02T00:00:00Z' });
 			localStorage.setItem('gala.home.heroMode', 'nuevos');
 			const { container, unmount } = render(HeroSlider, { items: [a, b], intervalMs: 1000 });
-			expect(container.querySelector('h1')?.textContent).toBe('A');
+			expect(container.querySelector('.slide.active h1')?.textContent).toBe('A');
 			await vi.advanceTimersByTimeAsync(1100);
-			expect(container.querySelector('h1')?.textContent).toBe('B');
+			expect(container.querySelector('.slide.active h1')?.textContent).toBe('B');
 			unmount();
 
 			const original = window.matchMedia;
@@ -150,7 +163,7 @@ describe('HeroSlider', () => {
 			})) as unknown as typeof window.matchMedia;
 			const calm = render(HeroSlider, { items: [a, b], intervalMs: 1000 });
 			await vi.advanceTimersByTimeAsync(3500);
-			expect(calm.container.querySelector('h1')?.textContent).toBe('A');
+			expect(calm.container.querySelector('.slide.active h1')?.textContent).toBe('A');
 			window.matchMedia = original;
 		} finally {
 			vi.useRealTimers();
@@ -176,6 +189,31 @@ describe('HomeSection', () => {
 		const empty = render(HomeSection, { title: 'Documentales', lazy: false, fetchPage: async () => page([]) });
 		await waitFor(() => expect(empty.container.querySelector('[aria-busy="true"]')).toBeNull());
 		expect(empty.container.querySelector('section')).toBeNull();
+	});
+
+	it('una fila diferida aún sin pedir no pinta cajas vacías; sola se pide y, vacía, desaparece', async () => {
+		const realIO = globalThis.IntersectionObserver;
+		// Observador que nunca dispara: simula una fila que no llega a "verse".
+		globalThis.IntersectionObserver = class {
+			observe() {}
+			disconnect() {}
+			unobserve() {}
+		} as unknown as typeof IntersectionObserver;
+		vi.useFakeTimers();
+		try {
+			const fetchPage = vi.fn(async () => page([]));
+			const { container } = render(HomeSection, { title: 'Comedia', fetchPage });
+			expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+			expect(container.querySelector('.skeleton')).toBeNull();
+			expect(fetchPage).not.toHaveBeenCalled();
+			await vi.advanceTimersByTimeAsync(1600);
+			expect(fetchPage).toHaveBeenCalledTimes(1);
+			expect(container.querySelector('section')).toBeNull();
+			expect(container.querySelector('.skeleton')).toBeNull();
+		} finally {
+			vi.useRealTimers();
+			globalThis.IntersectionObserver = realIO;
+		}
 	});
 
 	it('mientras carga, skeleton; si falla, mensaje en español y reintentar', async () => {
@@ -206,5 +244,28 @@ describe('HomeSection', () => {
 		});
 		expect(await screen.findByText('Con fuente')).toBeInTheDocument();
 		expect(screen.queryByText('Fantasma')).toBeNull();
+	});
+});
+
+
+describe('HeroSlider — mockup de la Home', () => {
+	it('muestra duración y nota de TMDB cuando llegan, y solo la diapositiva activa lleva el h1', async () => {
+		const a = item({ title: 'A', added_at: '2026-10-03T00:00:00Z' });
+		const b = item({ title: 'B', added_at: '2026-10-02T00:00:00Z' });
+		const { container } = render(HeroSlider, { items: [a, b], intervalMs: 60_000 });
+		await fireEvent.click(screen.getByRole('button', { name: 'Nuevos' }));
+		await waitFor(() => expect(container.textContent).toContain('★ 8,4'));
+		expect(container.textContent).toContain('2 h 28 min');
+		expect(container.querySelectorAll('h1')).toHaveLength(1);
+		// Las demás diapositivas existen (fundido entre ellas) pero ocultas a lectores (y con inert para el teclado).
+		const hidden = container.querySelectorAll('.slide[aria-hidden="true"]');
+		expect(hidden.length).toBe(1);
+	});
+
+	it('el backdrop es la imagen de fondo de la diapositiva', () => {
+		const a = item({ title: 'A', backdrop_path: 'backdrop_w1280_x.jpg' });
+		const { container } = render(HeroSlider, { items: [a], intervalMs: 60_000 });
+		const bg = container.querySelector('.slide.active .slide-bg') as HTMLElement;
+		expect(bg.style.backgroundImage).toContain('backdrop_w1280_x.jpg');
 	});
 });

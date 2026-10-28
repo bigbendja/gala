@@ -74,6 +74,13 @@ describe('pickHero', () => {
 		expect(again.map((i) => i.id)).toEqual(first.map((i) => i.id));
 	});
 
+	it('el hero se acota a 5 destacados aunque haya más títulos con fondo', () => {
+		expect(HERO_MAX).toBe(5);
+		const items = Array.from({ length: 9 }, () => item());
+		expect(pickHero(items, 'destacados', NOW)).toHaveLength(5);
+		expect(pickHero(items, 'nuevos', NOW)).toHaveLength(5);
+	});
+
 	it('"destacados" rota entre días (no devuelve siempre el mismo orden)', () => {
 		const items = Array.from({ length: 8 }, () => item());
 		const orders = new Set<string>();

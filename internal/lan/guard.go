@@ -111,6 +111,9 @@ func RemoteAllowed(method, urlPath string) bool {
 		case 3, 4:
 			return get
 		case 5:
+			if seg[4] == "details" {
+				return get // reparto, equipo, similares y ficha técnica (sin rutas)
+			}
 			return seg[4] == "wish" && (method == http.MethodPost || method == http.MethodDelete)
 		}
 	case "genres":

@@ -33,8 +33,8 @@
 	// solo se rendericen unos pocos <Card> con su grid-column explícito — el
 	// resto de columnas quedan vacías pero ocupando su hueco. Así una fila
 	// de 5.000 items scrollea fluido sin montar 5.000 nodos DOM a la vez.
-	const gap = 16;
-	const cardWidth = $derived(variant === 'wide' ? 236 : 172);
+	const gap = 14;
+	const cardWidth = $derived(variant === 'wide' ? 300 : 168);
 	const step = $derived(cardWidth + gap);
 	const buffer = 4; // tarjetas extra a cada lado para que no "parpadee" en scroll rápido
 
@@ -140,33 +140,47 @@
 </section>
 
 <style>
+	/* Medidas del mockup de la Home: contenedor de 1296px, cabecera y tarjetas
+	   alineadas a 28px, tarjeta 168px, hueco 14px. */
 	.section {
-		max-width: 1236px;
+		max-width: 1296px;
 		margin: 0 auto;
-		padding: 34px 28px 0;
+		padding: 0 0 34px;
 	}
 	.sec-head {
 		display: flex;
 		align-items: baseline;
-		gap: 14px;
-		margin-bottom: 16px;
+		gap: 12px;
+		margin-bottom: 14px;
+		padding: 0 28px;
 	}
 	.sec-head h2 {
 		font-family: var(--display);
-		font-size: 21px;
+		font-size: 20px;
 		font-weight: 600;
-		letter-spacing: 0.01em;
 	}
 	.sec-head .count {
-		font-size: 12.5px;
+		font-family: var(--mono);
+		font-size: 12px;
 		color: var(--muted);
 	}
 	.sec-head .link {
 		margin-left: auto;
 		color: var(--accent);
-		font-size: 13.5px;
+		font-size: 13px;
 		font-weight: 500;
 		text-decoration: none;
+		opacity: 0;
+		transition: opacity 0.2s;
+	}
+	.section:hover .sec-head .link,
+	.sec-head .link:focus-visible {
+		opacity: 1;
+	}
+	@media (hover: none) {
+		.sec-head .link {
+			opacity: 1;
+		}
 	}
 	.sec-head .link:hover {
 		text-decoration: underline;
@@ -177,49 +191,49 @@
 	.row {
 		display: grid;
 		grid-auto-flow: column;
-		grid-auto-columns: 172px;
-		gap: 16px;
+		grid-auto-columns: 168px;
+		gap: 14px;
 		overflow-x: auto;
-		padding: 4px 4px 18px;
-		scrollbar-width: thin;
-		scrollbar-color: var(--line) transparent;
+		padding: 4px 28px 10px;
+		scrollbar-width: none;
+	}
+	.row::-webkit-scrollbar {
+		display: none;
 	}
 	.row.wide {
-		grid-auto-columns: 236px;
+		grid-auto-columns: 300px;
 	}
 	.card-skeleton {
 		aspect-ratio: 2 / 3;
 	}
 	.card-skeleton.wide-skel {
-		aspect-ratio: 16 / 12;
+		aspect-ratio: 16 / 10;
 	}
-	/* Flechas: aparecen al pasar el ratón/enfocar la fila (desktop) y siempre
-	   en táctil, donde no hay "hover". Área táctil de 44px. */
+	/* Flechas (mockup de la Home): bandas a los lados con degradado hacia el
+	   fondo; aparecen al pasar el ratón o enfocar la fila y, en táctil, siempre
+	   (donde no hay "hover"). Ancho táctil de 52px. */
 	.arrow {
 		position: absolute;
-		top: calc(50% - 40px);
+		top: 0;
+		bottom: 14px;
+		width: 52px;
 		z-index: 3;
-		width: 44px;
-		height: 44px;
-		border-radius: 50%;
-		border: 1px solid var(--line);
-		background: rgba(16, 12, 9, 0.88);
+		display: grid;
+		place-items: center;
 		color: var(--text);
-		font-size: 26px;
+		font-size: 30px;
 		line-height: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
 		opacity: 0;
 		pointer-events: none;
-		transition: opacity 0.15s, background 0.15s;
-		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+		transition: opacity 0.2s, color 0.15s;
 	}
 	.arrow.prev {
-		left: -14px;
+		left: 0;
+		background: linear-gradient(90deg, var(--bg) 30%, transparent);
 	}
 	.arrow.next {
-		right: -14px;
+		right: 0;
+		background: linear-gradient(270deg, var(--bg) 30%, transparent);
 	}
 	.carousel:hover .arrow.show,
 	.carousel:focus-within .arrow.show {
@@ -227,36 +241,25 @@
 		pointer-events: auto;
 	}
 	.arrow:hover {
-		background: var(--surface-2);
+		color: var(--accent);
 	}
 	@media (hover: none) {
 		.arrow.show {
-			opacity: 0.92;
+			opacity: 0.9;
 			pointer-events: auto;
-		}
-		.arrow.prev {
-			left: -8px;
-		}
-		.arrow.next {
-			right: -8px;
 		}
 	}
 	@media (max-width: 900px) {
-		.section {
+		.sec-head,
+		.row {
 			padding-left: 16px;
 			padding-right: 16px;
 		}
 		.row {
-			grid-auto-columns: 138px;
+			grid-auto-columns: 132px;
 		}
 		.row.wide {
-			grid-auto-columns: 200px;
-		}
-		.arrow.prev {
-			left: -6px;
-		}
-		.arrow.next {
-			right: -6px;
+			grid-auto-columns: 240px;
 		}
 	}
 </style>

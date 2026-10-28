@@ -59,6 +59,8 @@ type Item struct {
 	// SourceCount y HealthSummary se rellenan en listados (para los puntos de la tarjeta).
 	SourceCount   int            `json:"source_count"`
 	HealthSummary map[string]int `json:"health_summary,omitempty"`
+	// SeasonCount: nº de temporadas de una serie (solo en listados, solo series).
+	SeasonCount int `json:"season_count,omitempty"`
 	// Progress es el progreso de reproducción del dispositivo actual (cookie
 	// gala_device), cuando existe; lo rellena la capa de API (M4 §5, "Continuar
 	// viendo"). nil si el dispositivo nunca reprodujo este item.
