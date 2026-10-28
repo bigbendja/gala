@@ -33,8 +33,8 @@
 	// solo se rendericen unos pocos <Card> con su grid-column explícito — el
 	// resto de columnas quedan vacías pero ocupando su hueco. Así una fila
 	// de 5.000 items scrollea fluido sin montar 5.000 nodos DOM a la vez.
-	const gap = 16;
-	const cardWidth = $derived(variant === 'wide' ? 236 : 172);
+	const gap = 14;
+	const cardWidth = $derived(variant === 'wide' ? 300 : 168);
 	const step = $derived(cardWidth + gap);
 	const buffer = 4; // tarjetas extra a cada lado para que no "parpadee" en scroll rápido
 
@@ -140,33 +140,47 @@
 </section>
 
 <style>
+	/* Medidas del mockup de la Home: contenedor de 1296px, cabecera y tarjetas
+	   alineadas a 28px, tarjeta 168px, hueco 14px. */
 	.section {
-		max-width: 1236px;
+		max-width: 1296px;
 		margin: 0 auto;
-		padding: 34px 28px 0;
+		padding: 0 0 34px;
 	}
 	.sec-head {
 		display: flex;
 		align-items: baseline;
-		gap: 14px;
-		margin-bottom: 16px;
+		gap: 12px;
+		margin-bottom: 14px;
+		padding: 0 28px;
 	}
 	.sec-head h2 {
 		font-family: var(--display);
-		font-size: 21px;
+		font-size: 20px;
 		font-weight: 600;
-		letter-spacing: 0.01em;
 	}
 	.sec-head .count {
-		font-size: 12.5px;
+		font-family: var(--mono);
+		font-size: 12px;
 		color: var(--muted);
 	}
 	.sec-head .link {
 		margin-left: auto;
 		color: var(--accent);
-		font-size: 13.5px;
+		font-size: 13px;
 		font-weight: 500;
 		text-decoration: none;
+		opacity: 0;
+		transition: opacity 0.2s;
+	}
+	.section:hover .sec-head .link,
+	.sec-head .link:focus-visible {
+		opacity: 1;
+	}
+	@media (hover: none) {
+		.sec-head .link {
+			opacity: 1;
+		}
 	}
 	.sec-head .link:hover {
 		text-decoration: underline;
@@ -177,21 +191,23 @@
 	.row {
 		display: grid;
 		grid-auto-flow: column;
-		grid-auto-columns: 172px;
-		gap: 16px;
+		grid-auto-columns: 168px;
+		gap: 14px;
 		overflow-x: auto;
-		padding: 4px 4px 18px;
-		scrollbar-width: thin;
-		scrollbar-color: var(--line) transparent;
+		padding: 4px 28px 10px;
+		scrollbar-width: none;
+	}
+	.row::-webkit-scrollbar {
+		display: none;
 	}
 	.row.wide {
-		grid-auto-columns: 236px;
+		grid-auto-columns: 300px;
 	}
 	.card-skeleton {
 		aspect-ratio: 2 / 3;
 	}
 	.card-skeleton.wide-skel {
-		aspect-ratio: 16 / 12;
+		aspect-ratio: 16 / 10;
 	}
 	/* Flechas (mockup de la Home): bandas a los lados con degradado hacia el
 	   fondo; aparecen al pasar el ratón o enfocar la fila y, en táctil, siempre
@@ -234,15 +250,16 @@
 		}
 	}
 	@media (max-width: 900px) {
-		.section {
+		.sec-head,
+		.row {
 			padding-left: 16px;
 			padding-right: 16px;
 		}
 		.row {
-			grid-auto-columns: 138px;
+			grid-auto-columns: 132px;
 		}
 		.row.wide {
-			grid-auto-columns: 200px;
+			grid-auto-columns: 240px;
 		}
 	}
 </style>

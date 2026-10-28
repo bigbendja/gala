@@ -154,10 +154,10 @@
 		position: relative;
 		display: flex;
 		align-items: flex-end;
-		padding: 14px;
+		padding: 12px;
 		font-family: var(--display);
 		font-weight: 800;
-		font-size: 17px;
+		font-size: 16px;
 		line-height: 1.1;
 	}
 	.card .poster img {
@@ -169,13 +169,13 @@
 	}
 	.card.wide-card .poster {
 		aspect-ratio: 16 / 10;
-		font-size: 18px;
+		font-size: 17px;
 	}
 	.card .poster::after {
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: linear-gradient(180deg, transparent 40%, rgba(10, 7, 4, 0.85));
+		background: linear-gradient(180deg, transparent 45%, rgba(10, 7, 4, 0.9));
 		pointer-events: none;
 	}
 	.card .poster b {
@@ -183,14 +183,14 @@
 		z-index: 1;
 	}
 	.card .info {
-		padding: 10px 12px 12px;
+		padding: 9px 11px 11px;
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 5px;
 	}
 	.card .t {
 		font-weight: 600;
-		font-size: 13.5px;
+		font-size: 13px;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -198,8 +198,8 @@
 	.card .m {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		font-size: 12px;
+		gap: 7px;
+		font-size: 11.5px;
 		color: var(--muted);
 	}
 	.dots {

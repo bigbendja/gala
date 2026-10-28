@@ -365,6 +365,12 @@ cultura del disco duro que circula.
       Reparto, Equipo, «Este archivo» y «Más como esto» (`CastRail`,
       `FileSpecs`, `SimilarRail`); un título sin identificar NO enseña
       secciones de TMDB. El stack de fuentes de GALA se conserva.
+      Tercera pasada (fidelidad visual de la Home, comparada con capturas en
+      `docs/screenshots/fidelidad/`): medidas del mockup (contenedor 1296,
+      tarjeta 168/300, hueco 14, cabeceras a 28px, sin barra de scroll nativa,
+      «Ver todo» al pasar el ratón); una fila diferida aún sin pedir NO pinta
+      cajas (el skeleton es solo mientras carga de verdad), se pide sola a los
+      1,5 s si no llegó a verse y, vacía, desaparece.
 - [x] M7 Modo LAN (Fase 2; pendiente de la prueba en móvil real y del CI
       verde, que confirma el titular): `internal/lan` (detección de la IP
       local — `Candidates()` ordena IPv4 física privada > pública > virtual

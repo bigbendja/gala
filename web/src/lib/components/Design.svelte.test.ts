@@ -191,6 +191,31 @@ describe('HomeSection', () => {
 		expect(empty.container.querySelector('section')).toBeNull();
 	});
 
+	it('una fila diferida aún sin pedir no pinta cajas vacías; sola se pide y, vacía, desaparece', async () => {
+		const realIO = globalThis.IntersectionObserver;
+		// Observador que nunca dispara: simula una fila que no llega a "verse".
+		globalThis.IntersectionObserver = class {
+			observe() {}
+			disconnect() {}
+			unobserve() {}
+		} as unknown as typeof IntersectionObserver;
+		vi.useFakeTimers();
+		try {
+			const fetchPage = vi.fn(async () => page([]));
+			const { container } = render(HomeSection, { title: 'Comedia', fetchPage });
+			expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+			expect(container.querySelector('.skeleton')).toBeNull();
+			expect(fetchPage).not.toHaveBeenCalled();
+			await vi.advanceTimersByTimeAsync(1600);
+			expect(fetchPage).toHaveBeenCalledTimes(1);
+			expect(container.querySelector('section')).toBeNull();
+			expect(container.querySelector('.skeleton')).toBeNull();
+		} finally {
+			vi.useRealTimers();
+			globalThis.IntersectionObserver = realIO;
+		}
+	});
+
 	it('mientras carga, skeleton; si falla, mensaje en español y reintentar', async () => {
 		const { ApiError } = await import('$lib/api/client');
 		let calls = 0;

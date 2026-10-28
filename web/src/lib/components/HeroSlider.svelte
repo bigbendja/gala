@@ -270,7 +270,7 @@
 		height: 100%;
 		max-width: 640px;
 		margin-left: max(28px, calc((100vw - 1240px) / 2));
-		padding: 0 28px 58px 0;
+		padding: 0 28px 54px;
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-end;
