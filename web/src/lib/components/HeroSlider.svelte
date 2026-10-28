@@ -1,12 +1,12 @@
 <script lang="ts">
-	// Hero-slider de la Home (Sistema de Diseño GALA §5): varios títulos que
-	// rotan solos, con filtros (Destacados / Nuevos / Sin ver) que deciden qué
-	// los alimenta. Datos reales de la API; si un título no tiene fondo no
-	// entra (nunca se inventa una imagen).
-	import { fade } from 'svelte/transition';
-	import { imgUrl, setWished } from '$lib/api/client';
-	import type { Item } from '$lib/api/types';
-	import { addedEyebrow, displayTitle } from '$lib/format';
+	// Hero-slider de la Home (mockup GALA_Mockup_Home): el backdrop apaisado de
+	// TMDB ocupa toda la anchura, con degradado hacia el fondo; el texto abajo a
+	// la izquierda; filtros arriba a la derecha; puntos-barra y flechas. Rota
+	// solo (se detiene con ratón, foco, pestaña oculta y prefers-reduced-motion).
+	// Datos reales de la API; un título sin fondo no entra.
+	import { getItemDetails, imgUrl, setWished } from '$lib/api/client';
+	import type { Item, ItemDetails } from '$lib/api/types';
+	import { addedEyebrow, displayTitle, formatRating, formatRuntime } from '$lib/format';
 	import { HERO_MODES, pickHero, playHref, playLabel, type HeroMode } from '$lib/home';
 
 	interface Props {
@@ -15,7 +15,7 @@
 		/** Milisegundos entre diapositivas. */
 		intervalMs?: number;
 	}
-	let { items, intervalMs = 8000 }: Props = $props();
+	let { items, intervalMs = 6000 }: Props = $props();
 
 	const STORAGE_KEY = 'gala.home.heroMode';
 	function loadMode(): HeroMode {
@@ -36,7 +36,7 @@
 	let reducedMotion = $state(false);
 
 	const slides = $derived(pickHero(items, mode));
-	const current = $derived(slides.length ? slides[Math.min(index, slides.length - 1)] : null);
+	const activeIndex = $derived(slides.length ? Math.min(index, slides.length - 1) : 0);
 
 	function setMode(next: HeroMode) {
 		mode = next;
@@ -71,22 +71,43 @@
 
 	$effect(() => {
 		if (reducedMotion || hovering || focusInside || tabHidden || slides.length < 2) return;
-		const t = setInterval(() => go(index + 1), intervalMs);
+		const t = setInterval(() => go(activeIndex + 1), intervalMs);
 		return () => clearInterval(t);
+	});
+
+	// Duración y nota de TMDB de cada diapositiva (la lista no las trae): una
+	// petición pequeña por título, una sola vez.
+	let detailsMap = $state<Record<number, ItemDetails | null>>({});
+	const requested = new Set<number>();
+	$effect(() => {
+		let alive = true;
+		for (const s of slides) {
+			if (requested.has(s.id)) continue;
+			requested.add(s.id);
+			getItemDetails(s.id)
+				.then((d) => alive && (detailsMap = { ...detailsMap, [s.id]: d }))
+				.catch(() => alive && (detailsMap = { ...detailsMap, [s.id]: null }));
+		}
+		return () => {
+			alive = false;
+			// Si el efecto se relanza antes de que llegue, se vuelve a pedir.
+			for (const s of slides) if (!(s.id in detailsMap)) requested.delete(s.id);
+		};
 	});
 
 	// "+ Mi lista" por diapositiva: estado propio sembrado con el real.
 	let wishedOverride = $state<Record<number, boolean>>({});
 	let wishPending = $state(false);
-	const currentWished = $derived(current ? (wishedOverride[current.id] ?? current.wished) : false);
-	async function toggleWished() {
-		if (!current || wishPending) return;
-		const id = current.id;
-		const next = !currentWished;
+	function isWished(it: Item): boolean {
+		return wishedOverride[it.id] ?? it.wished;
+	}
+	async function toggleWished(it: Item) {
+		if (wishPending) return;
+		const next = !isWished(it);
 		wishPending = true;
 		try {
-			await setWished(id, next);
-			wishedOverride = { ...wishedOverride, [id]: next };
+			await setWished(it.id, next);
+			wishedOverride = { ...wishedOverride, [it.id]: next };
 		} catch {
 			// el botón se queda como estaba; el usuario puede reintentar
 		} finally {
@@ -97,16 +118,19 @@
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'ArrowLeft') {
 			e.preventDefault();
-			go(index - 1);
+			go(activeIndex - 1);
 		} else if (e.key === 'ArrowRight') {
 			e.preventDefault();
-			go(index + 1);
+			go(activeIndex + 1);
 		}
 	}
 
-	const backdrop = $derived(current ? imgUrl(current.backdrop_path) : null);
-	const poster = $derived(current ? imgUrl(current.poster_path) : null);
-	const title = $derived(current ? displayTitle(current) : '');
+	function eyebrow(it: Item): string {
+		const kind = it.kind === 'series' ? 'Serie' : 'Película';
+		if (mode === 'nuevos') return `${addedEyebrow(it.added_at)} · ${kind}`;
+		if (mode === 'sin_ver') return `Sin ver · ${kind}`;
+		return `Destacado · ${kind}`;
+	}
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -120,52 +144,48 @@
 	onfocusout={() => (focusInside = false)}
 	onkeydown={onKey}
 >
-	{#if backdrop}
-		{#key current?.id}
-			<div
-				class="hero-bg"
-				style:background-image="url({backdrop})"
-				in:fade={{ duration: reducedMotion ? 0 : 450 }}
-			></div>
-		{/key}
-	{/if}
-
-	<div class="hero-inner">
-		{#if current}
-			{#key current.id}
-				<div class="copy" in:fade={{ duration: reducedMotion ? 0 : 350 }}>
-					<div class="eyebrow">{addedEyebrow(current.added_at)}</div>
-					<h1>{title}</h1>
-					<div class="hero-meta">
-						{#if current.rating_cert}<span class="cert">{current.rating_cert}+</span>{/if}
-						{#if current.year}<span>{current.year}</span>{/if}
-						{#if current.genres.length}<span>{current.genres.slice(0, 3).join(' · ')}</span>{/if}
-					</div>
-					{#if current.overview}<p class="overview">{current.overview}</p>{/if}
-					<div class="hero-actions">
-						<a class="btn-play" href={playHref(current)}>{playLabel(current)}</a>
-						<button
-							class="btn btn-secondary"
-							class:active={currentWished}
-							disabled={wishPending}
-							onclick={toggleWished}
-						>
-							{currentWished ? '✓ En tu lista' : '＋ Mi lista'}
-						</button>
-						<a class="btn btn-secondary" href="/item/{current.id}">Detalles</a>
-					</div>
+	{#each slides as it, i (it.id)}
+		{@const active = i === activeIndex}
+		{@const bg = imgUrl(it.backdrop_path)}
+		{@const d = detailsMap[it.id]}
+		{@const runtime = formatRuntime(d?.runtime_min)}
+		{@const rating = formatRating(d?.vote_average)}
+		<div
+			class="slide"
+			class:active
+			role="group"
+			aria-roledescription="diapositiva"
+			aria-label="{i + 1} de {slides.length}"
+			aria-hidden={!active}
+			inert={!active}
+		>
+			<div class="slide-bg" style:background-image={bg ? `url(${bg})` : undefined}></div>
+			<div class="slide-inner">
+				<div class="eyebrow">{eyebrow(it)}</div>
+				<svelte:element this={active ? 'h1' : 'p'} class="ttl">{displayTitle(it)}</svelte:element>
+				<div class="hero-meta">
+					{#if it.rating_cert}<span class="cert">{it.rating_cert}+</span>{/if}
+					{#if it.year}<span>{it.year}</span>{/if}
+					{#if runtime}<span>{runtime}</span>{/if}
+					{#if it.genres.length}<span>{it.genres.slice(0, 2).join(' · ')}</span>{/if}
+					{#if rating}<span class="star" title="Nota de TMDB">★ {rating}</span>{/if}
 				</div>
-			{/key}
+				{#if it.overview}<p class="overview">{it.overview}</p>{/if}
+				<div class="hero-actions">
+					<a class="btn-play" href={playHref(it)}>{playLabel(it)}</a>
+					<button class="btn-ghost" class:on={isWished(it)} disabled={wishPending} onclick={() => toggleWished(it)}>
+						{isWished(it) ? '✓ En tu lista' : '＋ Mi lista'}
+					</button>
+					<a class="btn-ghost" href="/item/{it.id}">Detalles</a>
+				</div>
+			</div>
+		</div>
+	{/each}
 
-			<a class="hero-poster" href="/item/{current.id}" tabindex="-1" aria-hidden="true">
-				{#if poster}
-					<img src={poster} alt="" />
-				{:else}
-					<div class="art"><b>{title}</b></div>
-				{/if}
-			</a>
-		{:else}
-			<div class="copy none">
+	{#if slides.length === 0}
+		<div class="slide active empty">
+			<div class="slide-bg"></div>
+			<div class="slide-inner">
 				<p class="none-title">Nada que enseñar con este filtro</p>
 				<p class="none-text">
 					{mode === 'sin_ver'
@@ -173,123 +193,105 @@
 						: 'Todavía no hay títulos con imagen de fondo. Se completan al identificarlos.'}
 				</p>
 			</div>
-		{/if}
+		</div>
+	{/if}
+
+	<div class="hero-filters" role="group" aria-label="Qué se muestra en el destacado">
+		<span class="flabel">Destacar</span>
+		{#each HERO_MODES as m (m.id)}
+			<button class="chip" class:on={mode === m.id} aria-pressed={mode === m.id} onclick={() => setMode(m.id)}>
+				{m.label}
+			</button>
+		{/each}
 	</div>
 
-	<div class="controls">
-		<div class="chips" role="group" aria-label="Qué se muestra en el destacado">
-			{#each HERO_MODES as m (m.id)}
-				<button class="chip" class:on={mode === m.id} aria-pressed={mode === m.id} onclick={() => setMode(m.id)}>
-					{m.label}
-				</button>
+	{#if slides.length > 1}
+		<button class="hero-arrow prev" onclick={() => go(activeIndex - 1)} aria-label="Título anterior">‹</button>
+		<button class="hero-arrow next" onclick={() => go(activeIndex + 1)} aria-label="Título siguiente">›</button>
+		<div class="hero-dots" role="group" aria-label="Elegir título">
+			{#each slides as s, i (s.id)}
+				<button
+					class="dot"
+					class:on={i === activeIndex}
+					aria-label="Título {i + 1} de {slides.length}: {displayTitle(s)}"
+					aria-current={i === activeIndex}
+					onclick={() => go(i)}
+				></button>
 			{/each}
 		</div>
-
-		{#if slides.length > 1}
-			<div class="nav">
-				<button class="arrow" onclick={() => go(index - 1)} aria-label="Título anterior">‹</button>
-				<div class="dots" role="group" aria-label="Elegir título">
-					{#each slides as s, i (s.id)}
-						<button
-							class="dot"
-							class:on={i === index}
-							aria-label="Título {i + 1} de {slides.length}: {displayTitle(s)}"
-							aria-current={i === index}
-							onclick={() => go(i)}
-						></button>
-					{/each}
-				</div>
-				<button class="arrow" onclick={() => go(index + 1)} aria-label="Título siguiente">›</button>
-			</div>
-		{/if}
-	</div>
+	{/if}
 </section>
 
 <style>
 	.hero {
 		position: relative;
-		padding: 56px 28px 96px;
+		height: clamp(440px, 56vw, 620px);
 		overflow: hidden;
 		isolation: isolate;
-		min-height: 440px;
+		background: #0d0a06;
 	}
-	.hero::before {
-		content: '';
+	.slide {
 		position: absolute;
 		inset: 0;
-		z-index: -2;
-		background: radial-gradient(120% 90% at 78% 8%, #3d2a14 0%, #221709 42%, var(--bg) 78%);
-	}
-	.hero-bg {
-		position: absolute;
-		inset: 0;
-		z-index: -3;
-		background-size: cover;
-		background-position: center 20%;
-		opacity: 0.4;
-		-webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 85%);
-		mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 85%);
-	}
-	/* Haz de proyector: la firma visual del hero. */
-	.hero::after {
-		content: '';
-		position: absolute;
-		top: -20%;
-		right: 6%;
-		width: 60%;
-		height: 150%;
-		z-index: -1;
+		opacity: 0;
+		transition: opacity 1s ease;
 		pointer-events: none;
-		background: conic-gradient(
-			from 208deg at 100% 0%,
-			transparent 0deg,
-			rgba(242, 169, 59, 0.1) 8deg,
-			rgba(242, 169, 59, 0.03) 22deg,
-			transparent 34deg
-		);
-		animation: beam 9s ease-in-out infinite alternate;
 	}
-	@keyframes beam {
-		from {
-			opacity: 0.7;
-		}
-		to {
-			opacity: 1;
-		}
+	.slide.active {
+		opacity: 1;
+		pointer-events: auto;
+	}
+	.slide-bg {
+		position: absolute;
+		inset: 0;
+		background-color: #0d0a06;
+		background-image: radial-gradient(120% 90% at 75% 20%, #4a3016, #1e1207 55%, #0d0a06);
+		background-size: cover;
+		background-position: center 28%;
+	}
+	/* Degradado hacia el fondo: texto legible a la izquierda, imagen a la
+	   derecha, y el borde inferior se funde con la página. */
+	.slide-bg::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background:
+			linear-gradient(90deg, var(--bg) 0%, rgba(16, 12, 9, 0.75) 38%, rgba(16, 12, 9, 0.1) 70%, transparent 100%),
+			linear-gradient(0deg, var(--bg) 2%, transparent 42%);
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.hero::after {
-			animation: none;
+		.slide {
+			transition: none;
 		}
 	}
-	.hero-inner {
-		max-width: 1180px;
-		margin: 0 auto;
-		display: grid;
-		grid-template-columns: 1fr 280px;
-		gap: 48px;
-		align-items: center;
-		min-height: 300px;
-	}
-	.copy {
-		min-width: 0;
+	.slide-inner {
+		position: relative;
+		z-index: 2;
+		height: 100%;
+		max-width: 640px;
+		margin-left: max(28px, calc((100vw - 1240px) / 2));
+		padding: 0 28px 54px;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
 	}
 	.eyebrow {
+		font-family: var(--mono);
 		font-size: 12px;
-		font-weight: 600;
 		letter-spacing: 0.14em;
 		color: var(--accent);
 		text-transform: uppercase;
-		margin-bottom: 14px;
+		margin-bottom: 12px;
 	}
-	h1 {
+	.ttl {
 		font-family: var(--display);
-		font-size: clamp(34px, 4.6vw, 58px);
+		font-size: clamp(34px, 4.6vw, 56px);
 		font-weight: 800;
 		line-height: 1.02;
 		letter-spacing: -0.01em;
-		margin-bottom: 16px;
+		margin-bottom: 14px;
 		overflow-wrap: anywhere;
+		text-shadow: 0 2px 28px rgba(0, 0, 0, 0.55);
 	}
 	.hero-meta {
 		display: flex;
@@ -297,7 +299,7 @@
 		align-items: center;
 		color: var(--muted);
 		font-size: 14px;
-		margin-bottom: 14px;
+		margin-bottom: 12px;
 		flex-wrap: wrap;
 	}
 	.hero-meta .cert {
@@ -306,10 +308,15 @@
 		padding: 1px 7px;
 		font-size: 12px;
 	}
+	.hero-meta .star {
+		color: var(--accent);
+		font-weight: 600;
+	}
 	.overview {
-		color: var(--muted);
-		max-width: 560px;
-		margin-bottom: 22px;
+		color: #d9cab8;
+		max-width: 540px;
+		margin-bottom: 20px;
+		font-size: 15.5px;
 		display: -webkit-box;
 		-webkit-line-clamp: 3;
 		line-clamp: 3;
@@ -326,12 +333,12 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 10px;
-		min-height: 44px;
+		min-height: 46px;
 		background: var(--text);
 		color: #17110a;
 		font-weight: 600;
 		font-size: 15px;
-		padding: 12px 26px;
+		padding: 12px 28px;
 		border-radius: 11px;
 		transition: 0.15s;
 		text-decoration: none;
@@ -340,48 +347,35 @@
 		transform: translateY(-1px);
 		box-shadow: 0 8px 24px rgba(244, 237, 227, 0.15);
 	}
-	.hero-actions :global(.btn) {
-		min-height: 44px;
+	.btn-ghost {
+		display: inline-flex;
+		align-items: center;
+		min-height: 46px;
 		padding: 12px 20px;
-		font-size: 15px;
 		border-radius: 11px;
+		border: 1px solid rgba(244, 237, 227, 0.2);
+		color: var(--text);
+		background: rgba(255, 255, 255, 0.06);
+		font-weight: 500;
+		font-size: 15px;
+		text-decoration: none;
+		transition: 0.15s;
 	}
-	.hero-actions :global(.btn.active) {
+	.btn-ghost:hover:not(:disabled) {
+		background: rgba(255, 255, 255, 0.12);
+	}
+	.btn-ghost.on {
 		border-color: rgba(242, 169, 59, 0.4);
 		color: var(--accent);
 		background: rgba(242, 169, 59, 0.1);
 	}
-	.hero-poster {
-		display: block;
-		aspect-ratio: 2 / 3;
-		border-radius: 16px;
-		overflow: hidden;
-		position: relative;
-		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--line);
-		background: linear-gradient(160deg, #4a3016 0%, #1e1207 55%, #0d0a06 100%);
-	}
-	.hero-poster img {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-	.hero-poster .art {
-		position: absolute;
-		inset: 0;
-		display: flex;
-		align-items: flex-end;
-		padding: 22px;
-		font-family: var(--display);
-		font-weight: 800;
-		font-size: 28px;
-		line-height: 1.05;
-		background: radial-gradient(90% 60% at 30% 20%, rgba(242, 169, 59, 0.35), transparent 60%);
+	.btn-ghost:disabled {
+		opacity: 0.6;
+		cursor: default;
 	}
 	.none-title {
 		font-family: var(--display);
-		font-size: 24px;
+		font-size: 26px;
 		font-weight: 600;
 		margin-bottom: 6px;
 	}
@@ -390,128 +384,149 @@
 		max-width: 46ch;
 	}
 
-	/* Filtros y navegación, abajo del hero. */
-	.controls {
+	/* Filtros arriba a la derecha. */
+	.hero-filters {
 		position: absolute;
-		left: 0;
-		right: 0;
-		bottom: 22px;
-		max-width: 1180px;
-		margin: 0 auto;
-		padding: 0 28px;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 16px;
-		flex-wrap: wrap;
-	}
-	.chips {
+		top: 22px;
+		right: max(28px, calc((100vw - 1240px) / 2));
+		z-index: 3;
 		display: flex;
 		gap: 8px;
+		align-items: center;
+	}
+	.flabel {
+		font-family: var(--mono);
+		font-size: 11px;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--muted);
+		margin-right: 4px;
 	}
 	.chip {
 		min-height: 36px;
+		font-size: 13px;
 		padding: 6px 14px;
 		border-radius: 99px;
 		border: 1px solid var(--line);
-		background: rgba(16, 12, 9, 0.55);
+		background: rgba(16, 12, 9, 0.6);
 		color: var(--muted);
-		font-size: 13px;
-		font-weight: 500;
 		transition: 0.15s;
+		backdrop-filter: blur(6px);
 	}
 	.chip:hover {
 		color: var(--text);
-		background: var(--surface);
-	}
-	.chip.on {
-		color: var(--text);
-		background: var(--surface-2);
 		border-color: #4d3a22;
 	}
-	.nav {
-		display: flex;
-		align-items: center;
-		gap: 10px;
+	.chip.on {
+		background: var(--accent);
+		color: #1a1207;
+		border-color: var(--accent);
+		font-weight: 600;
 	}
-	.arrow {
-		width: 40px;
-		height: 40px;
+
+	/* Flechas laterales (aparecen al pasar el ratón o enfocar) y puntos-barra. */
+	.hero-arrow {
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		z-index: 3;
+		width: 46px;
+		height: 46px;
 		border-radius: 50%;
-		border: 1px solid var(--line);
 		background: rgba(16, 12, 9, 0.55);
+		border: 1px solid var(--line);
+		display: grid;
+		place-items: center;
 		color: var(--text);
 		font-size: 22px;
 		line-height: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: 0.15s;
+		opacity: 0;
+		transition: 0.2s;
+		backdrop-filter: blur(6px);
 	}
-	.arrow:hover {
-		background: var(--surface-2);
+	.hero:hover .hero-arrow,
+	.hero:focus-within .hero-arrow {
+		opacity: 1;
 	}
-	.dots {
+	.hero-arrow.prev {
+		left: 20px;
+	}
+	.hero-arrow.next {
+		right: 20px;
+	}
+	.hero-arrow:hover {
+		background: rgba(16, 12, 9, 0.85);
+		border-color: #4d3a22;
+	}
+	.hero-dots {
+		position: absolute;
+		bottom: 14px;
+		right: max(28px, calc((100vw - 1240px) / 2));
+		z-index: 3;
 		display: flex;
 		gap: 2px;
-		align-items: center;
 	}
-	/* El punto es pequeño; el área táctil (40px) la da el botón entero. */
+	/* El botón da el área táctil (40px); la barra es lo que se ve. */
 	.dot {
 		position: relative;
-		width: 24px;
-		height: 40px;
+		width: 36px;
+		height: 36px;
 	}
 	.dot::after {
 		content: '';
 		position: absolute;
 		top: 50%;
 		left: 50%;
-		width: 8px;
-		height: 8px;
-		margin: -4px 0 0 -4px;
-		border-radius: 50%;
-		background: var(--off);
+		width: 28px;
+		height: 4px;
+		margin: -2px 0 0 -14px;
+		border-radius: 2px;
+		background: rgba(244, 237, 227, 0.25);
 		transition: 0.2s;
 	}
-	.dot.on::after {
-		width: 22px;
-		margin-left: -11px;
-		border-radius: 99px;
-		background: var(--accent);
-	}
 	.dot:hover::after {
-		background: var(--muted);
+		background: rgba(244, 237, 227, 0.5);
 	}
-	.dot.on:hover::after {
+	.dot.on::after {
+		width: 40px;
+		margin-left: -20px;
 		background: var(--accent);
 	}
 
 	@media (max-width: 900px) {
 		.hero {
-			padding: 36px 16px 100px;
-			min-height: 0;
+			height: auto;
+			min-height: 480px;
 		}
-		.hero-inner {
-			grid-template-columns: 1fr;
-			gap: 20px;
-			min-height: 0;
+		.slide {
+			position: absolute;
 		}
-		.hero-poster {
+		.slide-inner {
+			margin-left: 0;
+			max-width: none;
+			padding: 0 16px 62px;
+		}
+		.slide-bg::after {
+			background:
+				linear-gradient(90deg, rgba(16, 12, 9, 0.7) 0%, rgba(16, 12, 9, 0.25) 100%),
+				linear-gradient(0deg, var(--bg) 4%, transparent 62%);
+		}
+		.hero-filters {
+			top: 12px;
+			left: 16px;
+			right: 16px;
+			overflow-x: auto;
+			scrollbar-width: none;
+		}
+		.flabel {
 			display: none;
 		}
-		.controls {
-			padding: 0 16px;
-			bottom: 14px;
+		.hero-dots {
+			right: 8px;
+			bottom: 8px;
 		}
-		.arrow {
+		.hero-arrow {
 			display: none;
-		}
-	}
-	@media (max-width: 480px) {
-		.chip {
-			padding: 6px 11px;
-			font-size: 12.5px;
 		}
 	}
 </style>

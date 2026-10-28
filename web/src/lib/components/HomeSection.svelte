@@ -23,6 +23,8 @@
 		filter?: (items: Item[]) => Item[];
 		/** false = pide ya (arriba del pliegue); true = espera a estar cerca. */
 		lazy?: boolean;
+		/** Enseña "N títulos" junto al título (mockup: contador de la fila). */
+		showCount?: boolean;
 		/** Se avisa con el número de títulos al cargar (para decidir si hay Home). */
 		onLoaded?: (count: number) => void;
 	}
@@ -35,6 +37,7 @@
 		fetchPage,
 		filter = (items) => items,
 		lazy = true,
+		showCount = false,
 		onLoaded
 	}: Props = $props();
 
@@ -104,6 +107,14 @@
 		return () => io.disconnect();
 	});
 
+	// Red de seguridad: una fila que no llegó a cruzar el umbral de visibilidad
+	// (pantalla alta, observador sin disparar) se pide igualmente poco después;
+	// así nunca queda una fila a medias, y si no tiene nada desaparece.
+	onMount(() => {
+		const t = setTimeout(start, 1500);
+		return () => clearTimeout(t);
+	});
+
 	function retry() {
 		started = true;
 		void loadFirst();
@@ -116,7 +127,9 @@
 			<h2>{title}</h2>
 			<StateBlock compact tone="error" title="No se pudo cargar esta fila" text={error} actionLabel="Reintentar" onAction={retry} />
 		</section>
-	{:else if !started || (loading && items.length === 0)}
+	{:else if !started}
+		<!-- fila diferida aún sin pedir: no ocupa sitio (nada de cajas vacías) -->
+	{:else if loading && items.length === 0}
 		<section class="sec" aria-busy="true" aria-label="Cargando {title}">
 			<div class="skeleton head-skel"></div>
 			<div class="skel-row">
@@ -128,7 +141,7 @@
 	{:else if done && items.length > 0}
 		<Row
 			{title}
-			{subtitle}
+			subtitle={subtitle ?? (showCount ? `${rawTotal} ${rawTotal === 1 ? 'título' : 'títulos'}` : undefined)}
 			{linkHref}
 			{linkText}
 			{variant}
@@ -142,15 +155,15 @@
 
 <style>
 	.sec {
-		max-width: 1236px;
+		max-width: 1296px;
 		margin: 0 auto;
-		padding: 34px 28px 0;
+		padding: 0 28px 34px;
 	}
 	.sec h2 {
 		font-family: var(--display);
-		font-size: 21px;
+		font-size: 20px;
 		font-weight: 600;
-		margin-bottom: 16px;
+		margin-bottom: 14px;
 	}
 	.head-skel {
 		width: 180px;
@@ -160,17 +173,17 @@
 	}
 	.skel-row {
 		display: flex;
-		gap: 16px;
+		gap: 14px;
 		overflow: hidden;
-		padding: 4px 4px 18px;
+		padding: 4px 0 10px;
 	}
 	.card-skel {
-		flex: 0 0 172px;
+		flex: 0 0 168px;
 		aspect-ratio: 2 / 3;
 	}
 	.card-skel.wide {
-		flex-basis: 236px;
-		aspect-ratio: 16 / 12;
+		flex-basis: 300px;
+		aspect-ratio: 16 / 10;
 	}
 	@media (max-width: 900px) {
 		.sec {
@@ -178,10 +191,10 @@
 			padding-right: 16px;
 		}
 		.card-skel {
-			flex-basis: 138px;
+			flex-basis: 132px;
 		}
 		.card-skel.wide {
-			flex-basis: 200px;
+			flex-basis: 240px;
 		}
 	}
 </style>

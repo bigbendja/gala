@@ -14,7 +14,7 @@ export const HERO_MODES: { id: HeroMode; label: string }[] = [
 ];
 
 /** Máximo de diapositivas del hero. */
-export const HERO_MAX = 8;
+export const HERO_MAX = 5;
 
 /** Género de TMDB (en español) que alimenta la fila "Documentales". */
 export const DOCUMENTARY_GENRE = 'Documental';

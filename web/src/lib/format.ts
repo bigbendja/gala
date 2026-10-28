@@ -218,3 +218,95 @@ export function listDisplayName(name: string, type: string): string {
 	}
 	return name;
 }
+
+
+// --- Ficha enriquecida (Fase 1, Parte B) -------------------------------------
+
+/** 132 → "2 h 12 min"; 45 → "45 min". */
+export function formatRuntime(min: number | undefined | null): string {
+	if (!min || min <= 0) return '';
+	const h = Math.floor(min / 60);
+	const m = Math.round(min % 60);
+	if (h === 0) return `${m} min`;
+	return m === 0 ? `${h} h` : `${h} h ${String(m).padStart(2, '0')} min`;
+}
+
+/** Nota de TMDB con coma decimal: 8.4 → "8,4". */
+export function formatRating(v: number | undefined | null): string {
+	if (!v || v <= 0) return '';
+	return v.toFixed(1).replace('.', ',');
+}
+
+/** 2254857830 → "2,1 GB". */
+export function formatBytes(n: number | undefined | null): string {
+	if (!n || n <= 0) return '';
+	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+	let v = n;
+	let i = 0;
+	while (v >= 1024 && i < units.length - 1) {
+		v /= 1024;
+		i++;
+	}
+	const text = i === 0 ? String(Math.round(v)) : v.toFixed(v >= 100 ? 0 : 1).replace('.', ',');
+	return `${text} ${units[i]}`;
+}
+
+const VIDEO_CODECS: Record<string, string> = {
+	h264: 'H.264',
+	hevc: 'HEVC (H.265)',
+	h265: 'HEVC (H.265)',
+	vp9: 'VP9',
+	vp8: 'VP8',
+	av1: 'AV1',
+	mpeg4: 'MPEG-4',
+	mpeg2video: 'MPEG-2'
+};
+const AUDIO_CODECS: Record<string, string> = {
+	aac: 'AAC',
+	ac3: 'Dolby Digital (AC3)',
+	eac3: 'Dolby Digital Plus',
+	dts: 'DTS',
+	mp3: 'MP3',
+	opus: 'Opus',
+	vorbis: 'Vorbis',
+	flac: 'FLAC',
+	truehd: 'Dolby TrueHD'
+};
+const CONTAINERS: Record<string, string> = {
+	matroska: 'MKV',
+	'matroska,webm': 'MKV',
+	mp4: 'MP4',
+	'mov,mp4,m4a,3gp,3g2,mj2': 'MP4',
+	avi: 'AVI',
+	webm: 'WebM',
+	mpegts: 'MPEG-TS'
+};
+
+export function videoCodecLabel(c: string | undefined): string {
+	return c ? (VIDEO_CODECS[c.toLowerCase()] ?? c.toUpperCase()) : '';
+}
+export function audioCodecLabel(c: string | undefined): string {
+	return c ? (AUDIO_CODECS[c.toLowerCase()] ?? c.toUpperCase()) : '';
+}
+export function containerLabel(c: string | undefined): string {
+	return c ? (CONTAINERS[c.toLowerCase()] ?? c.split(',')[0].toUpperCase()) : '';
+}
+
+/** Iniciales de una persona para el respaldo de su foto ("Song Kang-ho" → "SK"). */
+export function initials(name: string): string {
+	const parts = name
+		.trim()
+		.split(/\s+/)
+		.filter((p) => /[\p{L}\p{N}]/u.test(p));
+	if (parts.length === 0) return '?';
+	const first = Array.from(parts[0])[0];
+	const last = parts.length > 1 ? Array.from(parts[parts.length - 1])[0] : '';
+	return (first + last).toUpperCase();
+}
+
+/** Tono estable (0–359) por nombre: el mismo actor siempre tiene el mismo color. */
+export function nameHue(name: string): number {
+	let h = 0;
+	for (const ch of name) h = (h * 31 + ch.codePointAt(0)!) >>> 0;
+	return h % 360;
+}

@@ -91,12 +91,14 @@
 	/>
 	<HomeSection
 		title="Películas"
+		showCount
 		linkHref="/peliculas"
 		fetchPage={(offset) => listItems({ kind: 'movie', parent_id: 'null', limit: 40, offset })}
 		filter={playableMovies}
 	/>
 	<HomeSection
 		title="Series"
+		showCount
 		linkHref="/series"
 		fetchPage={(offset) => listItems({ kind: 'series', parent_id: 'null', limit: 40, offset })}
 	/>

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -349,5 +350,60 @@ func TestStopSessionOfIgnoresOtherSourceAndUnknown(t *testing.T) {
 	}
 	if !m.StopSessionOf(s.ID, 1) || m.StopSessionOf(s.ID, 1) {
 		t.Error("cerrar dos veces debe devolver true y luego false")
+	}
+}
+
+// TestBuildHLSArgsDropsSubtitles: sin -sn, un subtítulo de texto embebido
+// (MKV) llega al muxer HLS y tumba el remux.
+func TestBuildHLSArgsDropsSubtitles(t *testing.T) {
+	for _, audio := range []bool{false, true} {
+		args := buildHLSArgs("in.mkv", "out", 0, audio)
+		found := false
+		for _, a := range args {
+			if a == "-sn" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("audioTranscode=%v: faltó -sn en %v", audio, args)
+		}
+	}
+}
+
+// TestRemuxMKVWithEmbeddedSubtitles: prueba con ffmpeg real (se salta si no
+// está) de que un MKV con subtítulo subrip se remuxea sin fallar.
+func TestRemuxMKVWithEmbeddedSubtitles(t *testing.T) {
+	ff := ""
+	for _, c := range []string{"../../ffmpeg/ffmpeg.exe", "../../ffmpeg/ffmpeg"} {
+		if _, err := os.Stat(c); err == nil {
+			ff, _ = filepath.Abs(c)
+			break
+		}
+	}
+	if ff == "" {
+		t.Skip("ffmpeg real no disponible")
+	}
+	dir := t.TempDir()
+	srt := filepath.Join(dir, "s.srt")
+	if err := os.WriteFile(srt, []byte("1\n00:00:00,000 --> 00:00:01,000\nHola\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkv := filepath.Join(dir, "sub.mkv")
+	gen := exec.Command(ff, "-y", "-f", "lavfi", "-i", "testsrc=d=2:s=160x120:r=10",
+		"-f", "lavfi", "-i", "sine=d=2", "-i", srt,
+		"-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-c:s", "srt", mkv)
+	if out, err := gen.CombinedOutput(); err != nil {
+		t.Skipf("no se pudo generar el MKV de prueba: %v\n%s", err, out)
+	}
+	hls := filepath.Join(dir, "hls")
+	if err := os.Mkdir(hls, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(ff, buildHLSArgs(mkv, hls, 0, false)...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("el remux falló con subtítulos embebidos: %v\n%s", err, out)
+	}
+	if info, err := os.Stat(filepath.Join(hls, playlistName)); err != nil || info.Size() == 0 {
+		t.Fatalf("no se generó la lista: %v", err)
 	}
 }
