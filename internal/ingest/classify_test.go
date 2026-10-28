@@ -80,12 +80,28 @@ func TestClassifyURLUnsupportedHosts(t *testing.T) {
 }
 
 func TestClassifyURLUnknown(t *testing.T) {
-	got, err := ClassifyURL("https://ejemplo.net/pagina.html")
+	// Sin extensión reconocible: se decide preguntando al servidor (pages.go).
+	got, err := ClassifyURL("https://ejemplo.net/pelicula/12345")
 	if err != nil {
 		t.Fatalf("ClassifyURL: %v", err)
 	}
 	if got != ClassUnknown {
 		t.Errorf("ClassifyURL = %v, esperado desconocido", got)
+	}
+}
+
+func TestClassifyURLWebPageByExtension(t *testing.T) {
+	for _, u := range []string{
+		"https://ejemplo.net/pagina.html", "https://ejemplo.net/ver.php?id=3",
+		"https://ejemplo.net/a/b.HTM", "https://ejemplo.net/x.aspx",
+	} {
+		got, err := ClassifyURL(u)
+		if err != nil {
+			t.Fatalf("ClassifyURL(%q): %v", u, err)
+		}
+		if got != ClassWebPage {
+			t.Errorf("ClassifyURL(%q) = %v, esperado pagina_web", u, got)
+		}
 	}
 }
 

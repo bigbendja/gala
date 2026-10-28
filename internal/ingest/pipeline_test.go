@@ -33,8 +33,9 @@ type fakeM3UTransport struct {
 }
 
 type fakeM3UResponse struct {
-	status int
-	body   string
+	status      int
+	body        string
+	contentType string
 }
 
 func (f fakeM3UTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -47,10 +48,14 @@ func (f fakeM3UTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if status == 0 {
 		status = http.StatusOK
 	}
+	header := make(http.Header)
+	if resp.contentType != "" {
+		header.Set("Content-Type", resp.contentType)
+	}
 	return &http.Response{
 		StatusCode: status,
 		Body:       io.NopCloser(strings.NewReader(resp.body)),
-		Header:     make(http.Header),
+		Header:     header,
 	}, nil
 }
 
@@ -89,7 +94,7 @@ const testNow = "2026-01-01T00:00:00Z"
 func assertResumenInvariant(t *testing.T, res *ResumenIngesta) {
 	t.Helper()
 	sum := res.Anadidos + res.Duplicados + res.PendientesConector +
-		res.OmitidosNoSoportados + res.SinClasificar + res.Basura
+		res.OmitidosNoSoportados + res.OmitidosNoDirectos + res.SinClasificar + res.Basura
 	if sum != res.Total {
 		t.Errorf("invariante rota: Anadidos+Duplicados+PendientesConector+OmitidosNoSoportados+SinClasificar+Basura = %d, pero Total = %d (%+v)",
 			sum, res.Total, res)
@@ -466,7 +471,7 @@ func TestPipelineDBErrorCountsAsSinClasificar(t *testing.T) {
 	res := &ResumenIngesta{PorTipo: map[string]int{}}
 	p.processCandidate(context.Background(), c, listID, testNow, res)
 	res.Total = res.Anadidos + res.Duplicados + res.PendientesConector +
-		res.OmitidosNoSoportados + res.SinClasificar + res.Basura
+		res.OmitidosNoSoportados + res.OmitidosNoDirectos + res.SinClasificar + res.Basura
 
 	if res.SinClasificar != 1 {
 		t.Fatalf("SinClasificar = %d, esperado 1 (el error de BD no debe perderse ni caer fuera de los seis resultados)", res.SinClasificar)

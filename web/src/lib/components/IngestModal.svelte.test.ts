@@ -18,6 +18,7 @@ function makeResumen(overrides: Partial<ResumenIngesta> = {}): ResumenIngesta {
 		duplicados: 0,
 		pendientes_conector: 1,
 		omitidos_no_soportados: 2,
+		omitidos_no_directos: 0,
 		sin_clasificar: 0,
 		basura: 0,
 		por_tipo: { url: 2, m3u: 3 },
@@ -47,6 +48,32 @@ describe('IngestModal', () => {
 		expect(getByText('4')).toBeInTheDocument(); // añadidos
 		expect(getByText('1')).toBeInTheDocument(); // pendientes_conector
 		expect(getByText('2')).toBeInTheDocument(); // omitidos_no_soportados
+	});
+
+	it('enlaces que son páginas web: cuenta aparte y el mensaje claro, sin inventar nada', async () => {
+		const msg =
+			'Este enlace es una página web, no un enlace directo a un vídeo. GALA reproduce archivos locales, enlaces directos a vídeo y listas M3U.';
+		ingestMock.mockResolvedValueOnce(
+			makeResumen({
+				detectados: 1,
+				anadidos: 0,
+				pendientes_conector: 0,
+				omitidos_no_soportados: 0,
+				omitidos_no_directos: 1,
+				detalles: [msg, '· https://paginas.example/pelicula/1']
+			})
+		);
+		const { getByPlaceholderText, getByText } = render(IngestModal, {
+			open: true,
+			onClose: vi.fn(),
+			onIngested: vi.fn()
+		});
+		await fireEvent.input(getByPlaceholderText(/Pega aquí/), {
+			target: { value: 'https://paginas.example/pelicula/1' }
+		});
+		await fireEvent.click(getByText('Añadir a mi galería'));
+		await waitFor(() => expect(getByText('Omitidos: no son vídeo directo', { exact: false })).toBeInTheDocument());
+		expect(getByText(msg)).toBeInTheDocument();
 	});
 
 	it('no deja enviar con el textarea vacío', async () => {

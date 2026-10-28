@@ -58,6 +58,7 @@ type ResumenIngesta struct {
 	Duplicados           int `json:"duplicados"`             // (provider, locator) ya existía
 	PendientesConector   int `json:"pendientes_conector"`    // drive/mega: entrada creada, sin conector todavía
 	OmitidosNoSoportados int `json:"omitidos_no_soportados"` // hosts de streaming gris: SIN entrada
+	OmitidosNoDirectos   int `json:"omitidos_no_directos"`   // páginas web, no vídeo directo: SIN entrada
 	SinClasificar        int `json:"sin_clasificar"`         // no encajó en nada, falló su verificación/descarga, o error interno al darlo de alta
 	Basura               int `json:"basura"`                 // el normalizador de M3 lo detectó como junk/extra
 
@@ -159,6 +160,7 @@ func (p *Pipeline) Run(ctx context.Context, blob, filename, now string) (*Resume
 	}
 
 	candidates = p.expandM3URemote(ctx, candidates, res, now)
+	p.markWebPages(ctx, candidates)
 
 	name := strings.TrimSpace(filename)
 	if name == "" {
@@ -172,20 +174,25 @@ func (p *Pipeline) Run(ctx context.Context, blob, filename, now string) (*Resume
 	}
 	res.ListID = listID
 
+	var pageLinks []string
 	for _, c := range candidates {
+		if c.Class == ClassWebPage {
+			pageLinks = append(pageLinks, c.Locator)
+		}
 		effectiveListID := listID
 		if c.nestedListID != 0 {
 			effectiveListID = c.nestedListID
 		}
 		p.processCandidate(ctx, c, effectiveListID, now, res)
 	}
+	rejectWebPageDetails(res, pageLinks)
 
 	// Total se DERIVA de los seis resultados, nunca de un conteo
 	// independiente: así la invariante se cumple por construcción (addendum
 	// post-entrega de M5, tras detectar que un total contado aparte no
 	// cuadraba con la suma de resultados).
 	res.Total = res.Anadidos + res.Duplicados + res.PendientesConector +
-		res.OmitidosNoSoportados + res.SinClasificar + res.Basura
+		res.OmitidosNoSoportados + res.OmitidosNoDirectos + res.SinClasificar + res.Basura
 
 	if res.Anadidos > 0 {
 		if p.identify != nil {
@@ -297,6 +304,12 @@ func (p *Pipeline) processCandidate(ctx context.Context, c Candidate, listID int
 		// Regla de hierro: NI se crea entrada NI se detalla más (sin
 		// nombres de host, sin cómo obtener el vídeo).
 		res.OmitidosNoSoportados++
+
+	case ClassWebPage:
+		// Una página web no se reproduce: no se crea item ni fuente (si no,
+		// acabaría en "ninguna fuente pudo reproducirse"). Se cuenta aparte
+		// y el motivo va en los detalles.
+		res.OmitidosNoDirectos++
 
 	case ClassDrive, ClassMega:
 		outcome := p.createProvisional(ctx, c, string(c.Class), catalog.HealthUnverified, listID, now, true)

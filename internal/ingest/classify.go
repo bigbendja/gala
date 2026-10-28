@@ -29,6 +29,10 @@ const (
 	// intenta como directo con salud sin_verificar (M6 la marcará caída si
 	// no es vídeo de verdad).
 	ClassUnknown URLClass = "desconocido"
+	// ClassWebPage: es una página web (HTML), no un vídeo: o por su
+	// extensión (.html, .php…) o porque el servidor respondió text/html a
+	// la comprobación de pages.go. No se cataloga: "no son vídeo directo".
+	ClassWebPage URLClass = "pagina_web"
 )
 
 // directVideoExts son extensiones de archivo de vídeo inequívocas (Brief
@@ -38,6 +42,13 @@ const (
 var directVideoExts = map[string]bool{
 	".mp4": true, ".mkv": true, ".webm": true, ".avi": true,
 	".ts": true, ".mov": true, ".m4v": true, ".flv": true,
+}
+
+// webPageExts son extensiones de documentos web: un enlace que termina así es
+// una página, no un archivo de vídeo (no hace falta preguntar al servidor).
+var webPageExts = map[string]bool{
+	".html": true, ".htm": true, ".xhtml": true, ".php": true,
+	".asp": true, ".aspx": true, ".jsp": true,
 }
 
 // driveHosts/megaHosts: dominios reconocidos de Drive/Mega (Brief §2). El
@@ -94,6 +105,8 @@ func ClassifyURL(rawURL string) (URLClass, error) {
 		return ClassM3URemote, nil
 	case directVideoExts[ext]:
 		return ClassDirect, nil
+	case webPageExts[ext]:
+		return ClassWebPage, nil
 	default:
 		return ClassUnknown, nil
 	}
