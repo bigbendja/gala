@@ -158,6 +158,7 @@ export interface ResumenIngesta {
 	duplicados: number;
 	pendientes_conector: number;
 	omitidos_no_soportados: number;
+	omitidos_no_directos: number;
 	sin_clasificar: number;
 	basura: number;
 	por_tipo: Record<string, number>;

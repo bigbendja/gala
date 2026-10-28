@@ -129,6 +129,12 @@
 								<span class="n">{resumen.omitidos_no_soportados}</span>
 							</div>
 						{/if}
+						{#if resumen.omitidos_no_directos > 0}
+							<div class="detect-row warn-row">
+								<span class="ic">⊘</span> Omitidos: no son vídeo directo
+								<span class="n">{resumen.omitidos_no_directos}</span>
+							</div>
+						{/if}
 						{#if resumen.sin_clasificar > 0}
 							<div class="detect-row warn-row">
 								<span class="ic">?</span> Sin clasificar

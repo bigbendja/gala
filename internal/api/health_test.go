@@ -141,8 +141,11 @@ func TestHandleHealthCheckTriggersAndConflictsWhileRunning(t *testing.T) {
 		t.Fatalf("POST /health/check: %v", err)
 	}
 	resp.Body.Close()
-	if resp.StatusCode != http.StatusAccepted {
-		t.Fatalf("status = %d, esperado 202", resp.StatusCode)
+	// 202 (lanzada ahora) o 409 (el arranque del worker ya estaba verificando
+	// la fuente recién insertada: carrera legítima, vista en CI). En ambos
+	// casos hay una verificación en curso, que es lo que prueba el resto.
+	if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status = %d, esperado 202 (o 409 si el arranque ya la estaba haciendo)", resp.StatusCode)
 	}
 
 	deadline := time.Now().Add(2 * time.Second)

@@ -458,6 +458,13 @@ cultura del disco duro que circula.
       Pendiente de la auditoría (acabado visual, aún sin hacer): pantalla
       negra durante la carga, fichas de serie/episodio/sin identificar,
       carátulas de candidatos, textos crudos (ISO, `ApiError:`), topbar móvil.
+- [x] Ingesta: las páginas web no se catalogan (rama feat/fix-ingesta-paginas):
+      un enlace con extensión de documento web (.html, .php…) o sin extensión
+      cuyo servidor responde HTML (comprobación acotada en `internal/ingest/
+      pages.go`: SSRF antes, 5 s por enlace, 45 s por ingesta; sin conexión o
+      ante cualquier duda NO se rechaza) no crea item ni fuente: cuenta en
+      `omitidos_no_directos` (parte de la suma de `total`) y los detalles
+      llevan el mensaje claro, sin nombres de hosts ni de herramientas.
 - [ ] Fase 3 (Drive/Mega) · Fase 4 (M9 .gala) · Fase 5 (M11 release)
 (Actualizar esta lista al completar cada módulo/fase.)
 
