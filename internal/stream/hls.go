@@ -169,7 +169,10 @@ func buildHLSArgs(srcPath, dir string, startSeconds float64, audioTranscode bool
 	if startSeconds > 0 {
 		args = append(args, "-ss", strconv.FormatFloat(startSeconds, 'f', 3, 64))
 	}
-	args = append(args, "-i", srcPath)
+	// -sn: descarta los subtítulos. Con "-c copy" un subtítulo de texto
+	// embebido (subrip/ass en MKV) llegaba al muxer HLS, que solo acepta
+	// webvtt, y tumbaba la sesión entera aunque vídeo y audio fueran válidos.
+	args = append(args, "-i", srcPath, "-sn")
 	if audioTranscode {
 		args = append(args, "-c:v", "copy", "-c:a", "aac", "-b:a", "192k")
 	} else {
