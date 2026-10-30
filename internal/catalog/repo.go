@@ -107,6 +107,19 @@ func (r *Repo) List(ctx context.Context, f ListFilter) (*ListResult, error) {
 	from := "items i"
 	joinArgs := []any{}
 	orderBy := "i.added_at DESC, i.id DESC"
+	switch f.Sort {
+	case "year":
+		orderBy = "i.year IS NULL, i.year DESC, i.title COLLATE NOCASE ASC, i.id DESC"
+	case "title":
+		orderBy = "i.title COLLATE NOCASE ASC, i.id ASC"
+	case "rating":
+		// NULL (sin nota todavía) al final.
+		orderBy = "(SELECT vote_average FROM item_details d WHERE d.item_id = i.id) IS NULL, " +
+			"(SELECT vote_average FROM item_details d WHERE d.item_id = i.id) DESC, i.title COLLATE NOCASE ASC, i.id DESC"
+	}
+	if f.Playable {
+		where = append(where, "(i.kind IN ('series','season') OR EXISTS (SELECT 1 FROM sources s WHERE s.item_id = i.id))")
+	}
 	if f.InProgress {
 		from = "items i INNER JOIN playback p ON p.item_id = i.id AND p.device_id = ?"
 		joinArgs = append(joinArgs, f.DeviceID)
@@ -152,6 +165,9 @@ func (r *Repo) List(ctx context.Context, f ListFilter) (*ListResult, error) {
 		return nil, err
 	}
 	if err := r.attachSeasonCounts(ctx, items); err != nil {
+		return nil, err
+	}
+	if err := r.attachVotes(ctx, items, ids); err != nil {
 		return nil, err
 	}
 
@@ -285,6 +301,39 @@ func (r *Repo) attachHealthSummaries(ctx context.Context, items []Item, ids []in
 		items[i].HealthSummary = byItem[items[i].ID]
 	}
 	return nil
+}
+
+// attachVotes rellena la nota de TMDB de los items del listado que ya tienen
+// su detalle guardado (las tarjetas horizontales enseñan «★ 8,2»).
+func (r *Repo) attachVotes(ctx context.Context, items []Item, ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	ph := strings.TrimRight(strings.Repeat("?,", len(ids)), ",")
+	args := make([]any, len(ids))
+	pos := make(map[int64]int, len(ids))
+	for i, id := range ids {
+		args[i] = id
+		pos[id] = i
+	}
+	rows, err := r.q.QueryContext(ctx, `SELECT item_id, vote_average FROM item_details
+		WHERE vote_average > 0 AND item_id IN (`+ph+`)`, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var v float64
+		if err := rows.Scan(&id, &v); err != nil {
+			return err
+		}
+		if i, ok := pos[id]; ok {
+			vv := v
+			items[i].VoteAverage = &vv
+		}
+	}
+	return rows.Err()
 }
 
 // attachSeasonCounts rellena SeasonCount de las series del listado (las

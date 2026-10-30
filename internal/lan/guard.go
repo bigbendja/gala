@@ -116,7 +116,7 @@ func RemoteAllowed(method, urlPath string) bool {
 			}
 			return seg[4] == "wish" && (method == http.MethodPost || method == http.MethodDelete)
 		}
-	case "genres":
+	case "genres", "facets":
 		return get && len(seg) == 3
 	case "settings":
 		// Solo la preferencia de la Home (la leen también los dispositivos de

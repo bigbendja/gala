@@ -54,6 +54,8 @@ export interface Item {
 	source_count: number;
 	/** Nº de temporadas (solo series, solo en listados). */
 	season_count?: number;
+	/** Nota de TMDB (solo en listados, si ya se consultó el detalle). */
+	vote_average?: number;
 	health_summary?: Partial<Record<Health, number>>;
 	progress?: Progress;
 	/** Serie a la que pertenece un episodio o una temporada. */
@@ -66,6 +68,14 @@ export interface GenreCount {
 	name: string;
 	count: number;
 }
+
+/** GET /api/v1/facets?kind= — con qué se puede filtrar Películas o Series. */
+export interface Facets {
+	genres: GenreCount[];
+	years: number[];
+}
+
+export type SortOrder = 'recent' | 'year' | 'title' | 'rating';
 
 /** GET/PUT /api/v1/settings/home — preferencias de la Home. */
 export interface HomeSettings {
@@ -92,6 +102,10 @@ export interface ListItemsParams {
 	/** Solo items con progreso real para el dispositivo actual. Brief
 	 *  M10a-fix B3. */
 	in_progress?: boolean;
+	/** Orden del listado (por defecto, lo añadido más reciente primero). */
+	sort?: SortOrder;
+	/** Solo lo que se puede abrir: series y lo que tenga fuente. */
+	playable?: boolean;
 	limit?: number;
 	offset?: number;
 }

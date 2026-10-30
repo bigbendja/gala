@@ -16,7 +16,7 @@
 		subtitle?: string;
 		linkHref?: string;
 		linkText?: string;
-		variant?: 'default' | 'wide' | 'wish';
+		variant?: 'default' | 'wide' | 'wish' | 'landscape';
 		/** Pide una página de la API a partir de offset. */
 		fetchPage: (offset: number) => Promise<ListResult>;
 		/** Deja pasar solo lo que se debe enseñar (p. ej. películas con fuente). */
@@ -25,6 +25,11 @@
 		lazy?: boolean;
 		/** Enseña "N títulos" junto al título (mockup: contador de la fila). */
 		showCount?: boolean;
+		/** Cómo se enseña el contador: «11 títulos» (por defecto) o solo «11». */
+		countStyle?: 'full' | 'number';
+		/** Red de seguridad: pedir la fila a los 1,5 s aunque no se haya visto. La
+		 *  Home la usa; las vistas con muchas secciones la apagan (solo lazy). */
+		idleStart?: boolean;
 		/** Se avisa con el número de títulos al cargar (para decidir si hay Home). */
 		onLoaded?: (count: number) => void;
 	}
@@ -38,6 +43,8 @@
 		filter = (items) => items,
 		lazy = true,
 		showCount = false,
+		countStyle = 'full',
+		idleStart = true,
 		onLoaded
 	}: Props = $props();
 
@@ -111,6 +118,7 @@
 	// (pantalla alta, observador sin disparar) se pide igualmente poco después;
 	// así nunca queda una fila a medias, y si no tiene nada desaparece.
 	onMount(() => {
+		if (!idleStart) return;
 		const t = setTimeout(start, 1500);
 		return () => clearTimeout(t);
 	});
@@ -134,14 +142,19 @@
 			<div class="skeleton head-skel"></div>
 			<div class="skel-row">
 				{#each { length: 7 } as _, i (i)}
-					<div class="skeleton card-skel" class:wide={variant === 'wide'}></div>
+					<div
+						class="skeleton card-skel"
+						class:wide={variant === 'wide'}
+						class:land={variant === 'landscape'}
+					></div>
 				{/each}
 			</div>
 		</section>
 	{:else if done && items.length > 0}
 		<Row
 			{title}
-			subtitle={subtitle ?? (showCount ? `${rawTotal} ${rawTotal === 1 ? 'título' : 'títulos'}` : undefined)}
+			subtitle={subtitle ??
+				(showCount ? (countStyle === 'number' ? `${rawTotal}` : `${rawTotal} ${rawTotal === 1 ? 'título' : 'títulos'}`) : undefined)}
 			{linkHref}
 			{linkText}
 			{variant}
@@ -184,6 +197,10 @@
 	.card-skel.wide {
 		flex-basis: 300px;
 		aspect-ratio: 16 / 10;
+	}
+	.card-skel.land {
+		flex-basis: 320px;
+		aspect-ratio: 16 / 11;
 	}
 	@media (max-width: 900px) {
 		.sec {

@@ -59,6 +59,8 @@ type Item struct {
 	// SourceCount y HealthSummary se rellenan en listados (para los puntos de la tarjeta).
 	SourceCount   int            `json:"source_count"`
 	HealthSummary map[string]int `json:"health_summary,omitempty"`
+	// VoteAverage: nota de TMDB (solo en listados, si ya se consultó el detalle).
+	VoteAverage *float64 `json:"vote_average,omitempty"`
 	// SeasonCount: nº de temporadas de una serie (solo en listados, solo series).
 	SeasonCount int `json:"season_count,omitempty"`
 	// Progress es el progreso de reproducción del dispositivo actual (cookie
@@ -127,6 +129,14 @@ type ListFilter struct {
 	Genre     string // vacío = todos
 	Wished    *bool  // nil = indiferente
 	Confirmed *bool  // nil = indiferente
+
+	// Playable: solo lo que se puede abrir: las series (sus fuentes son las de
+	// los episodios) y lo que tenga al menos una fuente propia.
+	Playable bool
+	// Sort: "" o "recent" (añadidas, lo más nuevo primero), "year" (año
+	// descendente), "title" (A-Z) o "rating" (nota de TMDB, mejor primero; lo
+	// que aún no tiene nota va al final). Ignorado en InProgress.
+	Sort string
 
 	// ParentID/TopLevelOnly filtran por jerarquía (Brief M10a-fix B1: la
 	// ficha de una serie necesita listar sus temporadas/episodios directos).

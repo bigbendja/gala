@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import Card from './Card.svelte';
+	import LandscapeCard from './LandscapeCard.svelte';
 	import type { Item } from '$lib/api/types';
 
 	interface Props {
@@ -11,7 +12,7 @@
 		items: Item[];
 		/** Total real en el backend (para saber si hay más páginas que pedir). */
 		total?: number;
-		variant?: 'default' | 'wide' | 'wish';
+		variant?: 'default' | 'wide' | 'wish' | 'landscape';
 		loading?: boolean;
 		/** Se llama cuando el scroll se acerca al final de lo ya cargado. */
 		onNeedMore?: () => void;
@@ -34,7 +35,7 @@
 	// resto de columnas quedan vacías pero ocupando su hueco. Así una fila
 	// de 5.000 items scrollea fluido sin montar 5.000 nodos DOM a la vez.
 	const gap = 14;
-	const cardWidth = $derived(variant === 'wide' ? 300 : 168);
+	const cardWidth = $derived(variant === 'wide' ? 300 : variant === 'landscape' ? 320 : 168);
 	const step = $derived(cardWidth + gap);
 	const buffer = 4; // tarjetas extra a cada lado para que no "parpadee" en scroll rápido
 
@@ -97,7 +98,7 @@
 
 <svelte:window onresize={measure} />
 
-<section class="section" aria-label={title}>
+<section class="section" class:link-always={variant === 'landscape'} aria-label={title}>
 	<div class="sec-head">
 		<h2>{title}</h2>
 		{#if subtitle}<span class="count">{subtitle}</span>{/if}
@@ -105,9 +106,13 @@
 	</div>
 
 	{#if loading && items.length === 0}
-		<div class="row" class:wide={variant === 'wide'}>
+		<div class="row" class:wide={variant === 'wide'} class:landscape={variant === 'landscape'}>
 			{#each { length: 6 } as _, i (i)}
-				<div class="skeleton card-skeleton" class:wide-skel={variant === 'wide'}></div>
+				<div
+					class="skeleton card-skeleton"
+					class:wide-skel={variant === 'wide'}
+					class:land-skel={variant === 'landscape'}
+				></div>
 			{/each}
 		</div>
 	{:else}
@@ -120,10 +125,20 @@
 				tabindex={canPrev ? 0 : -1}
 				disabled={!canPrev}>‹</button
 			>
-			<div class="row" class:wide={variant === 'wide'} bind:this={container} onscroll={onScroll}>
+			<div
+				class="row"
+				class:wide={variant === 'wide'}
+				class:landscape={variant === 'landscape'}
+				bind:this={container}
+				onscroll={onScroll}
+			>
 				{#each visible as item, i (item.id)}
 					<div style:grid-column={range.start + i + 1}>
-						<Card {item} {variant} />
+						{#if variant === 'landscape'}
+							<LandscapeCard {item} />
+						{:else}
+							<Card {item} {variant} />
+						{/if}
 					</div>
 				{/each}
 			</div>
@@ -173,6 +188,7 @@
 		opacity: 0;
 		transition: opacity 0.2s;
 	}
+	.section.link-always .sec-head .link,
 	.section:hover .sec-head .link,
 	.sec-head .link:focus-visible {
 		opacity: 1;
@@ -203,11 +219,17 @@
 	.row.wide {
 		grid-auto-columns: 300px;
 	}
+	.row.landscape {
+		grid-auto-columns: 320px;
+	}
 	.card-skeleton {
 		aspect-ratio: 2 / 3;
 	}
 	.card-skeleton.wide-skel {
 		aspect-ratio: 16 / 10;
+	}
+	.card-skeleton.land-skel {
+		aspect-ratio: 16 / 11;
 	}
 	/* Flechas (mockup de la Home): bandas a los lados con degradado hacia el
 	   fondo; aparecen al pasar el ratón o enfocar la fila y, en táctil, siempre
@@ -260,6 +282,9 @@
 		}
 		.row.wide {
 			grid-auto-columns: 240px;
+		}
+		.row.landscape {
+			grid-auto-columns: 280px;
 		}
 	}
 </style>
