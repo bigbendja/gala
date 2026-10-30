@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bigbendja/gala/internal/buildinfo"
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
 	"github.com/bigbendja/gala/internal/health"
@@ -21,9 +22,6 @@ import (
 	"github.com/bigbendja/gala/internal/store"
 	"github.com/bigbendja/gala/internal/stream"
 )
-
-// Version de la aplicación; se sobreescribe en build con -ldflags.
-var Version = "0.1.0-dev"
 
 // Server agrupa las dependencias de los handlers.
 type Server struct {
@@ -65,6 +63,7 @@ func New(st *store.Store, repo *catalog.Repo, cfg *config.Config, sc *scan.Scann
 // Routes registra las rutas de la API en el mux dado (requiere Go >= 1.22).
 func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/ping", s.handlePing)
+	mux.HandleFunc("GET /api/v1/version", s.handleVersion)
 	mux.HandleFunc("GET /api/v1/items", s.handleListItems)
 	mux.HandleFunc("GET /api/v1/items/{id}", s.handleGetItem)
 	mux.HandleFunc("DELETE /api/v1/items/{id}", s.handleDeleteItem)
@@ -133,12 +132,19 @@ func (s *Server) handleLanAuth(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status": "ok", "app": "gala", "version": Version,
+		"status": "ok", "app": "gala", "version": buildinfo.Version,
 		// ffmpeg_available: Ajustes → Sistema lo muestra sin inventar un
 		// endpoint nuevo (Brief M10c §2/§6: "nada más" que los dos
 		// endpoints listados) — ya viaja igual en /play/{item_id}, aquí
 		// solo se expone sin depender de tener un item a mano.
 		"ffmpeg_available": s.FFmpeg.Available(),
+	})
+}
+
+// handleVersion: GET /api/v1/version → {version, commit, date}.
+func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{
+		"version": buildinfo.Version, "commit": buildinfo.Commit, "date": buildinfo.Date,
 	})
 }
 

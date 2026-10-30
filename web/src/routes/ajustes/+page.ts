@@ -1,6 +1,7 @@
 import {
 	getTMDBSettings,
 	healthSummary,
+	getVersion,
 	identifyStatus,
 	listFolders,
 	ping,
@@ -14,13 +15,14 @@ import type { PageLoad } from './$types';
 // backend arrancó sin worker de salud en algún test), el resto de Ajustes
 // sigue siendo usable.
 export const load: PageLoad = async () => {
-	const [folders, scan, identify, tmdb, health, sys] = await Promise.allSettled([
+	const [folders, scan, identify, tmdb, health, sys, build] = await Promise.allSettled([
 		listFolders(),
 		scanStatus(),
 		identifyStatus(),
 		getTMDBSettings(),
 		healthSummary(),
-		ping()
+		ping(),
+		getVersion()
 	]);
 
 	const val = <T>(r: PromiseSettledResult<T>) => (r.status === 'fulfilled' ? r.value : null);
@@ -38,6 +40,7 @@ export const load: PageLoad = async () => {
 		health: val(health),
 		healthError: err(health),
 		sys: val(sys),
-		sysError: err(sys)
+		sysError: err(sys),
+		build: val(build)
 	};
 };

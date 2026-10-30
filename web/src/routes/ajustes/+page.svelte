@@ -212,6 +212,15 @@
 
 	// --- Sistema ------------------------------------------------------------
 	const sys = untrack(() => data.sys);
+	const build = untrack(() => data.build);
+	// Fecha de compilación legible; si no es una fecha válida (build local sin
+	// ldflags) se omite en vez de enseñar «desconocida» o basura.
+	const buildDate = (() => {
+		const d = build ? new Date(build.date) : null;
+		return d && !Number.isNaN(d.getTime())
+			? d.toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
+			: null;
+	})();
 
 	$effect(() => {
 		return () => {
@@ -395,7 +404,11 @@
 			<p class="error">No se pudo conectar con GALA para leer la versión.</p>
 		{:else}
 			<div class="sys-stats">
-				<span>Versión {sys.version}</span>
+				<span>Versión {build?.version ?? sys.version}</span>
+				{#if build && build.commit !== 'desconocido'}
+					<span>commit {build.commit.slice(0, 7)}</span>
+				{/if}
+				{#if buildDate}<span>compilada el {buildDate}</span>{/if}
 				<span class:ok-text={sys.ffmpeg_available} class:bad-text={!sys.ffmpeg_available}>
 					ffmpeg {sys.ffmpeg_available ? 'disponible' : 'no disponible (solo direct play)'}
 				</span>
