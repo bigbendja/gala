@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GALA · Login, Seguridad y Actualización</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#100C09; --surface:#1B1510; --surface-2:#261D14; --line:#332619;
+    --text:#F4EDE3; --muted:#A6937E;
+    --accent:#F2A93B; --accent-deep:#C97E1B;
+    --ok:#6FCF8E; --warn:#F2A93B; --bad:#E1604F; --off:#6E6157;
+    --r:14px;
+    --display:"Bricolage Grotesque",system-ui,sans-serif;
+    --body:"Instrument Sans",system-ui,sans-serif;
+    --mono:"Spline Sans Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);
+       -webkit-font-smoothing:antialiased;line-height:1.5}
+  .wrap{max-width:1120px;margin:0 auto;padding:40px 16px 80px}
+  .lead{color:var(--muted);font-size:14px;margin:0 0 28px}
+  h1.page{font-family:var(--display);font-weight:800;font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
+  .screens{display:grid;gap:28px}
+  @media(min-width:900px){.screens{grid-template-columns:380px 1fr}}
+  .screenlabel{font-family:var(--mono);font-size:11px;color:var(--muted);
+       text-transform:uppercase;letter-spacing:.14em;margin:0 0 10px}
+
+  /* ---- Login card ---- */
+  .loginstage{background:radial-gradient(1200px 400px at 50% -10%, #241a11 0%, var(--bg) 60%);
+       border:1px solid var(--line);border-radius:var(--r);min-height:440px;
+       display:flex;align-items:center;justify-content:center;padding:32px}
+  .card{width:100%;max-width:320px;background:var(--surface);border:1px solid var(--line);
+       border-radius:var(--r);padding:28px 24px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+  .brand{font-family:var(--display);font-weight:800;font-size:28px;letter-spacing:.02em;margin:0}
+  .brand .dot{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px;margin:2px 0 22px}
+  label.fld{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+  .input{width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+       border-radius:10px;padding:11px 12px;font-family:var(--body);font-size:14px;outline:none}
+  .input:focus{border-color:var(--accent-deep);box-shadow:0 0 0 3px rgba(242,169,59,.15)}
+  .btn{width:100%;margin-top:16px;border:0;border-radius:10px;padding:11px 12px;cursor:pointer;
+       font-family:var(--body);font-weight:600;font-size:14px}
+  .btn.primary{background:var(--accent);color:#1a1205}
+  .btn.primary:hover{background:var(--accent-deep);color:var(--text)}
+  .hint{font-size:11.5px;color:var(--muted);margin:16px 0 0;line-height:1.45}
+  .err{background:rgba(225,96,79,.12);border:1px solid rgba(225,96,79,.4);color:#f0a99d;
+       font-size:12.5px;border-radius:8px;padding:8px 10px;margin:0 0 14px}
+
+  /* ---- Settings panels ---- */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+       padding:20px 20px;margin:0 0 20px}
+  .panel h2{font-family:var(--display);font-weight:600;font-size:17px;margin:0 0 2px}
+  .panel .desc{color:var(--muted);font-size:12.5px;margin:0 0 16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row .input{flex:1;min-width:160px}
+  .btn.inline{width:auto;margin-top:0;padding:10px 16px}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+  .btn.ghost:hover{border-color:var(--muted)}
+  .btn.danger{background:transparent;border:1px solid rgba(225,96,79,.5);color:#f0a99d}
+  .btn.danger:hover{background:rgba(225,96,79,.12)}
+  .sessions{border-top:1px solid var(--line);margin-top:16px;padding-top:14px}
+  .sess{display:flex;justify-content:space-between;align-items:center;gap:12px;
+       padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .sess:last-child{border-bottom:0}
+  .sess .meta{color:var(--muted);font-size:11.5px}
+  .sess .mono{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .pill{font-size:10.5px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;
+       padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  .pill.this{color:var(--ok);border-color:rgba(111,207,142,.4)}
+  .toggle{display:flex;align-items:center;justify-content:space-between;gap:14px;
+       border-top:1px solid var(--line);margin-top:14px;padding-top:14px}
+  .toggle .t{font-size:13px}
+  .toggle .t small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}
+  .switch{width:42px;height:24px;border-radius:999px;background:var(--accent);position:relative;flex:0 0 auto}
+  .switch::after{content:"";position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:#1a1205}
+
+  /* ---- Update panel ---- */
+  .verline{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);margin:0 0 14px}
+  .verline .cur{font-family:var(--mono);color:var(--text)}
+  .update{background:var(--surface-2);border:1px solid rgba(242,169,59,.35);border-radius:10px;padding:14px}
+  .update .ver{font-family:var(--display);font-weight:600;font-size:15px;margin:0 0 6px}
+  .update .ver .tag{font-family:var(--mono);font-size:12px;color:var(--accent);margin-left:6px}
+  .update ul{margin:0 0 14px;padding-left:18px;color:var(--muted);font-size:12.5px}
+  .update li{margin:2px 0}
+  .okline{display:flex;align-items:center;gap:8px;color:var(--ok);font-size:12.5px;margin-top:10px}
+  .dot-ok{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="page">GALA — Acceso de administrador, Seguridad y Actualización</h1>
+  <p class="lead">Mockup de referencia para Claude Code (M-Servidor). Tokens y tipografías del Sistema de Diseño. El ámbar es escaso: un botón primario por pantalla.</p>
+
+  <div class="screens">
+    <!-- LOGIN -->
+    <div>
+      <p class="screenlabel">1 · Login (cliente de red)</p>
+      <div class="loginstage">
+        <div class="card">
+          <p class="brand">GALA<span class="dot">.</span></p>
+          <p class="sub">Administración</p>
+          <div class="err">Contraseña incorrecta. Inténtalo de nuevo.</div>
+          <label class="fld" for="pw">Contraseña</label>
+          <input class="input" id="pw" type="password" value="••••••••••" readonly>
+          <button class="btn primary">Entrar</button>
+          <p class="hint">Solo para administrar desde otro dispositivo de la red. En el propio servidor (localhost) no se pide contraseña. ¿La olvidaste? Resetéala por SSH con <span style="font-family:var(--mono)">gala admin set-password</span>.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div>
+      <p class="screenlabel">2 · Ajustes › Seguridad / Actualización</p>
+
+      <div class="panel">
+        <h2>Seguridad</h2>
+        <p class="desc">Contraseña de administración para acceder desde la red. El propio servidor siempre tiene acceso.</p>
+        <div class="row">
+          <input class="input" type="password" placeholder="Contraseña actual">
+          <input class="input" type="password" placeholder="Nueva contraseña">
+        </div>
+        <div style="margin-top:10px" class="row">
+          <input class="input" type="password" placeholder="Repetir nueva contraseña">
+          <button class="btn primary inline">Guardar</button>
+        </div>
+
+        <div class="sessions">
+          <div class="sess">
+            <div><div>Este dispositivo</div><div class="mono">192.168.1.40 · Chrome</div></div>
+            <div style="display:flex;align-items:center;gap:10px"><span class="meta">ahora</span><span class="pill this">activa</span></div>
+          </div>
+          <div class="sess">
+            <div><div>Portátil salón</div><div class="mono">192.168.1.22 · Firefox</div></div>
+            <div class="meta">hace 2 días</div>
+          </div>
+        </div>
+        <div style="margin-top:14px"><button class="btn ghost inline">Cerrar todas las sesiones</button></div>
+
+        <div class="toggle">
+          <div class="t">Exigir contraseña para administrar desde la red
+            <small>Si lo desactivas, cualquiera en la red podrá administrar. No recomendado.</small></div>
+          <div class="switch" title="activado"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Actualización</h2>
+        <p class="desc">GALA comprueba si hay una versión nueva publicada. La actualización se aplica y reinicia sola.</p>
+        <div class="verline">Versión actual <span class="cur">v0.9.0</span> · <button class="btn ghost inline" style="padding:6px 12px">Buscar actualizaciones</button></div>
+
+        <div class="update">
+          <p class="ver">Disponible <span class="tag">v0.10.0</span></p>
+          <ul>
+            <li>Cuenta de administrador y acceso desde la red.</li>
+            <li>Nuevas vistas de exploración por género.</li>
+            <li>Correcciones de reproducción de MKV con subtítulos.</li>
+          </ul>
+          <button class="btn primary inline">Actualizar y reiniciar</button>
+          <div class="okline"><span class="dot-ok"></span> Se guardará la versión anterior por si hay que revertir.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
