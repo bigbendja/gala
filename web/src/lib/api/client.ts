@@ -14,6 +14,7 @@ import type {
 	ListItemsParams,
 	ListResult,
 	GenreCount,
+	Facets,
 	HomeSettings,
 	ItemDetails,
 	PendingItem,
@@ -75,6 +76,8 @@ export function listItems(params: ListItemsParams = {}): Promise<ListResult> {
 		q.set('parent_id', params.parent_id === 'null' ? '' : String(params.parent_id));
 	}
 	if (params.in_progress !== undefined) q.set('in_progress', String(params.in_progress));
+	if (params.sort) q.set('sort', params.sort);
+	if (params.playable) q.set('playable', 'true');
 	q.set('limit', String(params.limit ?? 60));
 	q.set('offset', String(params.offset ?? 0));
 	return request<ListResult>(`/api/v1/items?${q.toString()}`);
@@ -347,6 +350,12 @@ export function setLanPin(pin: string): Promise<LanStatus> {
 }
 
 /** GET /api/v1/genres — géneros con contenido, de más a menos títulos. */
+/** GET /api/v1/facets — géneros y años con contenido de Películas o Series. */
+export async function listFacets(kind: 'movie' | 'series'): Promise<Facets> {
+	const f = await request<Partial<Facets> | null>(`/api/v1/facets?kind=${kind}`);
+	return { genres: f?.genres ?? [], years: f?.years ?? [] };
+}
+
 export function listGenres(): Promise<GenreCount[]> {
 	return orEmpty(request<GenreCount[] | null>('/api/v1/genres'));
 }

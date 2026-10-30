@@ -101,6 +101,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /api/v1/items/{id}/details", s.handleItemDetails)
 	mux.HandleFunc("GET /api/v1/genres", s.handleGenres)
+	mux.HandleFunc("GET /api/v1/facets", s.handleFacets)
 	mux.HandleFunc("GET /api/v1/settings/home", s.handleGetHomeSettings)
 	mux.HandleFunc("PUT /api/v1/settings/home", s.handlePutHomeSettings)
 	mux.HandleFunc("GET /api/v1/settings/tmdb", s.handleGetTMDBSettings)
@@ -145,6 +146,10 @@ func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
 // handleListItems: GET /api/v1/items?kind=movie&q=texto&year=2023&genre=Drama
 //
 //	&wished=true&confirmed=false&parent_id=42&in_progress=true&limit=60&offset=0
+//	&sort=recent|year|title|rating&playable=true
+//
+// sort ordena el listado (por defecto, lo añadido más reciente primero);
+// playable=true deja solo lo que se puede abrir (series y lo que tenga fuente).
 //
 // parent_id (Brief M10a-fix B1): ausente = sin filtrar por jerarquía (igual
 // que antes); ""/"null" = solo items de nivel superior; un id = solo sus
@@ -158,6 +163,13 @@ func (s *Server) handleListItems(w http.ResponseWriter, r *http.Request) {
 		Kind:  q.Get("kind"),
 		Query: q.Get("q"),
 		Genre: q.Get("genre"),
+	}
+	switch sort := q.Get("sort"); sort {
+	case "", "recent", "year", "title", "rating":
+		f.Sort = sort
+	default:
+		badRequest(w, "sort no válido (recent, year, title o rating)")
+		return
 	}
 	var err error
 	if f.Year, err = intParam(q.Get("year"), 0); err != nil {
@@ -192,6 +204,12 @@ func (s *Server) handleListItems(w http.ResponseWriter, r *http.Request) {
 			}
 			f.ParentID = &v
 		}
+	}
+	if playable, err := boolParam(q.Get("playable")); err != nil {
+		badRequest(w, "playable no válido")
+		return
+	} else if playable != nil && *playable {
+		f.Playable = true
 	}
 	if inProgress, err := boolParam(q.Get("in_progress")); err != nil {
 		badRequest(w, "in_progress no válido")

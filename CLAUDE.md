@@ -465,6 +465,19 @@ cultura del disco duro que circula.
       ante cualquier duda NO se rechaza) no crea item ni fuente: cuenta en
       `omitidos_no_directos` (parte de la suma de `total`) y los detalles
       llevan el mensaje claro, sin nombres de hosts ni de herramientas.
+- [x] Vistas de exploración de Películas y Series (rama feat/vistas-exploracion,
+      pendiente de verificación en vivo; mockup `docs/briefs/GALA_Mockup_Vistas2.html`,
+      vista «Filas»): barra Género/Año/Ordenar (Añadidas, Año ↓, Título A-Z,
+      Mejor valoradas) con contador «N de M» y «Limpiar» (estado en la URL:
+      `?genero=&anio=&orden=`; sin «Idioma» hasta que exista el dato) y una
+      sección por género con carrusel de tarjetas horizontales 16:9
+      (`LandscapeCard`: backdrop, título, año · N temp. · ★ nota TMDB · salud ·
+      NUEVO; respaldo póster recortado o degradado). Reusa `HomeSection`/`Row`
+      (virtualización y lazy de M10a; sin secciones vacías). Backend:
+      `GET /items` gana `sort` (recent|year|title|rating) y `playable`,
+      el listado lleva `vote_average`, y `GET /facets?kind=movie|series`
+      (géneros con recuento y años; lectura permitida a la red). La Home no
+      cambia. Huecos en ISSUES-MVP2.md.
 - [ ] Fase 3 (Drive/Mega) · Fase 4 (M9 .gala) · Fase 5 (M11 release)
 (Actualizar esta lista al completar cada módulo/fase.)
 

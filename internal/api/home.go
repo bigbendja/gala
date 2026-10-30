@@ -21,6 +21,23 @@ func (s *Server) handleGenres(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, genres)
 }
 
+// handleFacets: GET /api/v1/facets?kind=movie|series — los géneros y los años
+// con contenido de esa vista (alimentan la barra de filtros de Películas y
+// Series).
+func (s *Server) handleFacets(w http.ResponseWriter, r *http.Request) {
+	kind := catalog.Kind(r.URL.Query().Get("kind"))
+	if kind != catalog.KindMovie && kind != catalog.KindSeries {
+		badRequest(w, "kind debe ser movie o series")
+		return
+	}
+	f, err := s.Catalog.Facets(r.Context(), kind)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, f)
+}
+
 type homeSettingsView struct {
 	Hero bool `json:"hero"`
 }

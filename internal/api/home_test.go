@@ -92,3 +92,21 @@ func TestListItemsAttachesSeriesTitleToEpisodes(t *testing.T) {
 		t.Errorf("episodio = %+v", res.Items[0])
 	}
 }
+
+func TestFacetsEndpointAndListSortParams(t *testing.T) {
+	e := newLanEnv(t)
+
+	rec := e.call("GET", "/api/v1/facets?kind=movie", phone, "", nil)
+	if rec.Code != 200 || rec.Body.String() != "{\"genres\":[],\"years\":[]}\n" {
+		t.Fatalf("vacío: %d %q (listas siempre [], nunca null; el móvil también las lee)", rec.Code, rec.Body)
+	}
+	if rec := e.call("GET", "/api/v1/facets?kind=episode", phone, "", nil); rec.Code != 400 {
+		t.Errorf("kind inválido = %d, esperado 400", rec.Code)
+	}
+	if rec := e.call("GET", "/api/v1/items?sort=nota", phone, "", nil); rec.Code != 400 {
+		t.Errorf("sort inválido = %d, esperado 400", rec.Code)
+	}
+	if rec := e.call("GET", "/api/v1/items?kind=movie&sort=rating&playable=true", phone, "", nil); rec.Code != 200 {
+		t.Errorf("sort/playable válidos = %d: %s", rec.Code, rec.Body)
+	}
+}

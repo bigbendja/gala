@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GALA — Vistas (horizontal, mockup v2)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#100C09;--surface:#1B1510;--surface-2:#261D14;--line:#332619;
+  --text:#F4EDE3;--muted:#A6937E;--accent:#F2A93B;--accent-deep:#C97E1B;
+  --ok:#6FCF8E;--warn:#F2A93B;--bad:#E1604F;--off:#6E6157;--r:14px;
+  --display:'Bricolage Grotesque',system-ui,sans-serif;
+  --body:'Instrument Sans',system-ui,sans-serif;
+  --mono:'Spline Sans Mono',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-size:15px;line-height:1.5;overflow-x:hidden}
+button,select{font-family:var(--body);cursor:pointer;color:inherit}
+::selection{background:var(--accent);color:#1a1207}
+
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:22px;padding:14px 28px;
+  background:linear-gradient(180deg,rgba(16,12,9,.97),rgba(16,12,9,.85));backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:.04em}
+.nav{display:flex;gap:4px;margin-left:6px}
+.nav a{color:var(--muted);text-decoration:none;padding:7px 12px;border-radius:9px;font-weight:500}
+.nav a.active{color:var(--text);background:var(--surface-2)}
+.spacer{flex:1}
+.lan-pill{display:flex;align-items:center;gap:8px;background:rgba(111,207,142,.1);border:1px solid rgba(111,207,142,.3);border-radius:99px;padding:7px 14px;font-size:13px;color:var(--ok)}
+.lan-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.btn-add{background:var(--accent);color:#1a1207;font-weight:600;padding:9px 18px;border-radius:10px;font-size:14px}
+
+.intro{max-width:1320px;margin:16px auto 0;padding:0 28px}
+.intro .box{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:10px;padding:10px 16px}
+.intro b{color:var(--accent)}
+
+.wrap{max-width:1320px;margin:0 auto;padding:22px 28px 70px}
+.phead{display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+.phead h1{font-family:var(--display);font-size:30px;font-weight:800}
+.phead .count{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.switch{margin-left:auto;display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:4px}
+.switch button{display:flex;align-items:center;gap:7px;padding:8px 14px;border:none;background:none;border-radius:8px;color:var(--muted);font-size:13.5px;font-weight:500;transition:.15s}
+.switch button.on{background:var(--accent);color:#1a1207;font-weight:600}
+.switch button:hover:not(.on){color:var(--text)}
+
+.filters{display:flex;align-items:center;gap:10px;margin-bottom:26px;flex-wrap:wrap;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.fgroup{display:flex;align-items:center;gap:7px}
+.fgroup label{font-size:12px;color:var(--muted);font-family:var(--mono);letter-spacing:.04em}
+.filters select{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13.5px;color:var(--text);min-width:120px}
+.filters select:hover{border-color:#4d3a22}
+.fcount{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.fclear{font-size:12.5px;color:var(--accent);background:none;border:none;font-weight:500}
+
+/* ---- TARJETA HORIZONTAL (apaisada, usa backdrop) ---- */
+.card{position:relative;border-radius:12px;overflow:hidden;background:var(--surface);border:1px solid var(--line);transition:.16s;cursor:pointer}
+.card:hover{transform:translateY(-4px);border-color:#4d3a22;box-shadow:0 14px 34px rgba(0,0,0,.5)}
+.thumb{aspect-ratio:16/9;position:relative;display:flex;align-items:flex-end;padding:13px 14px}
+.thumb::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 35%,rgba(10,7,4,.88));pointer-events:none}
+.thumb .title{position:relative;z-index:1;font-family:var(--display);font-weight:800;font-size:18px;line-height:1.08;text-shadow:0 2px 12px rgba(0,0,0,.5)}
+.play{position:absolute;inset:0;display:grid;place-items:center;z-index:2;opacity:0;transition:.18s}
+.card:hover .play{opacity:1}
+.play span{width:48px;height:48px;border-radius:50%;background:rgba(16,12,9,.6);border:1px solid rgba(244,237,227,.4);display:grid;place-items:center;font-size:18px;color:#fff;backdrop-filter:blur(4px)}
+.info{display:flex;align-items:center;gap:8px;padding:9px 13px 11px;font-size:12px;color:var(--muted)}
+.info .star{color:var(--accent);font-weight:600}
+.info .lang{margin-left:auto;font-family:var(--mono);font-size:10.5px;background:var(--surface-2);border-radius:5px;padding:2px 7px}
+.info .hd{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.badge{position:absolute;top:10px;left:10px;z-index:2;font-family:var(--mono);font-size:10px;letter-spacing:.05em;background:rgba(16,12,9,.6);border-radius:6px;padding:3px 7px;color:#e8d9c5;backdrop-filter:blur(4px)}
+
+.p1{background:linear-gradient(135deg,#59331a,#241206 65%,#0e0804)}.p2{background:linear-gradient(135deg,#173a33,#0a1a17 65%,#060d0b)}
+.p3{background:linear-gradient(135deg,#3a1f3f,#170b1c 65%,#0a0510)}.p4{background:linear-gradient(135deg,#1d3050,#0c1424 65%,#05080f)}
+.p5{background:linear-gradient(135deg,#5c1f1f,#230a0a 65%,#0f0404)}.p6{background:linear-gradient(135deg,#4d4416,#1e1a06 65%,#0d0b03)}
+.p7{background:linear-gradient(135deg,#20423b,#0d1d1a 65%,#060f0d)}.p8{background:linear-gradient(135deg,#513a5e,#1f1426 65%,#0e0813)}
+
+/* SECCIONES: bloques por género con rejilla de tarjetas horizontales */
+.gsection{margin-bottom:36px}
+.gshead{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+.gshead h2{font-family:var(--display);font-size:20px;font-weight:600}
+.gshead .c{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.gshead .link{margin-left:auto;color:var(--accent);font-size:13px;font-weight:500}
+.gsgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+
+/* FILAS: carrusel horizontal por género */
+.rsection{margin-bottom:32px;position:relative}
+.rail-wrap{position:relative}
+.rail{display:grid;grid-auto-flow:column;grid-auto-columns:320px;gap:14px;overflow-x:auto;padding:4px 2px 10px;scrollbar-width:none}
+.rail::-webkit-scrollbar{display:none}
+.rail-arrow{position:absolute;top:0;bottom:10px;width:50px;z-index:4;display:grid;place-items:center;color:var(--text);font-size:24px;opacity:0;transition:.2s;cursor:pointer;border:none}
+.rail-wrap:hover .rail-arrow{opacity:1}
+.rail-arrow.l{left:0;background:linear-gradient(90deg,var(--bg) 30%,transparent)}
+.rail-arrow.r{right:0;background:linear-gradient(270deg,var(--bg) 30%,transparent)}
+.rail-arrow:hover{color:var(--accent)}
+.empty{padding:50px;text-align:center;color:var(--muted)}
+
+@media (max-width:760px){
+  .nav,.lan-pill{display:none}
+  .topbar,.wrap,.intro{padding-left:16px;padding-right:16px}
+  .switch{margin-left:0}
+  .gsgrid{grid-template-columns:1fr}
+  .rail{grid-auto-columns:280px}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="11.5" stroke="#F2A93B" stroke-width="2.4"/><path d="M10.5 8.5L18 13l-7.5 4.5v-9z" fill="#F2A93B"/></svg> GALA</div>
+  <nav class="nav"><a href="#">Inicio</a><a href="#" class="active">Películas</a><a href="#">Series</a><a href="#">Listas</a><a href="#">Deseos</a></nav>
+  <div class="spacer"></div>
+  <button class="lan-pill"><span class="lan-dot"></span> Modo LAN · activo</button>
+  <button class="btn-add">＋ Añadir</button>
+</header>
+
+<div class="intro"><div class="box">🧪 <span>Mockup v2 — tarjetas <b>horizontales</b> (usan el fondo/backdrop, no el póster vertical). Prueba el conmutador <b>Secciones / Filas</b> y los filtros. Los fondos son de relleno; en GALA real salen de TMDB.</span></div></div>
+
+<div class="wrap">
+  <div class="phead">
+    <h1>Películas</h1>
+    <span class="count" id="total">—</span>
+    <div class="switch" id="switch">
+      <button data-v="secciones" class="on">▦ Secciones</button>
+      <button data-v="filas">▭ Filas</button>
+    </div>
+  </div>
+
+  <div class="filters">
+    <div class="fgroup"><label>Género</label><select id="fGenre"></select></div>
+    <div class="fgroup"><label>Año</label><select id="fYear"></select></div>
+    <div class="fgroup"><label>Idioma</label><select id="fLang"></select></div>
+    <div class="fgroup"><label>Ordenar</label><select id="fSort">
+      <option value="recent">Añadidas</option><option value="year">Año ↓</option><option value="title">Título A-Z</option><option value="rating">Mejor valoradas</option>
+    </select></div>
+    <button class="fclear" id="fClear">Limpiar</button>
+    <span class="fcount" id="fcount"></span>
+  </div>
+
+  <div id="content"></div>
+</div>
+
+<script>
+const M=[
+ {t:"Vengadores: Endgame",y:2019,g:["Acción","Aventura","Ciencia ficción"],l:"Dual",r:8.2,p:"p5",n:1},
+ {t:"El caballero oscuro",y:2008,g:["Acción","Crimen","Suspense"],l:"Castellano",r:8.5,p:"p4",n:0},
+ {t:"Spider-Man: No Way Home",y:2021,g:["Acción","Aventura","Ciencia ficción"],l:"Dual",r:8.0,p:"p5",n:0},
+ {t:"Parásitos",y:2019,g:["Drama","Suspense","Comedia"],l:"VOSE",r:8.5,p:"p2",n:0},
+ {t:"Intocable",y:2011,g:["Drama","Comedia"],l:"Castellano",r:8.3,p:"p6",n:0},
+ {t:"Origen",y:2010,g:["Acción","Ciencia ficción","Aventura"],l:"Castellano",r:8.4,p:"p4",n:0},
+ {t:"El hoyo",y:2019,g:["Drama","Ciencia ficción","Suspense"],l:"Castellano",r:7.0,p:"p7",n:0},
+ {t:"Coco",y:2017,g:["Animación","Familia","Aventura"],l:"Latino",r:8.2,p:"p6",n:0},
+ {t:"1917",y:2019,g:["Bélica","Drama","Historia"],l:"Castellano",r:8.0,p:"p4",n:0},
+ {t:"El padrino II",y:1974,g:["Drama","Crimen"],l:"Castellano",r:9.0,p:"p1",n:0},
+ {t:"Media Noche",y:2021,g:["Suspense","Drama"],l:"Castellano",r:6.4,p:"p3",n:0},
+ {t:"Fuego Cruzado",y:2019,g:["Acción"],l:"Castellano",r:6.1,p:"p5",n:0},
+ {t:"Tres Lunas",y:2025,g:["Drama"],l:"Castellano",r:7.3,p:"p8",n:1},
+ {t:"Ébano",y:2024,g:["Drama"],l:"Castellano",r:7.5,p:"p1",n:1},
+ {t:"La Frontera Verde",y:2023,g:["Aventura","Drama"],l:"Castellano",r:6.9,p:"p2",n:0},
+ {t:"Sombra y Sal",y:2018,g:["Drama"],l:"Castellano",r:7.1,p:"p6",n:0},
+ {t:"Kilómetro Cero",y:2020,g:["Acción","Suspense"],l:"Castellano",r:6.6,p:"p4",n:0},
+ {t:"Agua Dulce",y:2021,g:["Documental"],l:"Castellano",r:7.8,p:"p7",n:0},
+ {t:"Malabo 1968",y:2020,g:["Documental","Historia"],l:"Castellano",r:8.1,p:"p2",n:0},
+ {t:"La Casa del Puerto",y:2021,g:["Drama","Suspense"],l:"Castellano",r:7.2,p:"p8",n:0},
+ {t:"Cacao",y:2023,g:["Documental"],l:"Castellano",r:7.4,p:"p4",n:0},
+ {t:"El Último Bosque",y:2022,g:["Documental","Aventura"],l:"Castellano",r:7.9,p:"p6",n:0},
+];
+let view="secciones",fG="",fY="",fL="",fS="recent";
+const C=document.getElementById('content');
+const allGenres=[...new Set(M.flatMap(m=>m.g))].sort((a,b)=>a.localeCompare(b));
+const allYears=[...new Set(M.map(m=>m.y))].sort((a,b)=>b-a);
+const allLangs=[...new Set(M.map(m=>m.l))].sort();
+function fill(sel,opts,all){const s=document.getElementById(sel);s.innerHTML=`<option value="">${all}</option>`+opts.map(o=>`<option value="${o}">${o}</option>`).join('');}
+fill('fGenre',allGenres,'Todos');fill('fYear',allYears,'Todos');fill('fLang',allLangs,'Todos');
+
+function filtered(){
+  let a=M.filter(m=>(!fG||m.g.includes(fG))&&(!fY||m.y==fY)&&(!fL||m.l===fL));
+  if(fS==="year")a=a.slice().sort((x,y)=>y.y-x.y);
+  else if(fS==="title")a=a.slice().sort((x,y)=>x.t.localeCompare(y.t));
+  else if(fS==="rating")a=a.slice().sort((x,y)=>y.r-x.r);
+  return a;
+}
+function card(m){return `<article class="card">${m.n?'<span class="badge">NUEVO</span>':''}<div class="thumb ${m.p}"><span class="title">${m.t}</span><div class="play"><span>▶</span></div></div><div class="info">${m.y}<span class="star">★ ${m.r.toFixed(1)}</span><span class="lang">${m.l}</span><span class="hd"></span></div></article>`;}
+
+function render(){
+  const data=filtered();
+  document.getElementById('total').textContent=data.length+" títulos";
+  document.getElementById('fcount').textContent=(fG||fY||fL)?`${data.length} de ${M.length}`:"";
+  if(!data.length){C.innerHTML=`<div class="empty">Sin resultados con estos filtros.</div>`;return;}
+  const genres=fG?[fG]:allGenres;
+  if(view==="secciones"){
+    C.innerHTML=genres.map(g=>{
+      const items=data.filter(m=>m.g.includes(g));if(!items.length)return'';
+      return `<section class="gsection"><div class="gshead"><h2>${g}</h2><span class="c">${items.length}</span><a class="link" href="#">Ver todo →</a></div><div class="gsgrid">${items.map(card).join('')}</div></section>`;
+    }).join('');
+  } else {
+    C.innerHTML=genres.map(g=>{
+      const items=data.filter(m=>m.g.includes(g));if(!items.length)return'';
+      return `<section class="rsection"><div class="gshead"><h2>${g}</h2><span class="c">${items.length}</span><a class="link" href="#">Ver todo →</a></div><div class="rail-wrap"><button class="rail-arrow l" onclick="rs(this,-1)">‹</button><div class="rail">${items.map(card).join('')}</div><button class="rail-arrow r" onclick="rs(this,1)">›</button></div></section>`;
+    }).join('');
+  }
+}
+function rs(btn,dir){const r=btn.parentElement.querySelector('.rail');r.scrollBy({left:dir*r.clientWidth*0.8,behavior:'smooth'});}
+document.getElementById('switch').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;view=b.dataset.v;document.querySelectorAll('#switch button').forEach(x=>x.classList.toggle('on',x===b));render();});
+['fGenre','fYear','fLang','fSort'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{if(id==='fGenre')fG=e.target.value;if(id==='fYear')fY=e.target.value;if(id==='fLang')fL=e.target.value;if(id==='fSort')fS=e.target.value;render();}));
+document.getElementById('fClear').addEventListener('click',()=>{fG=fY=fL="";fS="recent";['fGenre','fYear','fLang'].forEach(i=>document.getElementById(i).value="");document.getElementById('fSort').value="recent";render();});
+render();
+</script>
+</body>
+</html>

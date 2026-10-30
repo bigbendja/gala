@@ -140,3 +140,58 @@ func (r *Repo) Genres(ctx context.Context) ([]GenreCount, error) {
 	}
 	return out, rows.Err()
 }
+
+// Facets son los valores con los que se puede filtrar una vista de exploración
+// (Películas o Series): los géneros con contenido (de más a menos títulos) y
+// los años con contenido (del más reciente al más antiguo).
+type Facets struct {
+	Genres []GenreCount `json:"genres"`
+	Years  []int        `json:"years"`
+}
+
+// Facets calcula los filtros disponibles para kind (movie o series). En
+// películas solo cuenta lo que tiene alguna fuente, igual que el listado.
+func (r *Repo) Facets(ctx context.Context, kind Kind) (*Facets, error) {
+	if kind != KindMovie && kind != KindSeries {
+		return nil, fmt.Errorf("kind no válido para facetas: %q", kind)
+	}
+	cond := `i.kind = ? AND i.identify_status != 'junk'
+		AND (i.kind = 'series' OR EXISTS (SELECT 1 FROM sources s WHERE s.item_id = i.id))`
+	out := &Facets{Genres: []GenreCount{}, Years: []int{}}
+
+	rows, err := r.q.QueryContext(ctx, `SELECT j.value, COUNT(*) AS n
+		FROM items i, json_each(i.genres) j WHERE `+cond+`
+		GROUP BY j.value ORDER BY n DESC, j.value ASC`, kind)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var g GenreCount
+		if err := rows.Scan(&g.Name, &g.Count); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if strings.TrimSpace(g.Name) != "" {
+			out.Genres = append(out.Genres, g)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	yrows, err := r.q.QueryContext(ctx, `SELECT DISTINCT i.year FROM items i
+		WHERE `+cond+` AND i.year IS NOT NULL ORDER BY i.year DESC`, kind)
+	if err != nil {
+		return nil, err
+	}
+	defer yrows.Close()
+	for yrows.Next() {
+		var y int
+		if err := yrows.Scan(&y); err != nil {
+			return nil, err
+		}
+		out.Years = append(out.Years, y)
+	}
+	return out, yrows.Err()
+}

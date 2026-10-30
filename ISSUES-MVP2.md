@@ -241,3 +241,16 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   `database is locked (SQLITE_BUSY)` en un escaneo mientras la cola de TMDB
   escribía (a pesar de `busy_timeout=5000`); el siguiente escaneo lo recoge.
   Conviene reintentar el lote o serializar las escrituras largas.
+- 2026-10-30 (VISTAS DE EXPLORACIÓN, Películas y Series): decisiones y huecos.
+  (1) El filtro «Idioma» del mockup NO se muestra: GALA aún no tiene el idioma
+  por fuente (fase futura); el hueco está comentado en `BrowseFilters.svelte`
+  y la tarjeta no pinta idioma. (2) Las series no llevan punto de salud en la
+  tarjeta (una serie no tiene fuente propia; la salud es de sus episodios):
+  derivarla exigiría agregar episodios en el listado. (3) «Ver todo →» de una
+  sección aplica el filtro de ese género (no hay página aparte por género).
+  (4) Las secciones se ordenan por nº de títulos y luego alfabético; un título
+  con varios géneros sale en cada uno. (5) Los géneros de TMDB de algunas
+  series llegan sin traducir («News», «Talk»): sale tal cual los devuelve TMDB.
+  (6) El mockup tiene el conmutador Secciones/Filas: solo se hizo «Filas», que
+  es lo pedido; «Secciones» (rejilla) queda por si se quiere. (7) «Deseos»
+  sigue con la rejilla vertical de antes. (8) La Home no se toca.
