@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/bigbendja/gala/internal/api"
+	"github.com/bigbendja/gala/internal/buildinfo"
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
 	"github.com/bigbendja/gala/internal/health"
@@ -36,7 +37,12 @@ import (
 func main() {
 	noBrowser := flag.Bool("no-browser", false, "no abrir el navegador al arrancar")
 	demo := flag.Bool("demo", false, "poblar la BD con datos ficticios de desarrollo (solo si está vacía)")
+	showVersion := flag.Bool("version", false, "imprimir versión, commit y fecha de compilación, y salir")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(buildinfo.String())
+		return
+	}
 
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
@@ -165,7 +171,7 @@ func main() {
 		log.Error("servidor http", "err", err)
 		os.Exit(1)
 	}
-	log.Info("GALA arrancado", "version", api.Version, "url", localURL(cfg), "modo_lan", cfg.LanEnabled())
+	log.Info("GALA arrancado", "version", buildinfo.Version, "url", localURL(cfg), "modo_lan", cfg.LanEnabled())
 
 	if !*noBrowser {
 		openBrowser(localURL(cfg), log)

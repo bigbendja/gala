@@ -55,6 +55,7 @@ function baseData(overrides: Partial<Record<string, unknown>> = {}) {
 		healthError: null,
 		sys: { status: 'ok', app: 'gala', version: '0.1.0-test', ffmpeg_available: true },
 		sysError: null,
+		build: { version: 'v0.9.0', commit: 'abc1234def', date: '2026-10-30T10:00:00Z' },
 		...overrides
 	};
 }
@@ -132,6 +133,13 @@ describe('Ajustes', () => {
 		await fireEvent.click(getByText('Guardar clave'));
 
 		await waitFor(() => expect(getByText('la clave de TMDB no es válida')).toBeInTheDocument());
+	});
+
+	it('muestra versión, commit y fecha de compilación en Sistema', () => {
+		const { getByText } = render(Page, { data: baseData() });
+		expect(getByText('Versión v0.9.0')).toBeInTheDocument();
+		expect(getByText('commit abc1234')).toBeInTheDocument();
+		expect(getByText(/compilada el .*2026/)).toBeInTheDocument();
 	});
 
 	it('muestra el error de identificación 401 en cristiano', () => {

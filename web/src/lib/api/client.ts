@@ -307,6 +307,11 @@ export function ping(): Promise<{ status: string; app: string; version: string; 
 	return request('/api/v1/ping');
 }
 
+/** GET /api/v1/version — versión, commit y fecha de compilación del binario. */
+export function getVersion(): Promise<{ version: string; commit: string; date: string }> {
+	return request('/api/v1/version');
+}
+
 // --- Modo LAN (M7) -----------------------------------------------------------
 
 /** GET /api/v1/lan/session — ¿es el PC o un dispositivo de la red? ¿Falta el PIN? */
