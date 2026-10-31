@@ -509,12 +509,12 @@ cultura del disco duro que circula.
       embebidos gala-preflight y la unit; un test comprueba que las copias
       coinciden con los originales; idempotente; no toca gala.json/BD/contraseña
       existentes; ufw solo desde la subred local y sin activarlo por su cuenta).
-      Dos caminos: `--binary RUTA` (interino con repo privado: binario copiado a
-      mano, sin token ni clonar) y `--download` (descarga anónima + SHA256, para
-      cuando el repo sea público; la CI publica `install.sh` en cada release).
+      Dos caminos: `--binary RUTA` (binario copiado a mano, sin acceso a GitHub) y
+      `--download` (descarga anónima + SHA256; la CI publica `install.sh` en cada
+      release; recomendado desde que el repo es público).
       amd64 fijo. Probado en Ubuntu 24.04 real (Docker) con systemctl/ufw
       simulados: instalación nueva, repetir, SHA256 malo, fichero que no es un
-      binario, descarga con repo privado, sin root. `scripts/gala-update` solo
+      binario, descarga con repo privado, sin root. v0.10.1 corrige `--download` (os-release pisaba VERSION). `scripts/gala-update` solo
       para compilar en el servidor (desarrollo).
 - [x] **M-Servidor CERRADO — v0.10.0 publicada** (31 oct 2026). El repositorio es
       PÚBLICO (se escaneó TODO el historial antes: gitleaks + patrones manuales,

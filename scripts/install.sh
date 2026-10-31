@@ -3,12 +3,9 @@
 #
 # Dos caminos para conseguir el binario:
 #   a) --binary RUTA      un binario linux-amd64 que ya tienes en el servidor
-#                         (p. ej. copiado con scp). No hace falta token ni
-#                         clonar el repositorio. Es el camino mientras el
-#                         repositorio sea privado.
+#                         (p. ej. copiado con scp), sin red hacia GitHub.
 #   b) --download         baja el último release (o --version vX.Y.Z) de GitHub
-#                         sin autenticarse y verifica su SHA256. Solo funciona
-#                         cuando el repositorio es público.
+#                         sin autenticarse y verifica su SHA256.
 #
 # Es idempotente: puedes ejecutarlo otra vez para reparar o actualizar el binario.
 # No toca gala.json, la base de datos ni la contraseña si ya existen.
@@ -25,7 +22,7 @@ ASSET=gala-linux-amd64
 BINARY=""
 SHA256=""
 DOWNLOAD=0
-VERSION=latest
+GALA_VERSION=latest
 SUBNET=""
 MEDIA=/srv/media
 PORT=7420
@@ -45,7 +42,7 @@ usage() {
 Instala GALA como servicio systemd en Ubuntu/Debian (amd64).
 
   sudo sh install.sh --binary RUTA      usa un binario linux-amd64 que ya tienes
-  sudo sh install.sh --download         baja el último release de GitHub (repo público)
+  sudo sh install.sh --download         baja el último release de GitHub
 
 Opciones:
   --binary RUTA      binario gala-linux-amd64 ya copiado al servidor
@@ -71,7 +68,7 @@ while [ $# -gt 0 ]; do
 	--binary) [ $# -ge 2 ] || die "--binary necesita una ruta"; BINARY=$2; shift 2 ;;
 	--sha256) [ $# -ge 2 ] || die "--sha256 necesita un hash"; SHA256=$2; shift 2 ;;
 	--download) DOWNLOAD=1; shift ;;
-	--version) [ $# -ge 2 ] || die "--version necesita una versión (p. ej. v0.10.0)"; VERSION=$2; shift 2 ;;
+	--version) [ $# -ge 2 ] || die "--version necesita una versión (p. ej. v0.10.0)"; GALA_VERSION=$2; shift 2 ;;
 	--subnet) [ $# -ge 2 ] || die "--subnet necesita una red (p. ej. 192.168.1.0/24)"; SUBNET=$2; shift 2 ;;
 	--media) [ $# -ge 2 ] || die "--media necesita una ruta"; MEDIA=$2; shift 2 ;;
 	--port) [ $# -ge 2 ] || die "--port necesita un número"; PORT=$2; shift 2 ;;
@@ -94,11 +91,13 @@ x86_64 | amd64) ;;
 esac
 command -v systemctl >/dev/null 2>&1 || die "hace falta systemd (systemctl no está disponible)"
 if [ -r /etc/os-release ]; then
+	# En un subshell: /etc/os-release define VERSION, ID... y no debe pisar las
+	# variables de este script (VERSION es la versión de GALA a descargar).
 	# shellcheck disable=SC1091
-	. /etc/os-release
-	case "${ID:-}${ID_LIKE:-}" in
+	OS_INFO=$( . /etc/os-release; printf '%s|%s' "${ID:-}${ID_LIKE:-}" "${PRETTY_NAME:-este sistema}" )
+	case "${OS_INFO%%|*}" in
 	*ubuntu* | *debian*) ;;
-	*) warn "pensado para Ubuntu/Debian; en ${PRETTY_NAME:-este sistema} puede fallar la instalación de paquetes" ;;
+	*) warn "pensado para Ubuntu/Debian; en ${OS_INFO#*|} puede fallar la instalación de paquetes" ;;
 	esac
 fi
 
@@ -159,16 +158,16 @@ NEW="$GALA_HOME/gala.new"
 rm -f "$NEW"
 if [ "$DOWNLOAD" -eq 1 ]; then
 	command -v curl >/dev/null 2>&1 || die "hace falta curl para --download"
-	if [ "$VERSION" = latest ]; then
+	if [ "$GALA_VERSION" = latest ]; then
 		BASE="https://github.com/$REPO/releases/latest/download"
 	else
-		BASE="https://github.com/$REPO/releases/download/$VERSION"
+		BASE="https://github.com/$REPO/releases/download/$GALA_VERSION"
 	fi
 	TMP=$(mktemp -d)
 	trap 'rm -rf "$TMP"' EXIT
 	if ! curl -fsSL --retry 3 -o "$TMP/$ASSET" "$BASE/$ASSET" ||
 		! curl -fsSL --retry 3 -o "$TMP/SHA256SUMS.txt" "$BASE/SHA256SUMS.txt"; then
-		die "no se pudo descargar GALA desde GitHub. Si el repositorio es privado, la descarga anónima no funciona: copia el binario al servidor y usa --binary RUTA."
+		die "no se pudo descargar GALA desde GitHub. Comprueba la conexión a Internet y que la versión exista. Si no puedes descargar desde este servidor, copia el binario y usa --binary RUTA."
 	fi
 	want=$(awk -v f="$ASSET" '{n=$2; sub(/^\*/, "", n)} n==f {print $1; exit}' "$TMP/SHA256SUMS.txt")
 	[ -n "$want" ] || die "SHA256SUMS.txt no incluye $ASSET"
