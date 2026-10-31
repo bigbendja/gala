@@ -41,7 +41,7 @@ func (s *Server) authUnavailable(w http.ResponseWriter) bool {
 // autorizó: desde el PC (con las defensas de requireOwner) o desde la red con
 // una sesión de administrador válida (el guardián ya comprobó CSRF).
 func (s *Server) requireAdmin(w http.ResponseWriter, r *http.Request, needJSON bool) bool {
-	if lan.IsLocal(r) {
+	if lan.IsLocalAdmin(r) {
 		return requireOwner(w, r, needJSON)
 	}
 	if s.Auth == nil || s.Auth.SessionFromRequest(r) == nil {
@@ -66,7 +66,7 @@ type authStatusView struct {
 
 // handleAuthStatus: GET /api/v1/auth/status.
 func (s *Server) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
-	local := lan.IsLocal(r)
+	local := lan.IsLocalAdmin(r)
 	if s.Auth == nil { // sin servicio (tests): es el PC, sin clave
 		writeJSON(w, http.StatusOK, authStatusView{IsLocalhost: local, Authenticated: local, NetworkAdmin: true})
 		return
@@ -118,7 +118,7 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, "cuerpo no válido")
 		return
 	}
-	tok, csrf, err := s.Auth.Login(r.Context(), req.Password, requestIP(r), r.UserAgent(), lan.IsLocal(r))
+	tok, csrf, err := s.Auth.Login(r.Context(), req.Password, requestIP(r), r.UserAgent(), lan.IsLocalAdmin(r))
 	var rl *auth.RateLimitedError
 	switch {
 	case errors.As(err, &rl):
@@ -202,7 +202,7 @@ func (s *Server) handleAuthPassword(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	local := lan.IsLocal(r)
+	local := lan.IsLocalAdmin(r)
 	keep, ip := "", ""
 	if sess := s.Auth.SessionFromRequest(r); sess != nil {
 		keep = sess.IDHash

@@ -61,13 +61,35 @@ func (g *Guard) ResetSessions() { g.sessions.reset() }
 // cabeceras (X-Forwarded-For, Host...) que un cliente remoto controla.
 func IsLocal(r *http.Request) bool { return IsLoopbackHostPort(r.RemoteAddr) }
 
+// IsLoopbackHost indica si el valor de la cabecera Host (con o sin puerto) es
+// localhost o una IP de loopback.
+func IsLoopbackHost(hostport string) bool {
+	host := hostport
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		host = h
+	}
+	host = strings.Trim(host, "[]")
+	return host == "localhost" || IsLoopbackHostPort(host)
+}
+
+// IsLocalAdmin es IsLocal más Host de loopback: lo que da administración sin
+// sesión. Sin la comprobación de Host, una web maliciosa con DNS rebinding hacia
+// 127.0.0.1 llegaría con RemoteAddr de loopback y se haría pasar por el dueño.
+// IsLocal queda solo para usos no sensibles.
+func IsLocalAdmin(r *http.Request) bool {
+	return IsLocal(r) && IsLoopbackHost(r.Host)
+}
+
 // Middleware envuelve al mux entero.
 func (g *Guard) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if IsLocal(r) {
 			// Localhost es admin sin más (rescate y escritorio). Solo si
 			// gala.json lo desactiva exige sesión en las rutas de administración.
-			if g.Admin == nil || g.Admin.LocalBypass() || !isAdminRoute(r.Method, r.URL.Path, true) {
+			// Con RemoteAddr de loopback pero Host ajeno (DNS rebinding) no hay
+			// bypass: exige sesión como cualquier cliente de red.
+			if g.Admin == nil || !isAdminRoute(r.Method, r.URL.Path, true) ||
+				(IsLoopbackHost(r.Host) && g.Admin.LocalBypass()) {
 				next.ServeHTTP(w, r)
 				return
 			}

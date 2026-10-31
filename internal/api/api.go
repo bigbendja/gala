@@ -45,7 +45,7 @@ type Server struct {
 	// Modo LAN (M7). Los pone main tras api.New; nil = comportamiento de
 	// tests (sin listener real, sin guardián).
 	LanGuard      *lan.Guard
-	Auth          *auth.Service // nil = sin clave de administrador (tests)
+	Auth          *auth.Service           // nil = sin clave de administrador (tests)
 	LanListen     func(bind string) error // reabre el listener HTTP en ese bind
 	LanCandidates func() []lan.Candidate  // nil = detección real de interfaces
 }
@@ -264,7 +264,7 @@ func (s *Server) handleGetItem(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	if !lan.IsLocal(r) {
+	if !lan.IsLocalAdmin(r) {
 		redactForRemote(&items[0]) // Modo LAN: sin rutas del disco del PC
 	}
 	writeJSON(w, http.StatusOK, items[0])

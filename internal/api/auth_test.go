@@ -369,3 +369,61 @@ func TestAuthSesionesYLogout(t *testing.T) {
 		t.Fatalf("tras logout: %d", w.Code)
 	}
 }
+
+func withHost(h string) reqOpt { return func(r *http.Request) { r.Host = h } }
+
+// DNS rebinding: una web maliciosa resuelve su dominio a 127.0.0.1, así que la
+// petición llega con RemoteAddr de loopback pero Host ajeno. No debe heredar
+// el bypass de localhost.
+func TestAuthDNSRebindingNoDaAdmin(t *testing.T) {
+	a := newAuthHarness(t)
+	// Sin contraseña: nada de admin por esa vía.
+	w := a.do("GET", "/api/v1/folders", "", withHost("evil.com:7420"))
+	if w.Code != 401 || code(w) != "auth_not_configured" {
+		t.Fatalf("sin clave, loopback con Host ajeno: %d %s", w.Code, w.Body)
+	}
+	a.svc.SetPassword(context.Background(), goodPass)
+	for _, h := range []string{"evil.com", "evil.com:7420", "127.0.0.1.evil.com", "192.168.1.5:7420"} {
+		w := a.do("GET", "/api/v1/folders", "", withHost(h))
+		if w.Code != 401 || code(w) != "login_required" {
+			t.Errorf("Host %q: %d %s (debe exigir sesión)", h, w.Code, w.Body)
+		}
+		if w := a.do("DELETE", "/api/v1/items/1", "", withHost(h)); w.Code != 401 {
+			t.Errorf("Host %q: escritura sin sesión: %d", h, w.Code)
+		}
+	}
+	// El estado no lo presenta como administrador.
+	st := a.do("GET", "/api/v1/auth/status", "", withHost("evil.com"))
+	if !strings.Contains(st.Body.String(), `"authenticated":false`) || !strings.Contains(st.Body.String(), `"is_localhost":false`) {
+		t.Errorf("status con Host ajeno: %s", st.Body)
+	}
+	// Los Host de loopback legítimos siguen siendo admin sin sesión.
+	for _, h := range []string{"localhost:7420", "127.0.0.1:7420", "[::1]:7420", "localhost"} {
+		if w := a.do("GET", "/api/v1/folders", "", withHost(h)); w.Code != 200 {
+			t.Errorf("Host %q legítimo: %d", h, w.Code)
+		}
+	}
+}
+
+func TestAuthDNSRebindingSinPrimeraClaveNiLoginSinLimite(t *testing.T) {
+	a := newAuthHarness(t)
+	// Poner la primera contraseña no se puede con Host ajeno.
+	if w := a.do("POST", "/api/v1/auth/password", `{"new":"clave-nueva-123"}`, withHost("evil.com")); w.Code != 401 {
+		t.Fatalf("primera clave con Host ajeno: %d %s", w.Code, w.Body)
+	}
+	a.svc.SetPassword(context.Background(), goodPass)
+	// El login con Host ajeno cuenta como cliente de red: tiene límite.
+	for i := 0; i < 5; i++ {
+		a.do("POST", "/api/v1/auth/login", `{"password":"mala-clave-x"}`, withHost("evil.com"))
+	}
+	if w := a.do("POST", "/api/v1/auth/login", `{"password":"mala-clave-x"}`, withHost("evil.com")); w.Code != 429 {
+		t.Fatalf("la fuerza bruta con Host ajeno debe limitarse: %d", w.Code)
+	}
+}
+
+func TestAuthDNSRebindingTampocoCambiaElModoLan(t *testing.T) {
+	a := newAuthHarness(t)
+	if w := a.do("POST", "/api/v1/lan/toggle", `{"enabled":true}`, withHost("evil.com")); w.Code == 200 {
+		t.Fatalf("lan/toggle con Host ajeno no debe pasar: %d", w.Code)
+	}
+}

@@ -54,7 +54,8 @@
 	// Administrar (Ajustes, "Por confirmar", Listas) es del PC, o de un
 	// dispositivo de la red que inició sesión de administrador (M-Servidor).
 	// Sin sesión, esas rutas enseñan el acceso de administrador.
-	const isAdmin = $derived(isLocal || !!data.auth?.authenticated);
+	let adminLost = $state(false);
+	const isAdmin = $derived(!adminLost && (isLocal || !!data.auth?.authenticated));
 	const adminRoute = $derived(
 		['/ajustes', '/pendientes', '/listas'].some((p) => page.url.pathname.startsWith(p))
 	);
@@ -65,11 +66,11 @@
 		document.getElementById('gala-shell')?.remove();
 		const onPin = () => (relocked = true);
 		const onOpenIngest = () => (ingestOpen = true);
-		// La sesión de administrador caducó o se cerró con la app abierta.
-		// Solo si creíamos tener sesión: si ya se sabe que no, no hay nada que recargar.
-		const onAdminLogin = () => {
-			if (isAdmin && !isLocal) void invalidateAll();
-		};
+		// La sesión de administrador caducó o se cerró con la app abierta. NO se
+		// recargan los datos (las cargas de las páginas de administración darían
+		// 401 otra vez y encadenarían recargas): basta con recordar que ya no hay
+		// sesión y pintar el acceso; al entrar de nuevo sí se recarga todo.
+		const onAdminLogin = () => (adminLost = true);
 		window.addEventListener(ADMIN_LOGIN_EVENT, onAdminLogin);
 		window.addEventListener(PIN_REQUIRED_EVENT, onPin);
 		window.addEventListener('gala:open-ingest', onOpenIngest);
@@ -82,6 +83,7 @@
 
 	async function unlocked() {
 		relocked = false;
+		adminLost = false;
 		await invalidateAll();
 	}
 </script>

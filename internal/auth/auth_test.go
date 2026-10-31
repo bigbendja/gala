@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bigbendja/gala/internal/store"
 )
@@ -255,5 +256,18 @@ func TestDeviceName(t *testing.T) {
 		if got := DeviceName(ua); got != want {
 			t.Errorf("%q → %q, quería %q", ua, got, want)
 		}
+	}
+}
+
+func TestTruncatePorRunas(t *testing.T) {
+	got := truncate(strings.Repeat("ñ", 400), 300)
+	if n := len([]rune(got)); n != 300 {
+		t.Fatalf("runas = %d", n)
+	}
+	if !utf8.ValidString(got) {
+		t.Fatal("no debe partir un carácter multibyte")
+	}
+	if truncate("corto", 300) != "corto" {
+		t.Fatal("lo corto no cambia")
 	}
 }

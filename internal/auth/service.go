@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bigbendja/gala/internal/lan"
 )
@@ -311,11 +312,12 @@ func (s *Service) Login(ctx context.Context, pw, ip, ua string, local bool) (tok
 	return token, s.CSRFToken(id), nil
 }
 
+// truncate corta por runas (no por bytes) para no partir un carácter UTF-8.
 func truncate(v string, n int) string {
-	if len(v) > n {
-		return v[:n]
+	if utf8.RuneCountInString(v) <= n {
+		return v
 	}
-	return v
+	return string([]rune(v)[:n])
 }
 
 // Lookup busca la sesión de un token en la BD; ErrNoSession si no existe o caducó.
@@ -435,7 +437,7 @@ func (s *Service) Check(r *http.Request) (ok bool, status int, code, msg string)
 		s.log.Error("auth: comprobar configuración", "err", err)
 		return false, http.StatusInternalServerError, "internal", "No se pudo comprobar la sesión."
 	}
-	local := lan.IsLocal(r)
+	local := lan.IsLocalAdmin(r)
 	if !configured {
 		return false, http.StatusUnauthorized, "auth_not_configured",
 			"La administración desde la red no está configurada. Pon una contraseña desde el equipo o por SSH."

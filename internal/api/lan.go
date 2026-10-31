@@ -81,12 +81,7 @@ func requireOwner(w http.ResponseWriter, r *http.Request, needJSON bool) bool {
 			"error": "Esto solo se puede hacer desde el PC donde corre GALA.", "code": "local_only"})
 		return false
 	}
-	host := r.Host
-	if h, _, err := net.SplitHostPort(host); err == nil {
-		host = h
-	}
-	host = strings.Trim(host, "[]")
-	if !(host == "localhost" || net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback()) {
+	if !lan.IsLocalAdmin(r) { // loopback pero Host ajeno: DNS rebinding
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Origen no permitido."})
 		return false
 	}
@@ -180,7 +175,7 @@ func (s *Server) handleLanPIN(w http.ResponseWriter, r *http.Request) {
 		s.LanGuard.ResetSessions()
 		// Un administrador de red que cambia el PIN no se expulsa a sí mismo:
 		// recibe una sesión LAN nueva con el PIN nuevo.
-		if !lan.IsLocal(r) && pin != "" {
+		if !lan.IsLocalAdmin(r) && pin != "" {
 			s.LanGuard.IssueSession(w)
 		}
 	}
