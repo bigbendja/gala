@@ -24,8 +24,8 @@ import (
 func runAdmin(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 	if len(args) == 0 || args[0] != "set-password" {
 		fmt.Fprintln(stderr, "Uso: gala admin set-password")
-		fmt.Fprintln(stderr, "  Pone o cambia la clave de administrador (y cierra todas las sesiones).")
-		fmt.Fprintln(stderr, "  La clave se pide por el teclado (sin eco) o se lee de la entrada estándar;")
+		fmt.Fprintln(stderr, "  Pone o cambia la contraseña de administrador (y cierra todas las sesiones).")
+		fmt.Fprintln(stderr, "  La contraseña se pide por el teclado (sin eco) o se lee de la entrada estándar;")
 		fmt.Fprintln(stderr, "  nunca se pasa como argumento.")
 		return 2
 	}
@@ -54,13 +54,13 @@ func runAdmin(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 	}
 	if err := svc.SetPassword(context.Background(), pw); err != nil {
 		if errors.Is(err, auth.ErrPasswordPolicy) {
-			fmt.Fprintln(stderr, "La clave debe tener entre 8 y 128 caracteres.")
+			fmt.Fprintln(stderr, "La contraseña debe tener entre 8 y 128 caracteres.")
 			return 1
 		}
-		fmt.Fprintln(stderr, "Error guardando la clave:", err)
+		fmt.Fprintln(stderr, "Error guardando la contraseña:", err)
 		return 1
 	}
-	fmt.Fprintln(stdout, "Listo: la clave de administrador está puesta y todas las sesiones abiertas se han cerrado.")
+	fmt.Fprintln(stdout, "Listo: la contraseña de administrador está puesta y todas las sesiones abiertas se han cerrado.")
 	return 0
 }
 
@@ -68,26 +68,26 @@ func runAdmin(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 // entrada estándar si viene de una tubería.
 func readNewPassword(stdin *os.File, out io.Writer) (string, error) {
 	if term.IsTerminal(int(stdin.Fd())) {
-		fmt.Fprint(out, "Nueva clave de administrador: ")
+		fmt.Fprint(out, "Nueva contraseña de administrador: ")
 		a, err := term.ReadPassword(int(stdin.Fd()))
 		fmt.Fprintln(out)
 		if err != nil {
-			return "", fmt.Errorf("leer la clave: %w", err)
+			return "", fmt.Errorf("leer la contraseña: %w", err)
 		}
-		fmt.Fprint(out, "Repite la clave: ")
+		fmt.Fprint(out, "Repite la contraseña: ")
 		b, err := term.ReadPassword(int(stdin.Fd()))
 		fmt.Fprintln(out)
 		if err != nil {
-			return "", fmt.Errorf("leer la clave: %w", err)
+			return "", fmt.Errorf("leer la contraseña: %w", err)
 		}
 		if string(a) != string(b) {
-			return "", errors.New("las dos claves no coinciden")
+			return "", errors.New("las dos contraseñas no coinciden")
 		}
 		return string(a), nil
 	}
 	line, err := bufio.NewReader(stdin).ReadString('\n')
 	if err != nil && line == "" {
-		return "", errors.New("no se recibió ninguna clave por la entrada estándar")
+		return "", errors.New("no se recibió ninguna contraseña por la entrada estándar")
 	}
 	return strings.TrimRight(line, "\r\n"), nil
 }

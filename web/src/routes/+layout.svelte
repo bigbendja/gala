@@ -5,7 +5,8 @@
 	import { page } from '$app/state';
 	import { goto, invalidateAll } from '$app/navigation';
 	import favicon from '$lib/assets/favicon.svg';
-	import { PIN_REQUIRED_EVENT } from '$lib/api/client';
+	import { ADMIN_LOGIN_EVENT, PIN_REQUIRED_EVENT } from '$lib/api/client';
+	import AdminLogin from '$lib/components/AdminLogin.svelte';
 	import Topbar from '$lib/components/Topbar.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import IngestModal from '$lib/components/IngestModal.svelte';
@@ -50,20 +51,30 @@
 	const locked = $derived(
 		relocked || (!data.session.local && data.session.pin_required && !data.session.authenticated)
 	);
-	// Ajustes y "Por confirmar" son del dueño: desde otro dispositivo no hay
-	// nada que hacer ahí (el backend además lo rechaza).
-	const ownerOnlyRoute = $derived(
-		!isLocal && (page.url.pathname.startsWith('/ajustes') || page.url.pathname.startsWith('/pendientes'))
+	// Administrar (Ajustes, "Por confirmar", Listas) es del PC, o de un
+	// dispositivo de la red que inició sesión de administrador (M-Servidor).
+	// Sin sesión, esas rutas enseñan el acceso de administrador.
+	const isAdmin = $derived(isLocal || !!data.auth?.authenticated);
+	const adminRoute = $derived(
+		['/ajustes', '/pendientes', '/listas'].some((p) => page.url.pathname.startsWith(p))
 	);
+	const needsAdminLogin = $derived(!isAdmin && adminRoute);
 
 	onMount(() => {
 		// Retira el cascarón de arranque (app.html): ya hay app de verdad.
 		document.getElementById('gala-shell')?.remove();
 		const onPin = () => (relocked = true);
 		const onOpenIngest = () => (ingestOpen = true);
+		// La sesión de administrador caducó o se cerró con la app abierta.
+		// Solo si creíamos tener sesión: si ya se sabe que no, no hay nada que recargar.
+		const onAdminLogin = () => {
+			if (isAdmin && !isLocal) void invalidateAll();
+		};
+		window.addEventListener(ADMIN_LOGIN_EVENT, onAdminLogin);
 		window.addEventListener(PIN_REQUIRED_EVENT, onPin);
 		window.addEventListener('gala:open-ingest', onOpenIngest);
 		return () => {
+			window.removeEventListener(ADMIN_LOGIN_EVENT, onAdminLogin);
 			window.removeEventListener(PIN_REQUIRED_EVENT, onPin);
 			window.removeEventListener('gala:open-ingest', onOpenIngest);
 		};
@@ -90,17 +101,13 @@
 			onOpenIngest={() => (ingestOpen = true)}
 			{pendingCount}
 			local={isLocal}
+			admin={isAdmin}
 			{lanEnabled}
 			onOpenLan={() => (lanOpen = true)}
 		/>
 		<div class="app-main">
-			{#if ownerOnlyRoute}
-				<StateBlock
-					title="Esto se maneja desde el PC"
-					text="Los ajustes y la gestión de la galería solo están disponibles en el ordenador donde corre GALA. Desde aquí puedes ver tu galería y reproducir."
-					actionLabel="Volver a la galería"
-					actionHref="/"
-				/>
+			{#if needsAdminLogin}
+				<AdminLogin status={data.auth} onDone={unlocked} />
 			{:else}
 				{@render children()}
 			{/if}
@@ -108,7 +115,7 @@
 		<Footer />
 	</div>
 
-	{#if isLocal}
+	{#if isAdmin}
 		<IngestModal
 			open={ingestOpen}
 			onClose={() => (ingestOpen = false)}
@@ -118,6 +125,8 @@
 				goto('/ajustes#carpetas');
 			}}
 		/>
+	{/if}
+	{#if isLocal}
 		<LanPanel
 			open={lanOpen}
 			onClose={() => (lanOpen = false)}

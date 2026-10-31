@@ -33,7 +33,7 @@ const (
 )
 
 // ErrPasswordPolicy se devuelve cuando una clave nueva no cumple la longitud.
-var ErrPasswordPolicy = errors.New("la clave debe tener entre 8 y 128 caracteres")
+var ErrPasswordPolicy = errors.New("la contraseña debe tener entre 8 y 128 caracteres")
 
 // ValidatePassword aplica la única regla: longitud (sin reglas de composición).
 func ValidatePassword(pw string) error {

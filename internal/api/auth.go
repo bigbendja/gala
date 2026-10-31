@@ -133,7 +133,7 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 			"code":  "auth_not_configured"})
 		return
 	case errors.Is(err, auth.ErrBadPassword):
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Clave incorrecta.", "code": "bad_password"})
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Contraseña incorrecta. Inténtalo de nuevo.", "code": "bad_password"})
 		return
 	case err != nil:
 		s.fail(w, err)
@@ -228,9 +228,9 @@ func (s *Server) handleAuthPassword(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{
 			"error": fmt.Sprintf("Demasiados intentos. Espera %d segundos.", secs), "code": "rate_limited"})
 	case errors.Is(err, auth.ErrBadPassword):
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "La clave actual no es correcta.", "code": "bad_password"})
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "La contraseña actual no es correcta.", "code": "bad_password"})
 	case errors.Is(err, auth.ErrPasswordPolicy):
-		badRequest(w, "La clave nueva debe tener entre 8 y 128 caracteres.")
+		badRequest(w, "La contraseña nueva debe tener entre 8 y 128 caracteres.")
 	case err != nil:
 		s.fail(w, err)
 	default:
@@ -287,7 +287,7 @@ func (s *Server) handleAuthNetworkAdmin(w http.ResponseWriter, r *http.Request) 
 	}
 	if err := s.Auth.SetNetworkAdmin(r.Context(), *req.Enabled); err != nil {
 		if errors.Is(err, auth.ErrNotConfigured) {
-			writeJSON(w, http.StatusConflict, map[string]string{"error": "Primero pon una clave de administrador."})
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "Primero pon una contraseña de administrador."})
 			return
 		}
 		s.fail(w, err)

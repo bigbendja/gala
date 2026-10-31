@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SecurityPanel from '$lib/components/SecurityPanel.svelte';
 	import { onMount, untrack } from 'svelte';
 	import {
 		addFolder,
@@ -397,6 +398,8 @@
 			</button>
 		{/if}
 	</section>
+
+	<SecurityPanel />
 
 	<section class="card">
 		<h2>Sistema</h2>

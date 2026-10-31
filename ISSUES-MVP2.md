@@ -241,3 +241,14 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   `database is locked (SQLITE_BUSY)` en un escaneo mientras la cola de TMDB
   escribía (a pesar de `busy_timeout=5000`); el siguiente escaneo lo recoge.
   Conviene reintentar el lote o serializar las escrituras largas.
+
+## M-Servidor · Auth de administrador
+- El mockup `GALA_Mockup_Login.html` titula el interruptor «Exigir contraseña para
+  administrar desde la red… si lo desactivas, cualquiera podrá administrar»; el diseño
+  aprobado hace lo contrario (desactivado = nadie administra desde la red). El texto de la
+  UI sigue el diseño aprobado: «Permitir administrar desde la red».
+- El límite de intentos de login vive en memoria: un reinicio lo borra.
+- Sin HTTPS: la contraseña viaja en claro por la LAN (documentado en el panel y la guía).
+- Si el servidor no responde a `/lan/session`, el layout cae a «es el PC» y enseña los
+  controles de administración (el backend sigue rechazando las llamadas). Convendría un
+  estado «sin conexión» propio.

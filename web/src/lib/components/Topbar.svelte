@@ -12,6 +12,9 @@
 		 *  la red (Modo LAN) solo ve galería y reproducción: sin Añadir, Ajustes,
 		 *  Por confirmar ni el panel de Modo LAN (Brief M7 §5). */
 		local?: boolean;
+		/** true = este navegador puede administrar: el PC, o un dispositivo de la
+		 *  red con sesión de administrador (M-Servidor). Por defecto, como `local`. */
+		admin?: boolean;
 		/** Modo LAN activo (la píldora lo refleja). */
 		lanEnabled?: boolean;
 		onOpenLan?: () => void;
@@ -20,11 +23,13 @@
 		onOpenIngest,
 		pendingCount = 0,
 		local = true,
+		admin,
 		lanEnabled = false,
 		onOpenLan = () => {}
 	}: Props = $props();
 
 	let mobileNavOpen = $state(false);
+	const isAdmin = $derived(admin ?? local);
 
 	const navLinks = [
 		{ href: '/', label: 'Inicio' },
@@ -68,7 +73,7 @@
 
 	<div class="spacer"></div>
 
-	{#if local && pendingCount > 0}
+	{#if isAdmin && pendingCount > 0}
 		<a class="pending-pill" href="/pendientes">{pendingCount} por confirmar</a>
 	{/if}
 
@@ -76,7 +81,11 @@
 		<SearchBox />
 	</div>
 
-	{#if local}
+	{#if !isAdmin}
+		<a class="admin-link" href="/ajustes">Administrar</a>
+	{/if}
+
+	{#if isAdmin}
 		<a class="settings-link" href="/ajustes" title="Ajustes" aria-label="Ajustes">
 			<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
 				<path d="M20 7h-9" />
@@ -85,7 +94,9 @@
 				<circle cx="7" cy="7" r="3" />
 			</svg>
 		</a>
+	{/if}
 
+	{#if local}
 		<button
 			class="lan-pill"
 			class:off={!lanEnabled}
@@ -95,7 +106,9 @@
 			<span class="lan-dot"></span>
 			{lanEnabled ? 'Modo LAN · activo' : 'Modo LAN'}
 		</button>
+	{/if}
 
+	{#if isAdmin}
 		<button class="btn-add" onclick={onOpenIngest}>＋ Añadir</button>
 	{/if}
 
@@ -122,11 +135,16 @@
 		{#each navLinks as link (link.href)}
 			<a href={link.href} class:active={isActive(link.href)} onclick={closeMobileNav}>{link.label}</a>
 		{/each}
-		{#if local}
+		{#if !isAdmin}
+			<a href="/ajustes" onclick={closeMobileNav}>Administrar</a>
+		{/if}
+		{#if isAdmin}
 			{#if pendingCount > 0}
 				<a href="/pendientes" onclick={closeMobileNav}>{pendingCount} por confirmar</a>
 			{/if}
 			<a href="/ajustes" onclick={closeMobileNav}>Ajustes</a>
+		{/if}
+		{#if local}
 			<button
 				class="mobile-lan"
 				onclick={() => {
@@ -134,6 +152,8 @@
 					onOpenLan();
 				}}>{lanEnabled ? 'Modo LAN · activo' : 'Modo LAN'}</button
 			>
+		{/if}
+		{#if isAdmin}
 			<button
 				class="mobile-add"
 				onclick={() => {
@@ -146,6 +166,15 @@
 {/if}
 
 <style>
+	.admin-link {
+		color: var(--muted);
+		font-size: 13.5px;
+		padding: 6px 10px;
+		border-radius: 8px;
+	}
+	.admin-link:hover {
+		color: var(--text);
+	}
 	.topbar {
 		position: sticky;
 		top: 0;

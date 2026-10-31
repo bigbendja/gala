@@ -307,3 +307,26 @@ export interface ItemDetails {
 	similar: SimilarTitle[];
 	files: MediaFile[];
 }
+
+// --- Administración con contraseña (M-Servidor) ------------------------------
+
+export interface AuthStatus {
+	/** ¿Hay contraseña de administrador puesta? */
+	configured: boolean;
+	/** ¿Este navegador puede administrar ya? (PC, o sesión iniciada) */
+	authenticated: boolean;
+	/** ¿Es el propio equipo donde corre GALA? */
+	is_localhost: boolean;
+	/** ¿Se permite administrar desde la red? */
+	network_admin: boolean;
+	csrf?: string;
+}
+
+export interface AuthSession {
+	id: string;
+	device: string;
+	ip: string;
+	created_at: string;
+	last_seen: string;
+	current: boolean;
+}

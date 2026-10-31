@@ -3,6 +3,8 @@
 // HTTP. Nada de librerías de fetch/HTTP: es un helper mínimo justificado
 // (CLAUDE.md: "sí se permiten utilidades mínimas si hacen falta").
 import type {
+	AuthSession,
+	AuthStatus,
 	ConfirmRequest,
 	FolderInfo,
 	HealthSummary,
@@ -28,27 +30,64 @@ import type {
 /** Evento de window que se lanza cuando el backend pide el PIN del Modo LAN. */
 export const PIN_REQUIRED_EVENT = 'gala:pin-required';
 
+/** Evento de window: una petición de administración recibió 401 «login_required»
+ *  (la sesión de administrador caducó o se cerró con la app abierta). */
+export const ADMIN_LOGIN_EVENT = 'gala:admin-login-required';
+
 export class ApiError extends Error {
 	status?: number;
-	constructor(message: string, status?: number) {
+	/** Código estable del backend (`login_required`, `bad_password`...). */
+	code?: string;
+	constructor(message: string, status?: number, code?: string) {
 		super(message);
 		this.name = 'ApiError';
 		this.status = status;
+		this.code = code;
 	}
+}
+
+let lastAdminLoginEvent = 0;
+
+// Token CSRF de la sesión de administrador (cliente de red). El backend lo
+// exige en las escrituras hechas por sesión; desde el PC no hace falta y no
+// se manda. Vive solo en memoria: se recupera con GET /auth/status.
+let csrfToken = '';
+export function setCsrfToken(token: string | undefined | null) {
+	csrfToken = token ?? '';
+}
+
+function withCsrf(init?: RequestInit): RequestInit | undefined {
+	const method = (init?.method ?? 'GET').toUpperCase();
+	if (!csrfToken || method === 'GET' || method === 'HEAD') return init;
+	const headers = new Headers(init?.headers);
+	headers.set('X-GALA-CSRF', csrfToken);
+	return { ...init, headers };
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	let res: Response;
 	try {
-		res = await fetch(path, init);
+		res = await fetch(path, withCsrf(init));
 	} catch {
 		throw new ApiError('No se pudo conectar con GALA. Comprueba que el programa sigue en marcha.');
 	}
 	if (!res.ok) {
 		let detail = '';
+		let code: string | undefined;
 		try {
 			const body = (await res.json()) as { error?: string; code?: string };
 			detail = body?.error ?? '';
+			code = body?.code;
+			if (res.status === 401 && body?.code === 'login_required' && typeof window !== 'undefined') {
+				// Como mucho una vez cada 2 s: las cargas de la página que se
+				// relanzan al invalidar también darían 401 y no deben encadenar
+				// invalidaciones sin fin.
+				const now = Date.now();
+				if (now - lastAdminLoginEvent > 2000) {
+					lastAdminLoginEvent = now;
+					window.dispatchEvent(new CustomEvent(ADMIN_LOGIN_EVENT));
+				}
+			}
 			// Modo LAN: la sesión del PIN caducó (o se cambió el PIN) con la
 			// app abierta; el layout escucha esto y vuelve a pedirlo.
 			if (res.status === 401 && body?.code === 'pin_required' && typeof window !== 'undefined') {
@@ -57,7 +96,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 		} catch {
 			// el cuerpo de error no era JSON; se usa el mensaje genérico de abajo
 		}
-		throw new ApiError(detail || `El servidor respondió con un error (${res.status}).`, res.status);
+		throw new ApiError(detail || `El servidor respondió con un error (${res.status}).`, res.status, code);
 	}
 	return (await res.json()) as T;
 }
@@ -310,6 +349,57 @@ export function ping(): Promise<{ status: string; app: string; version: string; 
 /** GET /api/v1/version — versión, commit y fecha de compilación del binario. */
 export function getVersion(): Promise<{ version: string; commit: string; date: string }> {
 	return request('/api/v1/version');
+}
+
+// --- Administración con contraseña (M-Servidor) ------------------------------
+
+/** GET /api/v1/auth/status — qué pintar: login, contraseña sin configurar... */
+export function getAuthStatus(): Promise<AuthStatus> {
+	return request<AuthStatus>('/api/v1/auth/status');
+}
+
+/** POST /api/v1/auth/login — inicia sesión de administrador (cookie httpOnly). */
+export async function adminLogin(password: string): Promise<void> {
+	const r = await request<{ ok: boolean; csrf?: string }>('/api/v1/auth/login', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ password })
+	});
+	setCsrfToken(r.csrf);
+}
+
+/** POST /api/v1/auth/logout — cierra la sesión de este dispositivo. */
+export async function adminLogout(): Promise<void> {
+	await request('/api/v1/auth/logout', { method: 'POST' });
+	setCsrfToken('');
+}
+
+/** POST /api/v1/auth/logout-all — cierra todas las sesiones. */
+export function adminLogoutAll(): Promise<{ ok: boolean }> {
+	return request('/api/v1/auth/logout-all', { method: 'POST' });
+}
+
+/** POST /api/v1/auth/password — pone o cambia la contraseña de administrador. */
+export function changeAdminPassword(current: string, next: string): Promise<{ ok: boolean }> {
+	return request('/api/v1/auth/password', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ current, new: next })
+	});
+}
+
+/** GET /api/v1/auth/sessions — sesiones de administración abiertas. */
+export function listAuthSessions(): Promise<AuthSession[]> {
+	return orEmpty(request<AuthSession[] | null>('/api/v1/auth/sessions'));
+}
+
+/** PUT /api/v1/auth/network-admin — permitir/impedir administrar desde la red (solo PC). */
+export function setNetworkAdmin(enabled: boolean): Promise<{ network_admin: boolean }> {
+	return request('/api/v1/auth/network-admin', {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ enabled })
+	});
 }
 
 // --- Modo LAN (M7) -----------------------------------------------------------

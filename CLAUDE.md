@@ -465,6 +465,23 @@ cultura del disco duro que circula.
       ante cualquier duda NO se rechaza) no crea item ni fuente: cuenta en
       `omitidos_no_directos` (parte de la suma de `total`) y los detalles
       llevan el mensaje claro, sin nombres de hosts ni de herramientas.
+- [x] M-Servidor · Módulo 2 Auth de administrador (rama feat/admin-auth,
+      pendiente de verificación en vivo por el titular; nota de diseño en
+      `docs/GALA_Diseno_M-Servidor.md`): `internal/auth` (argon2id t=2/64 MB/p=1
+      como constantes; sesiones en `admin_sessions` guardando solo el SHA-256
+      del token y validadas contra la BD en CADA petición, así que
+      `gala admin set-password`/logout-all cortan las vivas al instante; CSRF
+      = HMAC(secreto, sesión) en `X-GALA-CSRF`; límite de login por IP como el
+      del PIN; localhost nunca se bloquea). Migración 0008. El guardián LAN
+      (`lan.Guard.Admin`) deja pasar las rutas de administración a un cliente
+      de red solo con sesión; `/lan/toggle`, `/lan/status` y
+      `/auth/network-admin` siguen solo-PC; `/lan/pin` lo puede el admin de red.
+      gala.json: `admin_localhost_bypass` (def. true; sin clave localhost
+      nunca se queda fuera) y `session_days` (def. 30). CLI `gala admin
+      set-password` (prompt sin eco o stdin). Frontend: `AdminLogin` (se pinta
+      en lugar de Ajustes/Por confirmar/Listas para un cliente de red sin
+      sesión) y Ajustes › Seguridad (`SecurityPanel`). La contraseña viaja en
+      claro por HTTP: LAN de confianza, sin exponer a Internet.
 - [ ] Fase 3 (Drive/Mega) · Fase 4 (M9 .gala) · Fase 5 (M11 release)
 (Actualizar esta lista al completar cada módulo/fase.)
 
@@ -483,6 +500,7 @@ internal/stream/     direct play + remux HLS con sesiones         (desde M4)
 internal/ingest/     detector, clasificador, parsers M3U/CSV, pipeline (M5)
 internal/health/     checkers por provider + worker con presupuesto  (M6)
 internal/lan/        Modo LAN: IP local, listener reiniciable, guardián+PIN (M7)
+internal/auth/       contraseña de administrador, sesiones, CSRF (M-Servidor)
 web/                 frontend: proyecto SvelteKit (src/) + web.go (go:embed de
                      dist/, generado en build, no versionado)             (M10a)
 docs/                especificación, plan, mockup
