@@ -15,6 +15,7 @@ cultura del disco duro que circula.
   2026 en adelante): Fase 0 (estabilizar) → Fase 1 (rediseño home) → Fase 2 (M7 LAN)
   → Fase 3 (Drive/Mega) → Fase 4 (M9 .gala) → Fase 5 (M11 release). Manda sobre el
   orden de "siguiente módulo" de la lista de abajo cuando difieran.
+- `docs/GALA_Guia_Servidor.md` — instalar y mantener GALA en un servidor Ubuntu (M-Servidor).
 - `docs/GALA_Mockup.html` — referencia visual VINCULANTE del frontend (paleta, tipografías, componentes).
 
 ## Reglas de hierro (no negociables)
@@ -502,6 +503,22 @@ cultura del disco duro que circula.
       `update-result`. `GET /healthz` público. Ajustes › Actualización. La
       unit systemd (`StartLimitIntervalSec=0`, ExecStartPre) y la instalación
       del script llegan con el Módulo 4.
+- [x] M-Servidor · Módulo 4 Empaquetado + guía de servidor (rama
+      feat/server-packaging; guía en `docs/GALA_Guia_Servidor.md`): layout de UN
+      solo directorio `/opt/gala/` (sin `--config`/`data_dir`; carpetas por UI),
+      usuario de sistema `gala`, unit `scripts/gala.service` (`ExecStartPre=
+      gala-preflight`, `StartLimitIntervalSec=0`, `Restart=always`,
+      `NoNewPrivileges`), `scripts/install.sh` (un solo fichero que lleva
+      embebidos gala-preflight y la unit; un test comprueba que las copias
+      coinciden con los originales; idempotente; no toca gala.json/BD/contraseña
+      existentes; ufw solo desde la subred local y sin activarlo por su cuenta).
+      Dos caminos: `--binary RUTA` (interino con repo privado: binario copiado a
+      mano, sin token ni clonar) y `--download` (descarga anónima + SHA256, para
+      cuando el repo sea público; la CI publica `install.sh` en cada release).
+      amd64 fijo. Probado en Ubuntu 24.04 real (Docker) con systemctl/ufw
+      simulados: instalación nueva, repetir, SHA256 malo, fichero que no es un
+      binario, descarga con repo privado, sin root. `scripts/gala-update` solo
+      para compilar en el servidor (desarrollo).
 - [ ] Fase 3 (Drive/Mega) · Fase 4 (M9 .gala) · Fase 5 (M11 release)
 (Actualizar esta lista al completar cada módulo/fase.)
 
