@@ -1,0 +1,113 @@
+#!/bin/sh
+# gala-preflight — se ejecuta como ExecStartPre de la unit systemd, ANTES de
+# cada arranque de GALA. Decide el rollback de una actualización sin depender
+# de que el binario nuevo llegue a main(): un binario que ni arranca no puede
+# revertirse a sí mismo, este script sí.
+#
+# Solo actúa si existe `update-pending` (junto al binario). El marcador es texto
+# clave=valor: state, from_version, new_version, attempts, migraciones_nuevas.
+# Siempre sale con 0: que systemd arranque lo que haya quedado en `gala`.
+#
+# Variables (para pruebas): GALA_DIR, GALA_BIN, GALA_MAX_ATTEMPTS (3),
+# GALA_SELFCHECK_TIMEOUT (30 s).
+
+DIR=${GALA_DIR:-$(cd "$(dirname "$0")" && pwd)}
+BIN=${GALA_BIN:-$DIR/gala}
+PREV="$BIN.prev"
+NEW="$BIN.new"
+M="$DIR/update-pending"
+R="$DIR/update-result"
+BK="$DIR/gala.db.pre-update.new"
+DB="$DIR/gala.db"
+MAX=${GALA_MAX_ATTEMPTS:-3}
+TMO=${GALA_SELFCHECK_TIMEOUT:-30}
+
+[ -f "$M" ] || exit 0
+
+log() { echo "gala-preflight: $*" >&2; }
+get() { sed -n "s/^$1=//p" "$M" | head -n 1 | tr -d '\r'; }
+
+STATE=$(get state)
+FROM=$(get from_version)
+TO=$(get new_version)
+ATT=$(get attempts)
+MIG=$(get migraciones_nuevas)
+case "$ATT" in '' | *[!0-9]*) ATT=0 ;; esac
+[ "$MIG" = 1 ] || MIG=0
+
+write_marker() { # state attempts migraciones
+	printf 'state=%s\nfrom_version=%s\nnew_version=%s\nattempts=%s\nmigraciones_nuevas=%s\n' \
+		"$1" "$FROM" "$TO" "$2" "$3" >"$M.tmp.$$" && mv -f "$M.tmp.$$" "$M"
+}
+
+write_result() { # status motivo
+	printf 'status=%s\nfrom_version=%s\nnew_version=%s\nreason=%s\nat=%s\n' \
+		"$1" "$FROM" "$TO" "$2" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$R.tmp.$$" && mv -f "$R.tmp.$$" "$R"
+}
+
+# Revierte al binario anterior (y a la BD si la versión nueva migró el esquema).
+rollback() { # motivo
+	log "revirtiendo a $FROM: $1"
+	if [ -f "$PREV" ]; then
+		mv -f "$PREV" "$BIN"
+	fi
+	if [ "$MIG" = 1 ] && [ -f "$BK" ]; then
+		rm -f "$DB-wal" "$DB-shm"
+		mv -f "$BK" "$DB"
+	fi
+	rm -f "$NEW" "$BK" "$M"
+	write_result rolled_back "$1"
+	exit 0
+}
+
+# --- Reconciliar un corte durante el intercambio ---------------------------
+# apply escribe el marcador (preparing) ANTES de los dos renombrados
+# (gala → gala.prev, gala.new → gala) y lo pasa a swapped DESPUÉS.
+if [ "$STATE" = preparing ]; then
+	if [ ! -e "$BIN" ] && [ -f "$PREV" ]; then
+		# Corte entre los dos renombrados: no hay `gala`. Vuelve el anterior.
+		log "corte durante el intercambio: se restaura el binario anterior"
+		mv -f "$PREV" "$BIN"
+		rm -f "$NEW" "$BK" "$M"
+		write_result rolled_back "La actualización se interrumpió durante la instalación; se mantiene $FROM."
+		exit 0
+	fi
+	if [ -e "$BIN" ] && [ -f "$NEW" ]; then
+		# El intercambio no llegó a hacerse: sigue el binario de siempre.
+		log "la actualización se interrumpió antes de instalarse"
+		rm -f "$NEW" "$BK" "$M"
+		write_result rolled_back "La actualización se interrumpió antes de instalarse; se mantiene $FROM."
+		exit 0
+	fi
+	# `gala` existe y ya no hay `gala.new`: el intercambio se hizo y solo faltó
+	# anotarlo. Se trata como swapped.
+	STATE=swapped
+fi
+
+# --- Arranque de una versión recién instalada ------------------------------
+ATT=$((ATT + 1))
+write_marker swapped "$ATT" "$MIG"
+
+if [ "$ATT" -gt "$MAX" ]; then
+	rollback "La versión nueva no llegó a arrancar bien tras $MAX intentos."
+fi
+
+# Autocomprobación del binario nuevo: abre la BD (aplica migraciones), NO liga
+# ningún puerto. Salida 0 = sano; con `migraciones_aplicadas=N` en stdout.
+if command -v timeout >/dev/null 2>&1; then
+	OUT=$(timeout "$TMO" "$BIN" --selfcheck 2>&1)
+else
+	OUT=$("$BIN" --selfcheck 2>&1)
+fi
+RC=$?
+if [ "$RC" -ne 0 ]; then
+	log "autocomprobación fallida (código $RC): $OUT"
+	rollback "La autocomprobación de la versión nueva falló."
+fi
+case "$OUT" in
+*migraciones_aplicadas=[1-9]*)
+	MIG=1
+	write_marker swapped "$ATT" 1
+	;;
+esac
+exit 0

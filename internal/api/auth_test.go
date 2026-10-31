@@ -34,6 +34,7 @@ type authHarness struct {
 	svc   *auth.Service
 	cfg   *config.Config
 	guard *lan.Guard
+	srv   *api.Server
 }
 
 func newAuthHarness(t *testing.T) *authHarness {
@@ -62,7 +63,7 @@ func newAuthHarness(t *testing.T) *authHarness {
 	srv.LanGuard = guard
 	mux := http.NewServeMux()
 	srv.Routes(mux)
-	return &authHarness{t: t, h: guard.Middleware(mux), svc: svc, cfg: cfg, guard: guard}
+	return &authHarness{t: t, h: guard.Middleware(mux), svc: svc, cfg: cfg, guard: guard, srv: srv}
 }
 
 type reqOpt func(*http.Request)

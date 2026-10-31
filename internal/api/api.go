@@ -22,6 +22,7 @@ import (
 	"github.com/bigbendja/gala/internal/scan"
 	"github.com/bigbendja/gala/internal/store"
 	"github.com/bigbendja/gala/internal/stream"
+	"github.com/bigbendja/gala/internal/update"
 )
 
 // Server agrupa las dependencias de los handlers.
@@ -44,8 +45,13 @@ type Server struct {
 
 	// Modo LAN (M7). Los pone main tras api.New; nil = comportamiento de
 	// tests (sin listener real, sin guardián).
-	LanGuard      *lan.Guard
-	Auth          *auth.Service           // nil = sin clave de administrador (tests)
+	LanGuard *lan.Guard
+	Auth     *auth.Service // nil = sin clave de administrador (tests)
+
+	// Actualización (M-Servidor). nil = los endpoints responden 503 (tests).
+	UpdateChecker *update.Checker
+	Updater       *update.Installer
+	UpdateDir     string                  // directorio del binario: ahí viven el marcador y el resultado
 	LanListen     func(bind string) error // reabre el listener HTTP en ese bind
 	LanCandidates func() []lan.Candidate  // nil = detección real de interfaces
 }
@@ -126,6 +132,14 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/auth/password", s.handleAuthPassword)
 	mux.HandleFunc("GET /api/v1/auth/sessions", s.handleAuthSessions)
 	mux.HandleFunc("PUT /api/v1/auth/network-admin", s.handleAuthNetworkAdmin)
+
+	// Actualización (M-Servidor): /healthz es público (monitorización y
+	// autochequeo); /update/* es de administración.
+	mux.HandleFunc("GET /healthz", s.handleHealthz)
+	mux.HandleFunc("GET /api/v1/update/check", s.handleUpdateCheck)
+	mux.HandleFunc("POST /api/v1/update/apply", s.handleUpdateApply)
+	mux.HandleFunc("GET /api/v1/update/status", s.handleUpdateStatus)
+	mux.HandleFunc("DELETE /api/v1/update/result", s.handleUpdateResultDismiss)
 }
 
 func (s *Server) handleLanSession(w http.ResponseWriter, r *http.Request) {

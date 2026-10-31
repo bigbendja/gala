@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SecurityPanel from '$lib/components/SecurityPanel.svelte';
+	import UpdatePanel from '$lib/components/UpdatePanel.svelte';
 	import { onMount, untrack } from 'svelte';
 	import {
 		addFolder,
@@ -400,6 +401,8 @@
 	</section>
 
 	<SecurityPanel />
+
+	<UpdatePanel />
 
 	<section class="card">
 		<h2>Sistema</h2>

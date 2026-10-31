@@ -26,6 +26,9 @@ type Config struct {
 	// polaridad es "oculto" para que un gala.json antiguo, sin el campo,
 	// siga mostrando el hero como siempre.
 	HomeHeroHidden bool `json:"home_hero_hidden"`
+	// Update son los ajustes de actualización (M-Servidor). Sin el bloque, no
+	// hay comprobación automática: solo la que pide el administrador.
+	Update UpdateSettings `json:"update"`
 	// AdminLocalhostBypass: localhost es admin sin clave (por defecto sí; nil
 	// = true). Con false, localhost también necesita sesión SI ya hay clave
 	// puesta; hacerlo detrás de un reverse proxy en el mismo equipo, donde todo
@@ -41,6 +44,21 @@ type Config struct {
 	// mientras un handler puede estar cambiándolos. El resto de campos
 	// conservan su acceso sin mutex (ver CLAUDE.md, Ajustes).
 	mu sync.RWMutex
+}
+
+// UpdateSettings: canal ("stable", el único que existe) y si GALA consulta por
+// su cuenta una vez al día si hay versión nueva. Nunca instala sin que lo pida
+// el administrador.
+type UpdateSettings struct {
+	Channel   string `json:"channel,omitempty"`
+	AutoCheck bool   `json:"auto_check"`
+}
+
+// UpdateAutoCheck dice si debe comprobar solo, 1 vez al día.
+func (c *Config) UpdateAutoCheck() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Update.AutoCheck
 }
 
 // Loopback y AllInterfaces son los dos valores válidos de Bind.

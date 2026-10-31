@@ -32,7 +32,9 @@ vi.mock('$lib/api/client', async () => {
 		// SecurityPanel (M-Servidor) se prueba aparte; aquí solo no debe estorbar.
 		getAuthStatus: () =>
 			Promise.resolve({ configured: false, authenticated: true, is_localhost: true, network_admin: true }),
-		listAuthSessions: () => Promise.resolve([])
+		listAuthSessions: () => Promise.resolve([]),
+		getUpdateStatus: () =>
+			Promise.resolve({ status: { phase: 'idle', done: 0, total: 0 }, current: 'v0.9.0', can_apply: true })
 	};
 });
 

@@ -32,6 +32,7 @@ import (
 	"github.com/bigbendja/gala/internal/scan"
 	"github.com/bigbendja/gala/internal/store"
 	"github.com/bigbendja/gala/internal/stream"
+	"github.com/bigbendja/gala/internal/update"
 	"github.com/bigbendja/gala/web"
 )
 
@@ -43,7 +44,11 @@ func main() {
 	noBrowser := flag.Bool("no-browser", false, "no abrir el navegador al arrancar")
 	demo := flag.Bool("demo", false, "poblar la BD con datos ficticios de desarrollo (solo si está vacía)")
 	showVersion := flag.Bool("version", false, "imprimir versión, commit y fecha de compilación, y salir")
+	selfcheck := flag.Bool("selfcheck", false, "comprobar que este binario arranca (abre la BD, no liga puertos) y salir")
 	flag.Parse()
+	if *selfcheck {
+		os.Exit(runSelfcheck(os.Stdout, os.Stderr))
+	}
 	if *showVersion {
 		fmt.Println(buildinfo.String())
 		return
@@ -171,8 +176,30 @@ func main() {
 	apiSrv.LanGuard = guard
 	apiSrv.Auth = authSvc
 	guard.Admin = authSvc
+	// Actualización (M-Servidor): el conteo de streaming evita actualizar en
+	// mitad de una reproducción; el reinicio es por salida ordenada y lo
+	// relanza el supervisor (systemd, Restart=always).
+	exePath, err := os.Executable()
+	if err != nil {
+		log.Error("ruta del ejecutable", "err", err)
+		os.Exit(1)
+	}
+	if resolved, rerr := filepath.EvalSymlinks(exePath); rerr == nil {
+		exePath = resolved
+	}
+	activity := &update.Activity{}
+	checker := update.NewChecker(runtime.GOOS, runtime.GOARCH, buildinfo.Version, filepath.Join(cacheDir, "update-check.json"))
+	apiSrv.UpdateChecker = checker
+	apiSrv.UpdateDir = filepath.Dir(exePath)
+	apiSrv.Updater = &update.Installer{
+		Checker: checker, Client: &http.Client{}, ExePath: exePath, DB: st.DB, Log: log,
+		Supervised:     runtime.GOOS == "linux" && os.Getenv("INVOCATION_ID") != "",
+		PlaybackActive: activity.Active,
+		RequestExit:    stop,
+	}
+
 	srv := &http.Server{
-		Handler:           guard.Middleware(mux),
+		Handler:           guard.Middleware(activity.Wrap(mux)),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	listener := lan.NewController(srv, log)
@@ -184,6 +211,15 @@ func main() {
 		os.Exit(1)
 	}
 	log.Info("GALA arrancado", "version", buildinfo.Version, "url", localURL(cfg), "modo_lan", cfg.LanEnabled())
+
+	// Primer arranque tras una actualización: confirma que está sano (o sale con
+	// código 1 para que el supervisor reintente y, si no mejora, el preflight
+	// revierta). Sin actualización pendiente no hace nada.
+	go update.ConfirmBoot(ctx, exePath, fmt.Sprintf("http://127.0.0.1:%d/healthz", cfg.Port), buildinfo.Version, log,
+		func() { os.Exit(1) }, update.DefaultBootTiming)
+	if cfg.UpdateAutoCheck() {
+		go autoCheckUpdates(ctx, checker, log)
+	}
 
 	if !*noBrowser {
 		openBrowser(localURL(cfg), log)

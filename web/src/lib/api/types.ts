@@ -330,3 +330,38 @@ export interface AuthSession {
 	last_seen: string;
 	current: boolean;
 }
+
+// --- Actualización (M-Servidor) ----------------------------------------------
+
+export interface UpdateInfo {
+	current: string;
+	latest: string;
+	update_available: boolean;
+	notes: string;
+	page_url: string;
+	asset_name: string;
+	asset_url: string;
+	asset_size: number;
+	checksum: string;
+	checked_at: string;
+}
+
+export interface UpdateCheck {
+	checked: boolean;
+	error?: string;
+	info?: UpdateInfo;
+	current: string;
+	can_apply: boolean;
+	reason?: string;
+}
+
+export type UpdatePhase = 'idle' | 'downloading' | 'verifying' | 'installing' | 'restarting' | 'error';
+
+export interface UpdateStatus {
+	status: { phase: UpdatePhase; done: number; total: number; error?: string; version?: string };
+	result?: { status: 'ok' | 'rolled_back'; from: string; to: string; reason?: string; at?: string };
+	current: string;
+	available?: UpdateInfo;
+	can_apply: boolean;
+	reason?: string;
+}
