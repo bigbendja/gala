@@ -482,6 +482,26 @@ cultura del disco duro que circula.
       en lugar de Ajustes/Por confirmar/Listas para un cliente de red sin
       sesión) y Ajustes › Seguridad (`SecurityPanel`). La contraseña viaja en
       claro por HTTP: LAN de confianza, sin exponer a Internet.
+- [x] M-Servidor · Módulo 3 Auto-update (rama feat/self-update, pendiente de
+      verificación; nota de diseño §2 en `docs/GALA_Diseno_M-Servidor.md`):
+      `internal/update` (comprobar `GET /update/check` contra GitHub Releases con
+      caché de 24 h y sin red = «No se pudo comprobar», nunca error; descarga
+      solo https a hosts de GitHub, SHA256 contra `SHA256SUMS.txt`, `--version`
+      del binario nuevo ANTES de tocar nada, copia de la BD con `VACUUM INTO`
+      a `gala.db.pre-update.new`; marcador `update-pending` escrito como
+      intención ANTES de los dos renombrados (gala→gala.prev, gala.new→gala) y
+      pasado a `swapped` DESPUÉS; salida ordenada y reinicio por systemd; solo
+      se aplica si corre bajo systemd (`INVOCATION_ID`), si no se enlaza la
+      versión; no actualiza en mitad de una reproducción salvo «Actualizar
+      igualmente»). `scripts/gala-preflight` (ExecStartPre; sh) reconcilia un
+      corte entre renombrados, cuenta arranques, ejecuta `gala --selfcheck`
+      (abre BD, sin puerto) y revierte a `gala.prev` (y a la BD si hubo
+      migraciones) tras 3 fallos; `update.ConfirmBoot` confirma el arranque
+      (healthz 30 s + 60 s estable), promueve la copia de la BD (la de la
+      actualización anterior se conserva hasta entonces) y escribe
+      `update-result`. `GET /healthz` público. Ajustes › Actualización. La
+      unit systemd (`StartLimitIntervalSec=0`, ExecStartPre) y la instalación
+      del script llegan con el Módulo 4.
 - [ ] Fase 3 (Drive/Mega) · Fase 4 (M9 .gala) · Fase 5 (M11 release)
 (Actualizar esta lista al completar cada módulo/fase.)
 
@@ -501,6 +521,7 @@ internal/ingest/     detector, clasificador, parsers M3U/CSV, pipeline (M5)
 internal/health/     checkers por provider + worker con presupuesto  (M6)
 internal/lan/        Modo LAN: IP local, listener reiniciable, guardián+PIN (M7)
 internal/auth/       contraseña de administrador, sesiones, CSRF (M-Servidor)
+internal/update/     comprobar/aplicar/confirmar actualizaciones, marcador (M-Servidor)
 web/                 frontend: proyecto SvelteKit (src/) + web.go (go:embed de
                      dist/, generado en build, no versionado)             (M10a)
 docs/                especificación, plan, mockup

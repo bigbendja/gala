@@ -1,0 +1,2 @@
+scripts/gala-preflight text eol=lf
+*.sh text eol=lf

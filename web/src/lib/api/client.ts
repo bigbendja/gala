@@ -3,6 +3,8 @@
 // HTTP. Nada de librerías de fetch/HTTP: es un helper mínimo justificado
 // (CLAUDE.md: "sí se permiten utilidades mínimas si hacen falta").
 import type {
+	UpdateCheck,
+	UpdateStatus,
 	AuthSession,
 	AuthStatus,
 	ConfirmRequest,
@@ -472,4 +474,54 @@ export async function getItemDetails(id: number): Promise<ItemDetails> {
 		similar: d.similar ?? [],
 		files: d.files ?? []
 	};
+}
+
+// --- Actualización (M-Servidor) ----------------------------------------------
+
+/** GET /api/v1/update/check — consulta GitHub (con force, ignora la caché de 24 h). */
+export function checkUpdate(force = false): Promise<UpdateCheck> {
+	return request<UpdateCheck>(`/api/v1/update/check${force ? '?force=1' : ''}`);
+}
+
+/** POST /api/v1/update/apply — lanza la actualización. Con 409 `playback_active`
+ *  hay reproducciones en curso: se puede repetir con force. */
+export function applyUpdate(force = false): Promise<{ ok: boolean }> {
+	return request('/api/v1/update/apply', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ force })
+	});
+}
+
+/** GET /api/v1/update/status — progreso, resultado de la última actualización y
+ *  versión disponible conocida (sin tocar la red). */
+export function getUpdateStatus(): Promise<UpdateStatus> {
+	return request<UpdateStatus>('/api/v1/update/status');
+}
+
+/** DELETE /api/v1/update/result — descarta el aviso del resultado. */
+export function dismissUpdateResult(): Promise<{ ok: boolean }> {
+	return request('/api/v1/update/result', { method: 'DELETE' });
+}
+
+/** ¿Responde GALA? (GET /healthz, sin pasar por el manejo de errores de la app:
+ *  durante el reinicio es normal que falle.) */
+export async function isUp(): Promise<boolean> {
+	try {
+		const res = await fetch('/healthz', { cache: 'no-store' });
+		return res.ok;
+	} catch {
+		return false;
+	}
+}
+
+/** GET /api/v1/version — versión que está corriendo ahora mismo. */
+export async function runningVersion(): Promise<string | null> {
+	try {
+		const res = await fetch('/api/v1/version', { cache: 'no-store' });
+		if (!res.ok) return null;
+		return ((await res.json()) as { version?: string }).version ?? null;
+	} catch {
+		return null;
+	}
 }

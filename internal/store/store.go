@@ -6,6 +6,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"os"
 	"sort"
 
 	_ "modernc.org/sqlite" // driver puro Go, sin CGo
@@ -89,4 +90,33 @@ func (s *Store) migrate() error {
 		}
 	}
 	return nil
+}
+
+// MigrationCount cuenta las migraciones ya aplicadas en la BD de path sin
+// abrirla con migrate (0 si el fichero o la tabla no existen). Lo usa
+// `gala --selfcheck` para informar de cuántas aplicó el arranque nuevo.
+func MigrationCount(path string) (int, error) {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	db, err := sql.Open("sqlite", fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)", path))
+	if err != nil {
+		return 0, err
+	}
+	defer db.Close()
+	return countMigrations(db), nil
+}
+
+// AppliedMigrations cuenta las migraciones aplicadas en una BD ya abierta.
+func (s *Store) AppliedMigrations() int { return countMigrations(s.DB) }
+
+func countMigrations(db *sql.DB) int {
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&n); err != nil {
+		return 0 // la tabla aún no existe
+	}
+	return n
 }

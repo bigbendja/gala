@@ -252,3 +252,15 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
 - Si el servidor no responde a `/lan/session`, el layout cae a «es el PC» y enseña los
   controles de administración (el backend sigue rechazando las llamadas). Convendría un
   estado «sin conexión» propio.
+
+## M-Servidor · Auto-update
+- **El repositorio es PRIVADO**: la API de GitHub devuelve 404 sin token para
+  `releases/latest` y las descargas de assets también. Sin token, ni el botón de
+  actualizar ni `install.sh` (Módulo 4) pueden funcionar. Hay que decidir: repo público
+  (GALA es AGPL y el pie enlaza al código), un repo público solo de releases, o un token.
+- Los checksums salen del mismo sitio que el binario: protegen de corrupción, no de una
+  cuenta de GitHub comprometida. El siguiente paso sería firmar `SHA256SUMS.txt`.
+- No se comprueba el espacio libre antes de descargar: si falta, la descarga falla y no
+  se toca nada (probado: un binario truncado hace fallar `--selfcheck` y revierte).
+- La actualización desde la app no existe en Windows/macOS (no hay supervisor): solo se
+  avisa de la versión nueva con enlace.
