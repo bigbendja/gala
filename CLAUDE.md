@@ -466,8 +466,7 @@ cultura del disco duro que circula.
       ante cualquier duda NO se rechaza) no crea item ni fuente: cuenta en
       `omitidos_no_directos` (parte de la suma de `total`) y los detalles
       llevan el mensaje claro, sin nombres de hosts ni de herramientas.
-- [x] M-Servidor · Módulo 2 Auth de administrador (rama feat/admin-auth,
-      pendiente de verificación en vivo por el titular; nota de diseño en
+- [x] M-Servidor · Módulo 2 Auth de administrador (PR #9, mergeado; nota de diseño en
       `docs/GALA_Diseno_M-Servidor.md`): `internal/auth` (argon2id t=2/64 MB/p=1
       como constantes; sesiones en `admin_sessions` guardando solo el SHA-256
       del token y validadas contra la BD en CADA petición, así que
@@ -483,8 +482,7 @@ cultura del disco duro que circula.
       en lugar de Ajustes/Por confirmar/Listas para un cliente de red sin
       sesión) y Ajustes › Seguridad (`SecurityPanel`). La contraseña viaja en
       claro por HTTP: LAN de confianza, sin exponer a Internet.
-- [x] M-Servidor · Módulo 3 Auto-update (rama feat/self-update, pendiente de
-      verificación; nota de diseño §2 en `docs/GALA_Diseno_M-Servidor.md`):
+- [x] M-Servidor · Módulo 3 Auto-update (PR #10, mergeado; nota de diseño §2 en `docs/GALA_Diseno_M-Servidor.md`):
       `internal/update` (comprobar `GET /update/check` contra GitHub Releases con
       caché de 24 h y sin red = «No se pudo comprobar», nunca error; descarga
       solo https a hosts de GitHub, SHA256 contra `SHA256SUMS.txt`, `--version`
@@ -503,8 +501,7 @@ cultura del disco duro que circula.
       `update-result`. `GET /healthz` público. Ajustes › Actualización. La
       unit systemd (`StartLimitIntervalSec=0`, ExecStartPre) y la instalación
       del script llegan con el Módulo 4.
-- [x] M-Servidor · Módulo 4 Empaquetado + guía de servidor (rama
-      feat/server-packaging; guía en `docs/GALA_Guia_Servidor.md`): layout de UN
+- [x] M-Servidor · Módulo 4 Empaquetado + guía de servidor (PR #11, mergeado; guía en `docs/GALA_Guia_Servidor.md`): layout de UN
       solo directorio `/opt/gala/` (sin `--config`/`data_dir`; carpetas por UI),
       usuario de sistema `gala`, unit `scripts/gala.service` (`ExecStartPre=
       gala-preflight`, `StartLimitIntervalSec=0`, `Restart=always`,
@@ -519,6 +516,14 @@ cultura del disco duro que circula.
       simulados: instalación nueva, repetir, SHA256 malo, fichero que no es un
       binario, descarga con repo privado, sin root. `scripts/gala-update` solo
       para compilar en el servidor (desarrollo).
+- [x] **M-Servidor CERRADO — v0.10.0 publicada** (31 oct 2026). El repositorio es
+      PÚBLICO (se escaneó TODO el historial antes: gitleaks + patrones manuales,
+      sin secretos; `identify.DefaultTMDBKey` es un marcador). El release lleva
+      `gala-<os>-<arch>`, `SHA256SUMS.txt` e `install.sh` y se descarga de forma
+      anónima; las notas salen de la sección de la etiqueta en `CHANGELOG.md`.
+      Instalar en servidor: `docs/GALA_Guia_Servidor.md` (`--download`). El
+      extremo a extremo del auto-update contra un release público se verifica
+      con la primera actualización real posterior a v0.10.0.
 - [ ] Fase 3 (Drive/Mega) · Fase 4 (M9 .gala) · Fase 5 (M11 release)
 (Actualizar esta lista al completar cada módulo/fase.)
 

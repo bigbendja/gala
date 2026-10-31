@@ -94,8 +94,16 @@ jobs:
       - name: Notas de la versión
         id: notes
         run: |
-          # Notas desde CHANGELOG.md si existe; si no, las autogenera GitHub.
-          if [ -f CHANGELOG.md ]; then echo "file=CHANGELOG.md" >> "$GITHUB_OUTPUT"; fi
+          # Notas = la sección de esta versión en CHANGELOG.md («## [X.Y.Z] - fecha»).
+          # Si no existe, las autogenera GitHub.
+          VER="${GITHUB_REF_NAME#v}"
+          if [ -f CHANGELOG.md ]; then
+            awk -v ver="$VER" '
+              /^## \[/ { if (found) exit; if (index($0, "[" ver "]")) { found = 1; next } }
+              found { print }
+            ' CHANGELOG.md > notes.md
+            if [ -s notes.md ]; then echo "file=notes.md" >> "$GITHUB_OUTPUT"; fi
+          fi
       - uses: softprops/action-gh-release@v2
         with:
           files: |
