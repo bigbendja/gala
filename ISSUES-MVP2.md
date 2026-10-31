@@ -264,3 +264,17 @@ Formato: una línea por idea, con fecha. Se triarán al cerrar MVP1.
   se toca nada (probado: un binario truncado hace fallar `--selfcheck` y revierte).
 - La actualización desde la app no existe en Windows/macOS (no hay supervisor): solo se
   avisa de la versión nueva con enlace.
+
+## Lanzamiento público (no urgente)
+El repositorio es público desde el 31 oct 2026 (v0.10.0). Pendiente de limpieza, sin prisa:
+1. **Correo en el historial.** 44 commits llevan `bendjaclemente@gmail.com` como autor. Pasar
+   a `36237693+bigbendja@users.noreply.github.com` (ajuste de GitHub «Keep my email address
+   private» + `git config user.email`) para lo que venga, y valorar reescribir el historial
+   con `git filter-repo --mailmap` para limpiar los commits ya publicados. Reescribir
+   cambia todos los hashes: hay que hacerlo con calma, avisando a quien tenga clones, y
+   las etiquetas publicadas (v0.9.0, v0.10.x) quedarían apuntando a commits distintos.
+2. **Capturas con una ruta personal.** Las de `docs/screenshots/` (p. ej.
+   `m10c/01_ajustes_carpetas.png`) muestran `C:\Users\Benjamin Clemente\AppData\...`. Retirarlas
+   o rehacerlas con una carpeta de ejemplo antes del lanzamiento (con el README y las
+   imágenes definitivas). Ojo: borrarlas del árbol no las quita del historial; si importa,
+   se limpian junto con la tarea 1.
