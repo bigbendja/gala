@@ -1,0 +1,54 @@
+#!/bin/sh
+# gala-update — SOLO para instalaciones que compilan en el servidor (desarrollo).
+# La instalación normal se actualiza desde la app (Ajustes › Actualización) o
+# repitiendo install.sh con un binario nuevo; este script no hace falta.
+#
+# Hace: git pull + compilar el frontend + compilar el binario + reiniciar GALA.
+# Necesita git, Go 1.22+ y Node 22 en el servidor, y un clon del repositorio.
+#
+# Uso (desde el clon):   sh scripts/gala-update
+#   GALA_HOME=/opt/gala  directorio de instalación (por defecto /opt/gala)
+
+set -eu
+
+GALA_HOME=${GALA_HOME:-/opt/gala}
+SRC=$(cd "$(dirname "$0")/.." && pwd)
+
+[ -d "$SRC/.git" ] || {
+	echo "ERROR: $SRC no es un clon de git." >&2
+	exit 1
+}
+for cmd in git go npm; do
+	command -v "$cmd" >/dev/null 2>&1 || {
+		echo "ERROR: falta '$cmd' en el servidor." >&2
+		exit 1
+	}
+done
+
+cd "$SRC"
+echo "==> git pull"
+git pull --ff-only
+
+echo "==> frontend"
+(cd web && npm ci && npm run build)
+
+echo "==> binario"
+PKG=github.com/bigbendja/gala/internal/buildinfo
+VERSION=$(git describe --tags --always --dirty)
+COMMIT=$(git rev-parse --short HEAD)
+DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+TMP=$(mktemp)
+trap 'rm -f "$TMP"' EXIT
+CGO_ENABLED=0 go build -trimpath \
+	-ldflags "-s -w -X $PKG.Version=$VERSION -X $PKG.Commit=$COMMIT -X $PKG.Date=$DATE" \
+	-o "$TMP" ./cmd/gala
+"$TMP" --version
+
+echo "==> instalando en $GALA_HOME (pide sudo)"
+# Se instala como gala.new y se renombra: el cambio es atómico.
+sudo install -o gala -g gala -m 0755 "$TMP" "$GALA_HOME/gala.new"
+sudo mv -f "$GALA_HOME/gala.new" "$GALA_HOME/gala"
+
+echo "==> reiniciando"
+sudo systemctl restart gala
+echo "Hecho: GALA $VERSION."

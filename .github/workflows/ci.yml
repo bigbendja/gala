@@ -85,6 +85,10 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      - name: Instalador
+        # El instalador de servidor se publica junto a los binarios (camino de
+        # descarga anónima, para cuando el repositorio sea público).
+        run: cp scripts/install.sh dist/install.sh
       - name: Checksums
         run: cd dist && sha256sum gala-* > SHA256SUMS.txt && cat SHA256SUMS.txt
       - name: Notas de la versión
@@ -97,6 +101,7 @@ jobs:
           files: |
             dist/gala-*
             dist/SHA256SUMS.txt
+            dist/install.sh
           body_path: ${{ steps.notes.outputs.file }}
           generate_release_notes: ${{ steps.notes.outputs.file == '' }}
           draft: false

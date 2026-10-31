@@ -1,0 +1,26 @@
+[Unit]
+Description=GALA media center
+After=network-online.target
+Wants=network-online.target
+# Sin límite de reintentos: systemd no debe rendirse antes de que gala-preflight
+# tenga ocasión de revertir una actualización que no arranca.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=gala
+Group=gala
+WorkingDirectory=/opt/gala
+# Antes de cada arranque: reconcilia/revierte una actualización a medias.
+ExecStartPre=/opt/gala/gala-preflight
+ExecStart=/opt/gala/gala --no-browser
+# El auto-update reinicia GALA saliendo del proceso; systemd lo vuelve a levantar.
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/gala
+
+[Install]
+WantedBy=multi-user.target
