@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bigbendja/gala/internal/auth"
 	"github.com/bigbendja/gala/internal/buildinfo"
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
@@ -44,6 +45,7 @@ type Server struct {
 	// Modo LAN (M7). Los pone main tras api.New; nil = comportamiento de
 	// tests (sin listener real, sin guardián).
 	LanGuard      *lan.Guard
+	Auth          *auth.Service           // nil = sin clave de administrador (tests)
 	LanListen     func(bind string) error // reabre el listener HTTP en ese bind
 	LanCandidates func() []lan.Candidate  // nil = detección real de interfaces
 }
@@ -112,6 +114,18 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/v1/lan/pin", s.handleLanPIN)
 	mux.HandleFunc("GET /api/v1/lan/session", s.handleLanSession)
 	mux.HandleFunc("POST /api/v1/lan/auth", s.handleLanAuth)
+
+	// Autenticación de administrador (M-Servidor). status/csrf/login/logout
+	// los usa cualquier cliente; el resto es administración (el guardián exige
+	// sesión desde la red) y network-admin es solo del PC.
+	mux.HandleFunc("GET /api/v1/auth/status", s.handleAuthStatus)
+	mux.HandleFunc("GET /api/v1/auth/csrf", s.handleAuthCSRF)
+	mux.HandleFunc("POST /api/v1/auth/login", s.handleAuthLogin)
+	mux.HandleFunc("POST /api/v1/auth/logout", s.handleAuthLogout)
+	mux.HandleFunc("POST /api/v1/auth/logout-all", s.handleAuthLogoutAll)
+	mux.HandleFunc("POST /api/v1/auth/password", s.handleAuthPassword)
+	mux.HandleFunc("GET /api/v1/auth/sessions", s.handleAuthSessions)
+	mux.HandleFunc("PUT /api/v1/auth/network-admin", s.handleAuthNetworkAdmin)
 }
 
 func (s *Server) handleLanSession(w http.ResponseWriter, r *http.Request) {
@@ -250,7 +264,7 @@ func (s *Server) handleGetItem(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	if !lan.IsLocal(r) {
+	if !lan.IsLocalAdmin(r) {
 		redactForRemote(&items[0]) // Modo LAN: sin rutas del disco del PC
 	}
 	writeJSON(w, http.StatusOK, items[0])

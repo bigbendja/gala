@@ -25,13 +25,28 @@ type Settings interface {
 	LanState() (bind, pin string)
 }
 
+// AdminGate decide si una petición a una ruta de administración pasa
+// (sesión de administrador válida y CSRF). La implementa internal/auth.
+type AdminGate interface {
+	// LocalBypass: ¿localhost es admin sin sesión? (por defecto sí).
+	LocalBypass() bool
+	// Check devuelve ok o, si no, el estado HTTP, el código y el mensaje.
+	Check(r *http.Request) (ok bool, status int, code, msg string)
+}
+
 // Guard decide, para cada petición, si pasa. Las del propio PC (loopback)
-// pasan siempre; las de otros dispositivos solo si la ruta está en la lista
-// permitida (RemoteAllowed) y, si hay PIN, traen una sesión válida.
+// pasan siempre (salvo que gala.json desactive el bypass de localhost); las de
+// otros dispositivos solo si la ruta está en la lista permitida
+// (RemoteAllowed) y, si hay PIN, traen una sesión válida; las rutas de
+// administración, además, solo con sesión de administrador (Admin).
 type Guard struct {
 	cfg      Settings
 	sessions *sessions
 	limiter  *limiter
+
+	// Admin es la puerta de administración; nil = las rutas de administración
+	// siguen siendo solo del PC (comportamiento anterior a M-Servidor).
+	Admin AdminGate
 }
 
 // NewGuard crea el guardián.
@@ -46,10 +61,42 @@ func (g *Guard) ResetSessions() { g.sessions.reset() }
 // cabeceras (X-Forwarded-For, Host...) que un cliente remoto controla.
 func IsLocal(r *http.Request) bool { return IsLoopbackHostPort(r.RemoteAddr) }
 
+// IsLoopbackHost indica si el valor de la cabecera Host (con o sin puerto) es
+// localhost o una IP de loopback.
+func IsLoopbackHost(hostport string) bool {
+	host := hostport
+	if h, _, err := net.SplitHostPort(hostport); err == nil {
+		host = h
+	}
+	host = strings.Trim(host, "[]")
+	return host == "localhost" || IsLoopbackHostPort(host)
+}
+
+// IsLocalAdmin es IsLocal más Host de loopback: lo que da administración sin
+// sesión. Sin la comprobación de Host, una web maliciosa con DNS rebinding hacia
+// 127.0.0.1 llegaría con RemoteAddr de loopback y se haría pasar por el dueño.
+// IsLocal queda solo para usos no sensibles.
+func IsLocalAdmin(r *http.Request) bool {
+	return IsLocal(r) && IsLoopbackHost(r.Host)
+}
+
 // Middleware envuelve al mux entero.
 func (g *Guard) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if IsLocal(r) {
+			// Localhost es admin sin más (rescate y escritorio). Solo si
+			// gala.json lo desactiva exige sesión en las rutas de administración.
+			// Con RemoteAddr de loopback pero Host ajeno (DNS rebinding) no hay
+			// bypass: exige sesión como cualquier cliente de red.
+			if g.Admin == nil || !isAdminRoute(r.Method, r.URL.Path, true) ||
+				(IsLoopbackHost(r.Host) && g.Admin.LocalBypass()) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if ok, status, code, msg := g.Admin.Check(r); !ok {
+				writeJSON(w, status, map[string]string{"error": msg, "code": code})
+				return
+			}
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -66,14 +113,25 @@ func (g *Guard) Middleware(next http.Handler) http.Handler {
 			forbidden(w)
 			return
 		}
+		admin := false
 		if !RemoteAllowed(r.Method, r.URL.Path) {
-			forbidden(w)
-			return
+			if g.Admin == nil || !isAdminRoute(r.Method, r.URL.Path, false) {
+				forbidden(w)
+				return
+			}
+			admin = true
 		}
+		// El PIN (ver) va primero; la clave (administrar) después.
 		if _, pin := g.cfg.LanState(); pin != "" && needsPIN(r.URL.Path) && !g.authenticated(r) {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{
 				"error": "Hace falta el PIN para entrar.", "code": "pin_required"})
 			return
+		}
+		if admin {
+			if ok, status, code, msg := g.Admin.Check(r); !ok {
+				writeJSON(w, status, map[string]string{"error": msg, "code": code})
+				return
+			}
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -141,8 +199,48 @@ func RemoteAllowed(method, urlPath string) bool {
 		if len(seg) == 4 {
 			return (seg[3] == "session" && get) || (seg[3] == "auth" && method == http.MethodPost)
 		}
+	case "auth":
+		// Lo mínimo para iniciar sesión de administrador; el resto de
+		// /auth/* (cambiar clave, sesiones, logout-all) es administración.
+		if len(seg) == 4 {
+			switch seg[3] {
+			case "status", "csrf":
+				return get
+			case "login", "logout":
+				return method == http.MethodPost
+			}
+		}
 	}
 	return false
+}
+
+// localOnlyRoute son las rutas que, aunque haya sesión de administrador, solo
+// se pueden usar desde el PC: cambiar la exposición de la red (apagar el Modo
+// LAN desde la propia red te dejaría fuera) y los interruptores de seguridad.
+func localOnlyRoute(urlPath string) bool {
+	switch urlPath {
+	case "/api/v1/lan/status", "/api/v1/lan/toggle", "/api/v1/auth/network-admin":
+		return true
+	}
+	return false
+}
+
+// isAdminRoute: ruta de la API que no es de lectura/reproducción abierta, es
+// decir, de administración. Si local es false, además excluye las solo-PC.
+func isAdminRoute(method, urlPath string, local bool) bool {
+	if !strings.HasPrefix(urlPath, "/api/") || RemoteAllowed(method, urlPath) {
+		return false
+	}
+	return local || !localOnlyRoute(urlPath)
+}
+
+// IssueSession planta una sesión LAN (cookie del PIN) en la respuesta. La usa
+// el cambio de PIN hecho por un administrador de red, para no expulsarlo a él.
+func (g *Guard) IssueSession(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name: SessionCookie, Value: g.sessions.issue(), Path: "/",
+		HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: int(sessionTTL.Seconds()),
+	})
 }
 
 // needsPIN: la API de datos exige sesión; la SPA, el ping y los endpoints

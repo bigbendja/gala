@@ -1,5 +1,5 @@
-import { getLanSession, getLanStatus, listPending } from '$lib/api/client';
-import type { LanSession } from '$lib/api/types';
+import { getAuthStatus, getLanSession, getLanStatus, listPending, setCsrfToken } from '$lib/api/client';
+import type { AuthStatus, LanSession } from '$lib/api/types';
 import type { LayoutLoad } from './$types';
 
 // SPA pura: sin renderizado en servidor (CLAUDE.md M10a — "Cliente, sin
@@ -33,9 +33,24 @@ export interface Chrome {
 export const load: LayoutLoad = async () => {
 	const session = await getLanSession().catch(() => LOCAL_SESSION);
 	if (!session.local) {
-		const chrome: Promise<Chrome> = Promise.resolve({ pendingCount: 0, lanEnabled: false });
-		return { session, chrome };
+		// Dispositivo de la red: no puede leer el Modo LAN, y «Por confirmar»
+		// solo si ya inició sesión de administrador (M-Servidor). Sin PIN
+		// pendiente se consulta el estado de administración (si falta el PIN no
+		// se pide nada más).
+		const locked = session.pin_required && !session.authenticated;
+		const auth: AuthStatus | null = locked ? null : await getAuthStatus().catch(() => null);
+		setCsrfToken(auth?.csrf);
+		const chrome: Promise<Chrome> = auth?.authenticated
+			? listPending()
+					.catch(() => [])
+					.then((pending) => ({
+						pendingCount: pending.filter((it) => it.identify_status === 'review').length,
+						lanEnabled: false
+					}))
+			: Promise.resolve({ pendingCount: 0, lanEnabled: false });
+		return { session, chrome, auth };
 	}
+	const auth: AuthStatus | null = null; // el PC es admin sin sesión
 	const chrome: Promise<Chrome> = Promise.all([
 		listPending().catch(() => []),
 		getLanStatus().catch(() => null)
@@ -43,5 +58,5 @@ export const load: LayoutLoad = async () => {
 		pendingCount: pending.filter((it) => it.identify_status === 'review').length,
 		lanEnabled: lan?.enabled ?? false
 	}));
-	return { session, chrome };
+	return { session, chrome, auth };
 };

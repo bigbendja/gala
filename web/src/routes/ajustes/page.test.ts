@@ -28,14 +28,19 @@ vi.mock('$lib/api/client', async () => {
 		startScan: startScanMock,
 		scanStatus: scanStatusMock,
 		startHealthCheck: startHealthCheckMock,
-		healthSummary: healthSummaryMock
+		healthSummary: healthSummaryMock,
+		// SecurityPanel (M-Servidor) se prueba aparte; aquí solo no debe estorbar.
+		getAuthStatus: () =>
+			Promise.resolve({ configured: false, authenticated: true, is_localhost: true, network_admin: true }),
+		listAuthSessions: () => Promise.resolve([])
 	};
 });
 
 // Datos del layout raíz (Modo LAN, M7): estos tests corren como el PC.
 const layoutLan = {
 	session: { local: true, pin_required: false, authenticated: true },
-	chrome: Promise.resolve({ pendingCount: 0, lanEnabled: false })
+	chrome: Promise.resolve({ pendingCount: 0, lanEnabled: false }),
+	auth: null
 };
 
 function baseData(overrides: Partial<Record<string, unknown>> = {}) {

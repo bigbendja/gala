@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/bigbendja/gala/internal/api"
+	"github.com/bigbendja/gala/internal/auth"
 	"github.com/bigbendja/gala/internal/buildinfo"
 	"github.com/bigbendja/gala/internal/catalog"
 	"github.com/bigbendja/gala/internal/config"
@@ -35,6 +36,10 @@ import (
 )
 
 func main() {
+	// Subcomandos de administración (gala admin set-password): no arrancan el servidor.
+	if len(os.Args) > 1 && os.Args[1] == "admin" {
+		os.Exit(runAdmin(os.Args[2:], os.Stdin, os.Stdout, os.Stderr))
+	}
 	noBrowser := flag.Bool("no-browser", false, "no abrir el navegador al arrancar")
 	demo := flag.Bool("demo", false, "poblar la BD con datos ficticios de desarrollo (solo si está vacía)")
 	showVersion := flag.Bool("version", false, "imprimir versión, commit y fecha de compilación, y salir")
@@ -132,6 +137,11 @@ func main() {
 		mediaQueue.Enqueue()
 		healthWorker.Enqueue()
 	}
+	authSvc, err := auth.New(st.DB, cfg, log)
+	if err != nil {
+		log.Error("autenticación", "err", err)
+		os.Exit(1)
+	}
 	apiSrv := api.New(st, repo, cfg, scanner, enum, idQueue, tmdbClient, cacheDir, log, ffmpeg, hlsManager, ingestPipeline, healthWorker)
 
 	// Poller de volúmenes: detecta conexión/desconexión de discos y dispara
@@ -159,6 +169,8 @@ func main() {
 	// demás dispositivos a ver/reproducir (y al PIN, si lo hay).
 	guard := lan.NewGuard(cfg)
 	apiSrv.LanGuard = guard
+	apiSrv.Auth = authSvc
+	guard.Admin = authSvc
 	srv := &http.Server{
 		Handler:           guard.Middleware(mux),
 		ReadHeaderTimeout: 10 * time.Second,
