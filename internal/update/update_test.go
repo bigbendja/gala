@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -587,7 +588,7 @@ func TestConfirmBootLimpiaUnMarcadorHuerfano(t *testing.T) {
 	exe := filepath.Join(dir, "gala")
 	os.WriteFile(exe, []byte("viejo"), 0o755)
 	os.WriteFile(exe+NewSuffix, []byte("descargado"), 0o755)
-	WriteMarker(dir, Marker{State: StateReady, From: "v0.9.0", New: "v0.10.0"})
+	WriteMarker(dir, Marker{State: StatePreparing, From: "v0.9.0", New: "v0.10.0"})
 	var failed atomic.Bool
 	ConfirmBoot(context.Background(), exe, "http://127.0.0.1:1/healthz", "v0.9.0", discardLog(), func() { failed.Store(true) }, fastBoot)
 	if failed.Load() {
@@ -606,7 +607,7 @@ func TestConfirmBootPreparingConIntercambioHechoSeTrataComoSwapped(t *testing.T)
 	exe := filepath.Join(dir, "gala")
 	os.WriteFile(exe, []byte("nuevo"), 0o755)
 	os.WriteFile(exe+PrevSuffix, []byte("viejo"), 0o755) // sin .new: ya se intercambió
-	WriteMarker(dir, Marker{State: StateReady, From: "v0.9.0", New: "v0.10.0"})
+	WriteMarker(dir, Marker{State: StatePreparing, From: "v0.9.0", New: "v0.10.0"})
 	var ok atomic.Bool
 	ok.Store(true)
 	srv := healthServer(t, &ok)
@@ -646,5 +647,43 @@ func TestActividadDeStreaming(t *testing.T) {
 	a.last.Store(time.Now().Add(-time.Minute).UnixNano())
 	if a.Active() != 0 {
 		t.Fatal("pasados 30 s ya no")
+	}
+}
+
+func TestApplySinEspacioLibreNoTocaNadaYLoDiceEnEspanol(t *testing.T) {
+	fx := newInstallFixture(t)
+	fx.inst.FreeSpace = func(string) (uint64, error) { return 5 << 20, nil } // 5 MB libres
+	// El binario de la release es 13 bytes; fingimos que pesa 20 MB.
+	info, _ := fx.inst.Checker.Cached()
+	info.AssetSize = 20 << 20
+	fx.inst.Checker.cached = &info
+	if err := fx.inst.Start(false); err != nil {
+		t.Fatal(err)
+	}
+	s := fx.wait(t, PhaseError)
+	if !strings.Contains(s.Error, "no hay espacio suficiente") || !strings.Contains(s.Error, "no se ha cambiado nada") {
+		t.Errorf("mensaje: %q", s.Error)
+	}
+	assertUntouched(t, fx)
+}
+
+func TestApplyEspacioSuficienteContinua(t *testing.T) {
+	fx := newInstallFixture(t)
+	fx.inst.FreeSpace = func(string) (uint64, error) { return 1 << 30, nil }
+	if err := fx.inst.Start(false); err != nil {
+		t.Fatal(err)
+	}
+	fx.wait(t, PhaseRestarting)
+}
+
+func TestDiscoLlenoSeReconoce(t *testing.T) {
+	if !isDiskFull(&os.PathError{Op: "write", Path: "x", Err: syscall.ENOSPC}) {
+		t.Error("ENOSPC es disco lleno")
+	}
+	if isDiskFull(errors.New("otra cosa")) || isDiskFull(nil) {
+		t.Error("lo demás no")
+	}
+	if freeBytesOK, err := freeBytes(t.TempDir()); err != nil || freeBytesOK == 0 {
+		t.Errorf("la consulta real de espacio libre debe funcionar: %d %v", freeBytesOK, err)
 	}
 }

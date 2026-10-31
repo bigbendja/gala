@@ -198,7 +198,7 @@ func TestPreflightCorteEntreLosDosRenombrados(t *testing.T) {
 	p.write("gala.prev", "viejo")
 	p.fakeBin(p.path("gala.new"), 0, "x")
 	p.write(DBBackupNew, "copia")
-	p.marker(StatePreparing(), 0, 0)
+	p.marker(StatePreparing, 0, 0)
 	p.run()
 	p.assertRolledBack("interrumpió durante la instalación")
 	if p.text("gala") != "viejo" || p.has("gala.prev") {
@@ -210,7 +210,7 @@ func TestPreflightCorteAntesDeIntercambiar(t *testing.T) {
 	p := newPF(t)
 	p.write("gala", "viejo")
 	p.write("gala.new", "descargado")
-	p.marker(StatePreparing(), 0, 0)
+	p.marker(StatePreparing, 0, 0)
 	p.run()
 	p.assertRolledBack("antes de instalarse")
 	if p.text("gala") != "viejo" {
@@ -222,13 +222,10 @@ func TestPreflightIntercambioHechoPeroSinAnotarSeTrataComoNuevo(t *testing.T) {
 	p := newPF(t)
 	p.fakeBin(p.path("gala"), 0, "migraciones_aplicadas=1")
 	p.write("gala.prev", "viejo")
-	p.marker(StatePreparing(), 0, 0) // los dos renombrados se hicieron; faltó pasar a swapped
+	p.marker(StatePreparing, 0, 0) // los dos renombrados se hicieron; faltó pasar a swapped
 	p.run()
 	m := p.text(PendingFile)
 	if !strings.Contains(m, "state=swapped") || !strings.Contains(m, "attempts=1") || !strings.Contains(m, "migraciones_nuevas=1") {
 		t.Fatalf("debe continuar como versión recién instalada: %q", m)
 	}
 }
-
-// StatePreparing evita repetir el literal en los tests de arriba.
-func StatePreparing() string { return StateReady }

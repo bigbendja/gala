@@ -27,7 +27,7 @@ const (
 	DBBackupNew    = "gala.db.pre-update.new" // copia de la actualización en curso
 	NewSuffix      = ".new"
 	PrevSuffix     = ".prev"
-	StateReady     = "preparing" // marcador escrito ANTES de tocar el binario
+	StatePreparing = "preparing" // marcador escrito ANTES de tocar el binario
 	StateSwapped   = "swapped"   // los dos renombrados ya se hicieron
 	ResultOK       = "ok"
 	ResultRolledBk = "rolled_back"

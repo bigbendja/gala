@@ -13,8 +13,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -74,6 +76,8 @@ type Installer struct {
 	PlaybackActive func() int
 	// RequestExit provoca la salida ordenada del proceso (la relanza el supervisor).
 	RequestExit func()
+	// FreeSpace devuelve los bytes libres en dir (nil = consulta real al sistema).
+	FreeSpace func(dir string) (uint64, error)
 	// RunVersion ejecuta `bin --version` y devuelve su salida (nil = ejecución real).
 	RunVersion func(ctx context.Context, bin string) (string, error)
 
@@ -156,6 +160,12 @@ func (in *Installer) run(ctx context.Context, info Info) error {
 		}
 	}()
 
+	// 0. Espacio: el binario nuevo se descarga junto al actual (hace falta el
+	//    doble de su tamaño, como margen para la copia y los temporales).
+	if err := in.checkSpace(info.AssetSize); err != nil {
+		return err
+	}
+
 	// 1. Descarga a gala.new (mismo directorio: el rename posterior es atómico)
 	//    verificando el SHA256 mientras llega.
 	if err := in.download(ctx, info); err != nil {
@@ -187,7 +197,7 @@ func (in *Installer) run(ctx context.Context, info Info) error {
 	//    el binario (intención) y se actualiza DESPUÉS (hecho); el preflight
 	//    reconcilia cualquier corte entre medias mirando qué ficheros existen.
 	cur := in.Checker.Current
-	if err := WriteMarker(in.dir(), Marker{State: StateReady, From: cur, New: info.Latest}); err != nil {
+	if err := WriteMarker(in.dir(), Marker{State: StatePreparing, From: cur, New: info.Latest}); err != nil {
 		return fmt.Errorf("escribir el marcador: %w", err)
 	}
 	if err := os.Rename(in.ExePath, in.prevPath()); err != nil {
@@ -250,6 +260,9 @@ func (in *Installer) download(ctx context.Context, info Info) error {
 
 	f, err := os.OpenFile(in.newPath(), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
 	if err != nil {
+		if isDiskFull(err) {
+			return errDiskFull
+		}
 		return fmt.Errorf("crear %s: %w", filepath.Base(in.newPath()), err)
 	}
 	h := sha256.New()
@@ -259,6 +272,9 @@ func (in *Installer) download(ctx context.Context, info Info) error {
 		err = cerr
 	}
 	if err != nil {
+		if isDiskFull(err) {
+			return errDiskFull
+		}
 		return fmt.Errorf("descargar: %w", err)
 	}
 	if n > maxBinary {
@@ -308,4 +324,41 @@ func (in *Installer) backupDB(ctx context.Context) error {
 		return fmt.Errorf("copia de seguridad de la base de datos: %w", err)
 	}
 	return nil
+}
+
+var errDiskFull = errors.New("el disco está lleno: no hay espacio para descargar la versión nueva. Libera espacio y vuelve a intentarlo; no se ha cambiado nada")
+
+// isDiskFull reconoce «disco lleno» (ENOSPC en Unix, ERROR_DISK_FULL/112 en Windows).
+func isDiskFull(err error) bool {
+	var errno syscall.Errno
+	if !errors.As(err, &errno) {
+		return false
+	}
+	return errno == syscall.ENOSPC || (runtime.GOOS == "windows" && (errno == 112 || errno == 39))
+}
+
+// checkSpace falla con un mensaje claro si no cabe el doble del binario.
+func (in *Installer) checkSpace(assetSize int64) error {
+	if assetSize <= 0 {
+		return nil // tamaño desconocido: lo detectará la propia descarga
+	}
+	free := freeBytes
+	if in.FreeSpace != nil {
+		free = in.FreeSpace
+	}
+	have, err := free(in.dir())
+	if err != nil {
+		in.Log.Warn("actualización: no se pudo consultar el espacio libre", "err", err)
+		return nil // sin dato fiable, que decida la descarga (ENOSPC se traduce igual)
+	}
+	need := uint64(assetSize) * 2
+	if have < need {
+		return fmt.Errorf("no hay espacio suficiente en el disco para actualizar: hacen falta %s libres y hay %s. Libera espacio y vuelve a intentarlo; no se ha cambiado nada",
+			humanMB(need), humanMB(have))
+	}
+	return nil
+}
+
+func humanMB(n uint64) string {
+	return strings.ReplaceAll(fmt.Sprintf("%.1f MB", float64(n)/(1024*1024)), ".", ",")
 }

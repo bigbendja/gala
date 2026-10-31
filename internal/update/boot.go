@@ -44,7 +44,7 @@ func ConfirmBoot(ctx context.Context, exePath, healthURL, running string, log *s
 	// «preparing» + .new ausente + .prev presente = intercambio hecho al que
 	// solo le faltó la anotación; «preparing» con .new presente = el
 	// intercambio nunca ocurrió (marcador huérfano: se limpia).
-	if m.State == StateReady {
+	if m.State == StatePreparing {
 		if exists(exePath+NewSuffix) || !exists(exePath+PrevSuffix) {
 			log.Warn("actualización: marcador huérfano de un intercambio que no llegó a hacerse; se limpia")
 			_ = os.Remove(exePath + NewSuffix)
