@@ -12,7 +12,7 @@ verlo desde cualquier equipo o móvil de tu red, sin instalar nada en ellos.
 
 - Un servidor con **Ubuntu 22.04 o 24.04 de 64 bits (amd64)**. Sirve hardware modesto.
 - Acceso por SSH con un usuario que pueda usar `sudo`.
-- El binario `gala-linux-amd64` **de `main` actual, no el release v0.9.0** (ver el paso 1) y el fichero `install.sh`.
+- El instalador `install.sh` y GALA **v0.10.0 o posterior** (no el release v0.9.0; ver el paso 1).
 - Tu contenido en una carpeta del servidor (por defecto `/srv/media`).
 
 ## Cómo queda instalado
@@ -31,22 +31,30 @@ Todo vive en una sola carpeta, junto al ejecutable:
 
 GALA corre con un usuario de sistema propio, `gala`, sin privilegios.
 
-## 1. Conseguir el binario
+## 1. Instalar descargando el release (recomendado)
 
-> ### ⚠️ Usa el binario de `main` ACTUAL, no el release v0.9.0
+El repositorio es público: el instalador baja el último release de GitHub y verifica su
+SHA256. En el servidor:
+
+```bash
+curl -fsSL https://github.com/bigbendja/gala/releases/latest/download/install.sh -o install.sh
+sudo sh install.sh --download
+```
+
+`--version vX.Y.Z` fija una versión. Si te sirve, salta al paso 3.
+
+> ### ⚠️ No uses el release v0.9.0
 >
-> El release **v0.9.0 es anterior a la administración por contraseña**. En un servidor
-> sin pantalla no habría forma de configurar nada (carpetas, clave de TMDB, contraseña…)
-> desde la red. Hay que instalar un binario compilado de la rama `main` actual, que ya
-> incluye la contraseña de administrador y la actualización desde la app. Por eso **no**
-> bajes el binario de la página de Releases: sigue una de las dos vías de abajo.
+> **v0.9.0 es anterior a la administración por contraseña**: en un servidor sin pantalla no
+> habría forma de configurar nada desde la red. Usa **v0.10.0 o posterior**.
 > `install.sh` lo comprueba y **se niega a instalar** un binario más antiguo.
 
-Mientras el repositorio sea privado no se puede descargar anónimamente; tú lo
-llevas al servidor. Elige una de estas dos vías, en **tu PC**.
+### Alternativa: instalar un binario que ya tienes (`--binary`)
 
-**a) Desde la integración continua (recomendado).** Cada subida a `main` compila
-`gala-linux-amd64` y lo guarda como artefacto:
+Para un servidor sin acceso a GitHub, o para probar un binario propio. En **tu PC**:
+
+**a) Desde la integración continua.** Cada subida a `main` compila `gala-linux-amd64` y lo
+guarda como artefacto:
 
 ```bash
 gh run list --branch main --workflow CI --limit 1
@@ -60,13 +68,9 @@ cd web && npm ci && npm run build && cd ..
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o gala-linux-amd64 ./cmd/gala
 ```
 
-Apunta el SHA256 para comprobarlo en el servidor:
+Apunta el SHA256 para comprobarlo en el servidor: `sha256sum gala-linux-amd64`.
 
-```bash
-sha256sum gala-linux-amd64
-```
-
-## 2. Copiar al servidor e instalar
+## 2. Copiar al servidor e instalar (solo con `--binary`)
 
 ```bash
 scp gala-linux-amd64 scripts/install.sh usuario@IP-DEL-SERVIDOR:/tmp/
@@ -122,7 +126,7 @@ servidor (ver «Túnel SSH»); el PIN protege *ver*, la contraseña protege *adm
   versión nueva, la verifica y reinicia GALA sola; si la versión nueva no arranca, se
   vuelve a la anterior automáticamente. *Requiere que el repositorio sea público (hoy no
   lo es: el botón dirá «No se pudo comprobar»).*
-- **A mano (mientras tanto):** repite el paso 1 y 2 con el binario nuevo. `install.sh`
+- **A mano:** repite `sudo sh install.sh --download` (o el paso 2 con un binario nuevo). `install.sh`
   conserva tu configuración, tu base de datos y tu contraseña, y reinicia el servicio.
 - **Si compilas en el servidor** (solo desarrollo): `scripts/gala-update` hace
   `git pull`, compila y reinicia.
@@ -182,23 +186,11 @@ curl http://localhost:7420/healthz  # {"status":"ok"} si todo va bien
 | Síntoma | Qué mirar |
 |---|---|
 | No abre desde otro equipo | `sudo ufw status` (¿regla del puerto 7420 desde tu red?), y que el equipo esté en la misma red. |
-| «No se pudo comprobar las actualizaciones» | Normal con el repositorio privado o sin Internet. No afecta a nada más. |
+| «No se pudo comprobar las actualizaciones» | Sin Internet o GitHub no responde. No afecta a nada más; vuelve a intentarlo luego. |
 | No ve mis películas | Permisos: `sudo chmod -R a+rX /srv/media`; y que la carpeta esté añadida en Ajustes. |
 | Solo reproduce algunos vídeos | `ffmpeg` no instalado: `sudo apt install ffmpeg`. |
 | «El disco está lleno» al actualizar | Libera espacio; no se ha cambiado nada. |
 | El servicio no arranca | `sudo journalctl -u gala -n 50`. Si fue tras actualizar, `gala-preflight` revierte solo tras 3 intentos. |
-
-## Camino definitivo: descarga anónima (cuando el repositorio sea público)
-
-Se publicará `install.sh` junto a cada release, y bastará con:
-
-```bash
-curl -fsSL https://github.com/bigbendja/gala/releases/latest/download/install.sh | sudo sh -s -- --download
-```
-
-`--download` baja el último release, verifica su SHA256 contra `SHA256SUMS.txt` y
-continúa igual que arriba (`--version vX.Y.Z` fija una versión). Hoy no funciona
-porque el repositorio es privado.
 
 ## Quitar GALA
 

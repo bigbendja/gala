@@ -3,6 +3,13 @@
 Formato: una sección por versión. La CI usa la sección de la etiqueta como notas
 del release.
 
+## [0.10.1] - 2026-10-31
+
+### Corregido
+- `install.sh --download` fallaba en Ubuntu («URL rejected»): el script cargaba
+  `/etc/os-release`, que pisaba su variable `VERSION`. La guía deja `--download` como
+  camino recomendado ahora que el repositorio es público.
+
 ## [0.10.0] - 2026-10-31
 
 GALA listo para un servidor: se instala con un script, se administra desde la red

@@ -105,3 +105,19 @@ func TestInstallShAyudaYArgumentosInvalidos(t *testing.T) {
 		t.Fatalf("puerto no numérico: %v\n%s", err, out)
 	}
 }
+
+// /etc/os-release define VERSION, ID, NAME…: si se carga en el shell principal
+// pisa la variable con la versión de GALA a descargar (así se rompió --download
+// en v0.10.0: la URL llevaba «24.04.5 LTS (Noble Numbat)»).
+func TestInstallShNoCargaOsReleaseEnElShellPrincipal(t *testing.T) {
+	install := readScript(t, "install.sh")
+	for _, line := range strings.Split(install, "\n") {
+		trim := strings.TrimSpace(line)
+		if strings.Contains(trim, "/etc/os-release") && strings.HasPrefix(trim, ". ") {
+			t.Fatalf("«%s» carga os-release sin aislar: hazlo dentro de $( ... )", trim)
+		}
+	}
+	if strings.Contains(install, "\nVERSION=") || strings.Contains(install, "\"$VERSION\"") {
+		t.Fatal("la variable VERSION del instalador colisiona con os-release: usa GALA_VERSION")
+	}
+}
