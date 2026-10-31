@@ -152,7 +152,10 @@ func (s *Server) handleLanToggle(w http.ResponseWriter, r *http.Request) {
 
 // handleLanPIN: PUT /api/v1/lan/pin  body {"pin":"1234"} o {"pin":""} (quitar).
 func (s *Server) handleLanPIN(w http.ResponseWriter, r *http.Request) {
-	if !requireOwner(w, r, true) {
+	// Desde el PC, o desde la red con sesión de administrador (el PIN es lo
+	// que protege el acceso de los móviles; el admin autenticado puede
+	// cambiarlo, a diferencia de apagar el Modo LAN).
+	if !s.requireAdmin(w, r, true) {
 		return
 	}
 	var req struct {
@@ -175,6 +178,11 @@ func (s *Server) handleLanPIN(w http.ResponseWriter, r *http.Request) {
 	// el PIN anterior ya no vale para seguir dentro.
 	if s.LanGuard != nil {
 		s.LanGuard.ResetSessions()
+		// Un administrador de red que cambia el PIN no se expulsa a sí mismo:
+		// recibe una sesión LAN nueva con el PIN nuevo.
+		if !lan.IsLocal(r) && pin != "" {
+			s.LanGuard.IssueSession(w)
+		}
 	}
 	writeJSON(w, http.StatusOK, s.lanStatus())
 }

@@ -26,6 +26,14 @@ type Config struct {
 	// polaridad es "oculto" para que un gala.json antiguo, sin el campo,
 	// siga mostrando el hero como siempre.
 	HomeHeroHidden bool `json:"home_hero_hidden"`
+	// AdminLocalhostBypass: localhost es admin sin clave (por defecto sí; nil
+	// = true). Con false, localhost también necesita sesión SI ya hay clave
+	// puesta; hacerlo detrás de un reverse proxy en el mismo equipo, donde todo
+	// el tráfico parecería loopback.
+	AdminBypassSetting *bool `json:"admin_localhost_bypass,omitempty"`
+	// SessionDays es la duración (deslizante) de la sesión de administración;
+	// 0 = 30 días.
+	SessionDaysSetting int `json:"session_days,omitempty"`
 
 	dir string // directorio base (junto al ejecutable), no se serializa
 
@@ -80,6 +88,23 @@ func (c *Config) SetLanPIN(pin string) error {
 		return err
 	}
 	return nil
+}
+
+// AdminLocalhostBypass dice si localhost es admin sin sesión (por defecto sí).
+func (c *Config) AdminLocalhostBypass() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AdminBypassSetting == nil || *c.AdminBypassSetting
+}
+
+// SessionDays devuelve la duración de la sesión de administración en días.
+func (c *Config) SessionDays() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.SessionDaysSetting <= 0 {
+		return 30
+	}
+	return c.SessionDaysSetting
 }
 
 // HomeHeroEnabled dice si la Home enseña el bloque hero (por defecto sí).
