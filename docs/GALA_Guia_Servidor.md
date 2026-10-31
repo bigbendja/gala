@@ -12,7 +12,7 @@ verlo desde cualquier equipo o móvil de tu red, sin instalar nada en ellos.
 
 - Un servidor con **Ubuntu 22.04 o 24.04 de 64 bits (amd64)**. Sirve hardware modesto.
 - Acceso por SSH con un usuario que pueda usar `sudo`.
-- El binario `gala-linux-amd64` (ver el paso 1) y el fichero `install.sh`.
+- El binario `gala-linux-amd64` **de `main` actual, no el release v0.9.0** (ver el paso 1) y el fichero `install.sh`.
 - Tu contenido en una carpeta del servidor (por defecto `/srv/media`).
 
 ## Cómo queda instalado
@@ -32,6 +32,15 @@ Todo vive en una sola carpeta, junto al ejecutable:
 GALA corre con un usuario de sistema propio, `gala`, sin privilegios.
 
 ## 1. Conseguir el binario
+
+> ### ⚠️ Usa el binario de `main` ACTUAL, no el release v0.9.0
+>
+> El release **v0.9.0 es anterior a la administración por contraseña**. En un servidor
+> sin pantalla no habría forma de configurar nada (carpetas, clave de TMDB, contraseña…)
+> desde la red. Hay que instalar un binario compilado de la rama `main` actual, que ya
+> incluye la contraseña de administrador y la actualización desde la app. Por eso **no**
+> bajes el binario de la página de Releases: sigue una de las dos vías de abajo.
+> `install.sh` lo comprueba y **se niega a instalar** un binario más antiguo.
 
 Mientras el repositorio sea privado no se puede descargar anónimamente; tú lo
 llevas al servidor. Elige una de estas dos vías, en **tu PC**.

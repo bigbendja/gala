@@ -196,6 +196,13 @@ if ! out=$(runuser -u gala -- "$NEW" --version 2>&1) || ! printf '%s' "$out" | g
 	die "el binario no se puede ejecutar aquí (¿es linux-amd64?): $out"
 fi
 say "$out"
+# El binario debe ser de main actual (con la administración por contraseña): uno
+# anterior, como el release v0.9.0, no deja administrar un servidor sin pantalla.
+# `-h` no arranca nada ni toca la base de datos; solo el binario nuevo conoce --selfcheck.
+if ! runuser -u gala -- "$NEW" -h 2>&1 | grep -q 'selfcheck'; then
+	rm -f "$NEW"
+	die "este binario es anterior a la administración con contraseña (por ejemplo, el release v0.9.0): en un servidor sin pantalla no podrías administrarlo. Usa el binario de la rama main actual (mira la guía, paso 1)."
+fi
 
 # --- gala-preflight y la unit --------------------------------------------------------------
 step "Instalando gala-preflight y el servicio systemd"
