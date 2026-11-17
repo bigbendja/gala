@@ -11,6 +11,7 @@ type PlayMode string
 const (
 	ModeDirect    PlayMode = "direct"    // servir el archivo tal cual
 	ModeRemux     PlayMode = "remux"     // ffmpeg -c copy (o -c:a aac) → HLS
+	ModeTranscode PlayMode = "transcode" // ffmpeg re-codifica el vídeo a H.264 → HLS
 	ModeReject    PlayMode = "reject"    // no reproducible en el navegador
 	ModeAnalyzing PlayMode = "analyzing" // sonda pendiente o fallida: estado transitorio, NO un rechazo
 )
@@ -46,7 +47,8 @@ type Decision struct {
 //     por falta de análisis, es un estado transitorio que se resuelve solo
 //     (la cola de fondo o el siguiente /play lo reintentan). Sin ffmpeg no
 //     hay nada que analizar nunca: Reject permanente.
-//   - vídeo no compatible (hevc, mpeg2, wmv...): Reject, sin remedio en MVP1.
+//   - vídeo no compatible (hevc, mpeg4/xvid, mpeg2, wmv...): Transcode si hay
+//     ffmpeg (recodifica a H.264), Reject si no.
 //   - audio no compatible (ac3, eac3, dts...) con vídeo SÍ compatible: ya NO
 //     es Reject — Remux con AudioTranscode=true (-c:v copy -c:a aac), tanto
 //     si el contenedor ya era directo como si no. Sin ffmpeg, Reject (no hay
@@ -74,8 +76,16 @@ func Decide(info *MediaInfo, ext string, ffmpegAvailable bool) Decision {
 		return Decision{Mode: ModeReject, Reason: "no se detectó ninguna pista de audio reproducible"}
 	}
 	if !compatibleVideoCodecs[info.VideoCodec] {
-		return Decision{Mode: ModeReject, Reason: fmt.Sprintf(
-			"El vídeo usa %s, que este navegador no reproduce", strings.ToUpper(info.VideoCodec))}
+		// Vídeo que el navegador no decodifica (MPEG-4 Part 2/Xvid, HEVC,
+		// MPEG-2, VC-1...). El remux NO sirve (copiar el stream no lo hace
+		// reproducible): hay que recodificar a H.264. Con ffmpeg → Transcode
+		// (acelerado por hardware VAAPI si el equipo puede, si no x264 por
+		// software; lo decide internal/stream). Sin ffmpeg → Reject.
+		if !ffmpegAvailable {
+			return Decision{Mode: ModeReject, Reason: fmt.Sprintf(
+				"El vídeo usa %s y falta ffmpeg para convertirlo", strings.ToUpper(info.VideoCodec))}
+		}
+		return Decision{Mode: ModeTranscode, AudioTranscode: !compatibleAudioCodecs[info.AudioCodec]}
 	}
 
 	audioOK := compatibleAudioCodecs[info.AudioCodec]

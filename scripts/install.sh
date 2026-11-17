@@ -143,6 +143,12 @@ if ! id gala >/dev/null 2>&1; then
 	useradd --system --user-group --home-dir "$GALA_HOME" --no-create-home --shell /usr/sbin/nologin gala
 	say "Usuario de sistema 'gala' creado."
 fi
+# Acceso al iGPU para la transcodificación acelerada por hardware (VAAPI). Si
+# no hay grupo 'render' (equipo sin GPU), GALA transcodifica por software: no
+# pasa nada. systemd hereda los grupos del usuario, así que basta con esto.
+if getent group render >/dev/null 2>&1; then
+	usermod -aG render gala 2>/dev/null && say "Usuario 'gala' en el grupo 'render' (aceleración por hardware disponible)."
+fi
 FRESH=0
 [ -f "$GALA_HOME/gala.json" ] || FRESH=1
 mkdir -p "$GALA_HOME"

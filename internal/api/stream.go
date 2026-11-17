@@ -138,7 +138,7 @@ func (s *Server) handlePlay(w http.ResponseWriter, r *http.Request) {
 			if decision.Reason != "" {
 				view.Reason = &decision.Reason
 			}
-			if decision.Mode == media.ModeRemux {
+			if decision.Mode == media.ModeRemux || decision.Mode == media.ModeTranscode {
 				view.URL = "/api/v1/stream/" + strconv.FormatInt(src.ID, 10) + "/hls/start"
 			}
 			if info != nil {
@@ -285,12 +285,11 @@ func (s *Server) handleHLSStart(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	if decision.Mode != media.ModeRemux {
-		// Ni el propio /play habría ofrecido esta URL para una fuente que
-		// no está en modo remux (direct no lo necesita; reject/analyzing
-		// todavía no se pueden convertir) — 409 más claro que lanzar un
-		// ffmpeg que no debería correr.
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "esta fuente no está en modo remux"})
+	if decision.Mode != media.ModeRemux && decision.Mode != media.ModeTranscode {
+		// Ni el propio /play habría ofrecido esta URL para una fuente que no
+		// usa HLS (direct no lo necesita; reject/analyzing todavía no se pueden
+		// convertir) — 409 más claro que lanzar un ffmpeg que no debería correr.
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "esta fuente no se reproduce vía HLS"})
 		return
 	}
 
@@ -301,7 +300,7 @@ func (s *Server) handleHLSStart(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sess, err := s.HLS.StartSession(r.Context(), src.ID, src.Locator, start, decision.AudioTranscode)
+	sess, err := s.HLS.StartSession(r.Context(), src.ID, src.Locator, start, decision.Mode == media.ModeTranscode, decision.AudioTranscode)
 	if err != nil {
 		switch {
 		case errors.Is(err, stream.ErrTooManySessions):

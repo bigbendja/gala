@@ -28,7 +28,7 @@ func TestStartSessionCreatesFilesAndTracksSession(t *testing.T) {
 	ctx := context.Background()
 	m := newManagerForTest(t, ctx, ffmpeg)
 
-	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false)
+	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false, false)
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestStartSessionSeekPassesStartSeconds(t *testing.T) {
 	ffmpeg := buildFakeFFmpeg(t, 0, 0)
 	m := newManagerForTest(t, context.Background(), ffmpeg)
 
-	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 123.5, false)
+	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 123.5, false, false)
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestStartSessionPerSourceLimitClosesOldest(t *testing.T) {
 
 	var sessions []*Session
 	for i := 0; i < maxSessionsPerSource; i++ {
-		sess, err := m.StartSession(context.Background(), 42, "video.mkv", float64(i*10), false)
+		sess, err := m.StartSession(context.Background(), 42, "video.mkv", float64(i*10), false, false)
 		if err != nil {
 			t.Fatalf("StartSession #%d: %v", i, err)
 		}
@@ -83,7 +83,7 @@ func TestStartSessionPerSourceLimitClosesOldest(t *testing.T) {
 	}
 
 	// Una sesión más para la misma fuente: debe cerrar sessions[0] (la más vieja).
-	newest, err := m.StartSession(context.Background(), 42, "video.mkv", 999, false)
+	newest, err := m.StartSession(context.Background(), 42, "video.mkv", 999, false, false)
 	if err != nil {
 		t.Fatalf("StartSession (extra): %v", err)
 	}
@@ -118,12 +118,12 @@ func TestStartSessionGlobalLimitReturns503Equivalent(t *testing.T) {
 	// maxGlobalSessions sesiones en fuentes DISTINTAS: el límite por fuente
 	// no debería interferir.
 	for i := int64(1); i <= maxGlobalSessions; i++ {
-		if _, err := m.StartSession(context.Background(), i, "video.mkv", 0, false); err != nil {
+		if _, err := m.StartSession(context.Background(), i, "video.mkv", 0, false, false); err != nil {
 			t.Fatalf("StartSession fuente %d: %v", i, err)
 		}
 	}
 
-	_, err := m.StartSession(context.Background(), maxGlobalSessions+1, "video.mkv", 0, false)
+	_, err := m.StartSession(context.Background(), maxGlobalSessions+1, "video.mkv", 0, false, false)
 	if !errors.Is(err, ErrTooManySessions) {
 		t.Fatalf("err = %v, esperado ErrTooManySessions", err)
 	}
@@ -141,7 +141,7 @@ func TestStartSessionCancelledByRequestContext(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	_, err := m.StartSession(reqCtx, 1, "video.mkv", 0, false)
+	_, err := m.StartSession(reqCtx, 1, "video.mkv", 0, false, false)
 	elapsed := time.Since(start)
 
 	if err == nil {
@@ -165,7 +165,7 @@ func TestCleanupOrphansRemovesInactiveSessions(t *testing.T) {
 	ffmpeg := buildFakeFFmpeg(t, 0, 0)
 	m := newManagerForTest(t, context.Background(), ffmpeg)
 
-	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false)
+	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false, false)
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestCleanupOrphansKeepsActiveSessions(t *testing.T) {
 	ffmpeg := buildFakeFFmpeg(t, 0, 0)
 	m := newManagerForTest(t, context.Background(), ffmpeg)
 
-	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false)
+	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false, false)
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
 	}
@@ -233,7 +233,7 @@ func TestCleanupOrphanDirsRemovesUntrackedOldDirs(t *testing.T) {
 func TestServeFileServesPlaylistAndRejectsUnknownSession(t *testing.T) {
 	ffmpeg := buildFakeFFmpeg(t, 0, 0)
 	m := newManagerForTest(t, context.Background(), ffmpeg)
-	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false)
+	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false, false)
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestServeFileServesPlaylistAndRejectsUnknownSession(t *testing.T) {
 func TestStopSessionRemovesDirAndTracking(t *testing.T) {
 	ffmpeg := buildFakeFFmpeg(t, 0, 0)
 	m := newManagerForTest(t, context.Background(), ffmpeg)
-	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false)
+	sess, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false, false)
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
 	}
@@ -308,13 +308,13 @@ func TestStopSessionOfFreesTheSlot(t *testing.T) {
 
 	var last *Session
 	for i := int64(1); i <= maxGlobalSessions; i++ {
-		s, err := m.StartSession(context.Background(), i, "video.mkv", 0, false)
+		s, err := m.StartSession(context.Background(), i, "video.mkv", 0, false, false)
 		if err != nil {
 			t.Fatalf("StartSession fuente %d: %v", i, err)
 		}
 		last = s
 	}
-	if _, err := m.StartSession(context.Background(), 99, "video.mkv", 0, false); !errors.Is(err, ErrTooManySessions) {
+	if _, err := m.StartSession(context.Background(), 99, "video.mkv", 0, false, false); !errors.Is(err, ErrTooManySessions) {
 		t.Fatalf("con el límite lleno err = %v, esperado ErrTooManySessions", err)
 	}
 
@@ -325,7 +325,7 @@ func TestStopSessionOfFreesTheSlot(t *testing.T) {
 	if _, ok := m.Session(last.ID); ok {
 		t.Error("la sesión sigue registrada tras StopSessionOf")
 	}
-	if _, err := m.StartSession(context.Background(), 99, "video.mkv", 0, false); err != nil {
+	if _, err := m.StartSession(context.Background(), 99, "video.mkv", 0, false, false); err != nil {
 		t.Fatalf("tras liberar una sesión debe caber otra: %v", err)
 	}
 }
@@ -335,7 +335,7 @@ func TestStopSessionOfFreesTheSlot(t *testing.T) {
 func TestStopSessionOfIgnoresOtherSourceAndUnknown(t *testing.T) {
 	ffmpeg := buildFakeFFmpeg(t, 0, 300)
 	m := newManagerForTest(t, context.Background(), ffmpeg)
-	s, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false)
+	s, err := m.StartSession(context.Background(), 1, "video.mkv", 0, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,7 +357,7 @@ func TestStopSessionOfIgnoresOtherSourceAndUnknown(t *testing.T) {
 // (MKV) llega al muxer HLS y tumba el remux.
 func TestBuildHLSArgsDropsSubtitles(t *testing.T) {
 	for _, audio := range []bool{false, true} {
-		args := buildHLSArgs("in.mkv", "out", 0, audio)
+		args := buildHLSArgs(softwareH264, "in.mkv", "out", 0, false, audio)
 		found := false
 		for _, a := range args {
 			if a == "-sn" {
@@ -369,6 +369,50 @@ func TestBuildHLSArgsDropsSubtitles(t *testing.T) {
 		}
 	}
 }
+
+// TestBuildHLSArgsTranscode: en modo transcode el vídeo se recodifica con el
+// codificador elegido (nunca "-c copy" del vídeo), y el audio se copia si es
+// compatible o se pasa a AAC si no.
+func TestBuildHLSArgsTranscode(t *testing.T) {
+	enc := softwareH264
+	// audio compatible: -c:a copy, y el códec de vídeo del encoder presente.
+	a := buildHLSArgs(enc, "in.avi", "out", 0, true, false)
+	if !argsContainSeq(a, "-c:v", "libx264") {
+		t.Fatalf("faltó el codificador de vídeo (libx264) en %v", a)
+	}
+	if !argsContainSeq(a, "-c:a", "copy") {
+		t.Fatalf("audio compatible debería copiarse (-c:a copy) en %v", a)
+	}
+	if argsContain(a, "-c", "copy") {
+		t.Fatalf("transcode no debe usar '-c copy' (copiaría el vídeo) en %v", a)
+	}
+	// audio incompatible: -c:a aac.
+	b := buildHLSArgs(enc, "in.avi", "out", 0, true, true)
+	if !argsContainSeq(b, "-c:a", "aac") {
+		t.Fatalf("audio incompatible debería recodificarse a AAC en %v", b)
+	}
+}
+
+func argsContain(args []string, want ...string) bool {
+	for i := range args {
+		if i+len(want) > len(args) {
+			break
+		}
+		ok := true
+		for j, w := range want {
+			if args[i+j] != w {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return true
+		}
+	}
+	return false
+}
+
+func argsContainSeq(args []string, want ...string) bool { return argsContain(args, want...) }
 
 // TestRemuxMKVWithEmbeddedSubtitles: prueba con ffmpeg real (se salta si no
 // está) de que un MKV con subtítulo subrip se remuxea sin fallar.
@@ -399,7 +443,7 @@ func TestRemuxMKVWithEmbeddedSubtitles(t *testing.T) {
 	if err := os.Mkdir(hls, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(ff, buildHLSArgs(mkv, hls, 0, false)...)
+	cmd := exec.Command(ff, buildHLSArgs(softwareH264, mkv, hls, 0, false, false)...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("el remux falló con subtítulos embebidos: %v\n%s", err, out)
 	}
