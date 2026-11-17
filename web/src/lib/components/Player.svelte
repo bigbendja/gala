@@ -94,7 +94,7 @@
 			if (mode === 'direct') {
 				remuxStartOffset = 0;
 				video.src = streamUrl(src.source_id);
-			} else if (mode === 'remux') {
+			} else if (mode === 'remux' || mode === 'transcode') {
 				setupRemux(src, video);
 			} else {
 				video.removeAttribute('src');
@@ -208,6 +208,8 @@
 				return 'Directo';
 			case 'remux':
 				return 'Remux';
+			case 'transcode':
+				return 'Convirtiendo';
 			case 'analyzing':
 				return 'Analizando';
 			case 'reject':

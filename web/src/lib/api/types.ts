@@ -119,7 +119,7 @@ export interface HealthSummary {
 // --- Reproducción (Brief M10b §1; internal/api/stream.go) ------------------
 
 // media.PlayMode.
-export type PlayMode = 'direct' | 'remux' | 'reject' | 'analyzing';
+export type PlayMode = 'direct' | 'remux' | 'transcode' | 'reject' | 'analyzing';
 
 export interface PlayMediaView {
 	container?: string;

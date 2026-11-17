@@ -3,6 +3,18 @@
 Formato: una sección por versión. La CI usa la sección de la etiqueta como notas
 del release.
 
+## [0.11.0] - 2026-11-17
+
+### Añadido
+- **Reproducción de vídeos que antes no se podían ver (transcodificación).** Los
+  archivos con códecs que el navegador no entiende (MPEG-4/Xvid, HEVC, MPEG-2, VC-1…)
+  ya no se rechazan: GALA los recodifica a H.264 sobre la marcha y los reproduce.
+  Usa la aceleración por hardware del equipo (VAAPI) si está disponible y, si no,
+  x264 por software. Antes solo se podían copiar sin tocar el vídeo (remux), lo que
+  no servía para estos formatos.
+- La instalación añade el usuario `gala` al grupo `render` si existe, para que la
+  aceleración por hardware funcione; en equipos sin GPU, transcodifica por software.
+
 ## [0.10.1] - 2026-10-31
 
 ### Corregido

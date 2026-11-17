@@ -78,8 +78,8 @@ func TestDecideMatrix(t *testing.T) {
 						if got.Mode == ModeDirect && got.Reason != "" {
 							t.Errorf("Reason = %q en modo Direct; no debería rellenarse", got.Reason)
 						}
-						if got.AudioTranscode && got.Mode != ModeRemux {
-							t.Errorf("AudioTranscode=true fuera de ModeRemux (Mode=%v)", got.Mode)
+						if got.AudioTranscode && got.Mode != ModeRemux && got.Mode != ModeTranscode {
+							t.Errorf("AudioTranscode=true fuera de Remux/Transcode (Mode=%v)", got.Mode)
 						}
 					})
 				}
@@ -95,7 +95,12 @@ func expectedDecision(container, vcodec, acodec string, ffmpegAvailable bool) (P
 	videoOK := compatibleVideoCodecs[vcodec]
 	audioOK := compatibleAudioCodecs[acodec]
 	if !videoOK {
-		return ModeReject, false
+		// Vídeo incompatible: transcodificar a H.264 si hay ffmpeg (y recodificar
+		// el audio si tampoco es compatible); si no, Reject.
+		if !ffmpegAvailable {
+			return ModeReject, false
+		}
+		return ModeTranscode, !audioOK
 	}
 	if directExtensions[container] && audioOK {
 		return ModeDirect, false
@@ -123,15 +128,25 @@ func TestDecideMissingTracks(t *testing.T) {
 	}
 }
 
-// TestDecideReasonMentionsCodec: HEVC sigue siendo Reject (vídeo
-// incompatible, sin remedio en MVP1); el ejemplo del Brief M4 §3.
-func TestDecideReasonMentionsCodec(t *testing.T) {
-	hevc := Decide(&MediaInfo{VideoCodec: "hevc", AudioCodec: "aac"}, "mkv", true)
-	if hevc.Mode != ModeReject {
-		t.Fatalf("HEVC debería ser Reject, got %v", hevc.Mode)
+// TestDecideIncompatibleVideoTranscodes: un vídeo que el navegador no
+// decodifica (HEVC, MPEG-4/Xvid...) pasa a Transcode si hay ffmpeg (se
+// recodifica a H.264), y a Reject —mencionando el códec y ffmpeg— si no.
+func TestDecideIncompatibleVideoTranscodes(t *testing.T) {
+	withFFmpeg := Decide(&MediaInfo{VideoCodec: "hevc", AudioCodec: "aac"}, "mkv", true)
+	if withFFmpeg.Mode != ModeTranscode {
+		t.Fatalf("HEVC con ffmpeg = %v, esperado ModeTranscode", withFFmpeg.Mode)
 	}
-	if !contains(hevc.Reason, "HEVC") {
-		t.Errorf("Reason = %q, esperado que mencione HEVC", hevc.Reason)
+	// mpeg4 (Xvid) con audio tampoco compatible: Transcode y además recodifica el audio.
+	xvid := Decide(&MediaInfo{VideoCodec: "mpeg4", AudioCodec: "ac3"}, "avi", true)
+	if xvid.Mode != ModeTranscode || !xvid.AudioTranscode {
+		t.Fatalf("mpeg4+ac3 con ffmpeg = %v (audioTranscode=%v), esperado Transcode con audio recodificado", xvid.Mode, xvid.AudioTranscode)
+	}
+	withoutFFmpeg := Decide(&MediaInfo{VideoCodec: "hevc", AudioCodec: "aac"}, "mkv", false)
+	if withoutFFmpeg.Mode != ModeReject {
+		t.Fatalf("HEVC sin ffmpeg = %v, esperado Reject", withoutFFmpeg.Mode)
+	}
+	if !contains(withoutFFmpeg.Reason, "HEVC") || !contains(withoutFFmpeg.Reason, "ffmpeg") {
+		t.Errorf("Reason = %q, esperado que mencione HEVC y ffmpeg", withoutFFmpeg.Reason)
 	}
 }
 

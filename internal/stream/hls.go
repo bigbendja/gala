@@ -30,9 +30,14 @@ var (
 )
 
 const (
-	// maxGlobalSessions es el límite de sesiones de remux concurrentes en
-	// toda la aplicación (Brief M4 §4).
+	// maxGlobalSessions es el límite de sesiones HLS concurrentes en toda la
+	// aplicación (Brief M4 §4).
 	maxGlobalSessions = 3
+	// maxTranscodeSessions acota las sesiones que RECODIFICAN vídeo a la vez:
+	// transcodificar pesa mucho más que remuxar (copiar), así que en hardware
+	// modesto conviene un tope más estricto que el global, incluso con
+	// aceleración por hardware.
+	maxTranscodeSessions = 2
 	// maxSessionsPerSource: al iniciar una nueva (p. ej. un seek), se cierra
 	// la más antigua de la misma fuente si ya había este número (Brief §4).
 	maxSessionsPerSource = 2
@@ -46,22 +51,82 @@ const (
 	// playlistReadyTimeout acota la espera a que ffmpeg escriba el primer
 	// segmento antes de responder a quien pidió iniciar la sesión.
 	playlistReadyTimeout = 12 * time.Second
+	// transcodeReadyTimeout: margen mayor para el primer segmento cuando se
+	// recodifica el vídeo (más lento que copiarlo), sobre todo por software.
+	transcodeReadyTimeout = 25 * time.Second
 
 	playlistName = "index.m3u8"
 )
 
-// Session es una sesión de remux HLS activa para una fuente.
+// Session es una sesión HLS activa para una fuente (remux o transcode).
 type Session struct {
 	ID       string
 	SourceID int64
 	Dir      string
 	StartAt  float64 // segundos de arranque en el archivo original (-ss)
 
+	transcode  bool // recodifica vídeo (pesa): cuenta para maxTranscodeSessions
 	cmd        *exec.Cmd
 	cancel     context.CancelFunc
 	createdAt  time.Time
 	lastAccess time.Time
 	done       chan struct{} // cerrado cuando el proceso ffmpeg termina
+}
+
+// videoEncoder describe cómo codificar vídeo a H.264 en buildHLSArgs: los
+// argumentos globales antes de -i (p. ej. el dispositivo VAAPI) y los de la
+// pista de vídeo. Lo elige DetectVideoEncoder al arrancar.
+type videoEncoder struct {
+	name     string   // para logs: "vaapi", "software"
+	preInput []string // antes de -i (p. ej. -vaapi_device ...)
+	video    []string // sustituye a "-c:v copy": filtros + -c:v <enc> + calidad
+}
+
+// softwareH264 es el codificador de respaldo: x264 por software. Un preset
+// rápido para ir en tiempo real en hardware modesto con un stream.
+var softwareH264 = videoEncoder{
+	name:  "software",
+	video: []string{"-c:v", "libx264", "-preset", "veryfast", "-crf", "23"},
+}
+
+const vaapiDevice = "/dev/dri/renderD128"
+
+// DetectVideoEncoder elige el codificador H.264 para transcodificar. Prueba
+// VAAPI DE VERDAD (un encode diminuto): solo lo usa si funciona con los
+// permisos reales del proceso — si el usuario que ejecuta GALA no está en el
+// grupo 'render', VAAPI da permiso denegado y se cae a software sin romper
+// nada. Si no hay dispositivo o no funciona, x264 por software, que cualquier
+// CPU decente aguanta para un stream.
+func DetectVideoEncoder(ffmpegPath string, log *slog.Logger) videoEncoder {
+	if ffmpegPath == "" {
+		return softwareH264
+	}
+	if _, err := os.Stat(vaapiDevice); err == nil && vaapiWorks(ffmpegPath) {
+		if log != nil {
+			log.Info("stream: transcodificación acelerada por hardware (VAAPI) disponible")
+		}
+		return videoEncoder{
+			name:     "vaapi",
+			preInput: []string{"-vaapi_device", vaapiDevice},
+			video:    []string{"-vf", "format=nv12,hwupload", "-c:v", "h264_vaapi", "-qp", "24"},
+		}
+	}
+	if log != nil {
+		log.Info("stream: transcodificación por software (x264); sin aceleración por hardware")
+	}
+	return softwareH264
+}
+
+// vaapiWorks hace un encode VAAPI diminuto a /dev/null: comprueba que el
+// dispositivo y el codificador h264_vaapi funcionan con los permisos reales
+// del proceso. Argumentos fijos, sin shell (CLAUDE.md).
+func vaapiWorks(ffmpegPath string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	args := []string{"-v", "error", "-vaapi_device", vaapiDevice,
+		"-f", "lavfi", "-i", "testsrc=duration=0.1:size=256x144:rate=5",
+		"-vf", "format=nv12,hwupload", "-c:v", "h264_vaapi", "-f", "null", "-"}
+	return exec.CommandContext(ctx, ffmpegPath, args...).Run() == nil
 }
 
 // Manager gestiona las sesiones de remux HLS activas: como máximo
@@ -75,15 +140,27 @@ type Manager struct {
 	ffmpegPath string
 	cacheDir   string // cache/hls/
 	log        *slog.Logger
+	encoder    videoEncoder // codificador de vídeo para transcode (ver SetVideoEncoder)
 
 	mu       sync.Mutex
 	sessions map[string]*Session
 }
 
 // NewManager crea el gestor de sesiones HLS. ctx debe vivir mientras viva la
-// aplicación: al cancelarse, todas las sesiones activas matan su ffmpeg.
+// aplicación: al cancelarse, todas las sesiones activas matan su ffmpeg. El
+// codificador de transcode arranca en software; main lo afina con
+// SetVideoEncoder(DetectVideoEncoder(...)) tras detectar el hardware.
 func NewManager(ctx context.Context, ffmpegPath, cacheDir string, log *slog.Logger) *Manager {
-	return &Manager{ctx: ctx, ffmpegPath: ffmpegPath, cacheDir: cacheDir, log: log, sessions: map[string]*Session{}}
+	return &Manager{ctx: ctx, ffmpegPath: ffmpegPath, cacheDir: cacheDir, log: log,
+		encoder: softwareH264, sessions: map[string]*Session{}}
+}
+
+// SetVideoEncoder fija el codificador que usará el transcode. Pensado para
+// llamarse una vez al arranque con el resultado de DetectVideoEncoder.
+func (m *Manager) SetVideoEncoder(enc videoEncoder) {
+	m.mu.Lock()
+	m.encoder = enc
+	m.mu.Unlock()
 }
 
 // StartSession lanza una nueva sesión de remux -c copy para sourceID, leyendo
@@ -98,26 +175,34 @@ func NewManager(ctx context.Context, ffmpegPath, cacheDir string, log *slog.Logg
 // audioTranscode recodifica el audio a AAC (-c:v copy -c:a aac) en vez de
 // copiar ambos streams: caso de vídeo compatible con audio que no lo es
 // (AC3/EAC3/DTS...), Brief M4 addendum §2. Sigue sin tocar el vídeo.
-func (m *Manager) StartSession(requestCtx context.Context, sourceID int64, srcPath string, startSeconds float64, audioTranscode bool) (*Session, error) {
+func (m *Manager) StartSession(requestCtx context.Context, sourceID int64, srcPath string, startSeconds float64, transcodeVideo, audioTranscode bool) (*Session, error) {
 	if m.ffmpegPath == "" {
 		return nil, ErrFFmpegUnavailable
 	}
 
 	m.mu.Lock()
 	var ownSessions []*Session
+	transcoding := 0
 	for _, s := range m.sessions {
 		if s.SourceID == sourceID {
 			ownSessions = append(ownSessions, s)
 		}
+		if s.transcode {
+			transcoding++
+		}
 	}
 	if len(ownSessions) >= maxSessionsPerSource {
 		sort.Slice(ownSessions, func(i, j int) bool { return ownSessions[i].createdAt.Before(ownSessions[j].createdAt) })
+		if ownSessions[0].transcode {
+			transcoding--
+		}
 		m.removeLocked(ownSessions[0])
 	}
-	if len(m.sessions) >= maxGlobalSessions {
+	if len(m.sessions) >= maxGlobalSessions || (transcodeVideo && transcoding >= maxTranscodeSessions) {
 		m.mu.Unlock()
 		return nil, ErrTooManySessions
 	}
+	enc := m.encoder
 	m.mu.Unlock()
 
 	id := newSessionID()
@@ -127,7 +212,7 @@ func (m *Manager) StartSession(requestCtx context.Context, sourceID int64, srcPa
 	}
 
 	procCtx, cancel := context.WithCancel(m.ctx)
-	cmd := exec.CommandContext(procCtx, m.ffmpegPath, buildHLSArgs(srcPath, dir, startSeconds, audioTranscode)...)
+	cmd := exec.CommandContext(procCtx, m.ffmpegPath, buildHLSArgs(enc, srcPath, dir, startSeconds, transcodeVideo, audioTranscode)...)
 
 	if err := cmd.Start(); err != nil {
 		cancel()
@@ -136,14 +221,14 @@ func (m *Manager) StartSession(requestCtx context.Context, sourceID int64, srcPa
 	}
 
 	sess := &Session{
-		ID: id, SourceID: sourceID, Dir: dir, StartAt: startSeconds,
+		ID: id, SourceID: sourceID, Dir: dir, StartAt: startSeconds, transcode: transcodeVideo,
 		cmd: cmd, cancel: cancel, createdAt: time.Now(), lastAccess: time.Now(),
 		done: make(chan struct{}),
 	}
 	go func() {
 		err := cmd.Wait()
 		if err != nil && procCtx.Err() == nil && m.log != nil {
-			m.log.Warn("stream: ffmpeg remux terminó con error", "session", id, "err", err)
+			m.log.Warn("stream: ffmpeg terminó con error", "session", id, "transcode", transcodeVideo, "err", err)
 		}
 		close(sess.done)
 	}()
@@ -152,9 +237,15 @@ func (m *Manager) StartSession(requestCtx context.Context, sourceID int64, srcPa
 	m.sessions[id] = sess
 	m.mu.Unlock()
 
-	if err := waitPlaylist(requestCtx, filepath.Join(dir, playlistName), playlistReadyTimeout); err != nil {
+	// El transcode tarda más en escribir el primer segmento (recodifica, no
+	// copia), así que le damos más margen que al remux.
+	timeout := playlistReadyTimeout
+	if transcodeVideo {
+		timeout = transcodeReadyTimeout
+	}
+	if err := waitPlaylist(requestCtx, filepath.Join(dir, playlistName), timeout); err != nil {
 		m.StopSession(id)
-		return nil, fmt.Errorf("el remux no generó la lista de reproducción a tiempo: %w", err)
+		return nil, fmt.Errorf("la conversión no generó la lista de reproducción a tiempo: %w", err)
 	}
 	return sess, nil
 }
@@ -164,8 +255,12 @@ func (m *Manager) StartSession(requestCtx context.Context, sourceID int64, srcPa
 // vídeo en MVP1"): audioTranscode recodifica solo el audio a AAC cuando el
 // original no es reproducible en el navegador (Brief M4 addendum §2), coste
 // de CPU bajo porque el vídeo se sigue copiando tal cual.
-func buildHLSArgs(srcPath, dir string, startSeconds float64, audioTranscode bool) []string {
+func buildHLSArgs(enc videoEncoder, srcPath, dir string, startSeconds float64, transcodeVideo, audioTranscode bool) []string {
 	args := []string{"-y"}
+	if transcodeVideo {
+		// Opciones globales del codificador (p. ej. -vaapi_device) antes de -i.
+		args = append(args, enc.preInput...)
+	}
 	if startSeconds > 0 {
 		args = append(args, "-ss", strconv.FormatFloat(startSeconds, 'f', 3, 64))
 	}
@@ -173,9 +268,18 @@ func buildHLSArgs(srcPath, dir string, startSeconds float64, audioTranscode bool
 	// embebido (subrip/ass en MKV) llegaba al muxer HLS, que solo acepta
 	// webvtt, y tumbaba la sesión entera aunque vídeo y audio fueran válidos.
 	args = append(args, "-i", srcPath, "-sn")
-	if audioTranscode {
+	switch {
+	case transcodeVideo:
+		// Recodifica el vídeo a H.264 (el navegador no decodifica el original).
+		args = append(args, enc.video...)
+		if audioTranscode {
+			args = append(args, "-c:a", "aac", "-b:a", "192k")
+		} else {
+			args = append(args, "-c:a", "copy")
+		}
+	case audioTranscode:
 		args = append(args, "-c:v", "copy", "-c:a", "aac", "-b:a", "192k")
-	} else {
+	default:
 		args = append(args, "-c", "copy")
 	}
 	return append(args,

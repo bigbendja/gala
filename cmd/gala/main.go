@@ -113,6 +113,10 @@ func main() {
 	mediaQueue := media.NewQueue(ctx, repo, ffmpeg, log)
 	go mediaQueue.Run()
 	hlsManager := stream.NewManager(ctx, ffmpeg.FFmpegPath, filepath.Join(cacheDir, "hls"), log)
+	// Transcodificación: elige codificador H.264 (VAAPI por hardware si el
+	// equipo y los permisos lo permiten, si no x264 por software). Se detecta
+	// una vez al arrancar; no aborta nada si falla (cae a software).
+	hlsManager.SetVideoEncoder(stream.DetectVideoEncoder(ffmpeg.FFmpegPath, log))
 	go hlsManager.RunSweeper()
 
 	// Ingesta universal (M5): crea items/sources provisionales y despierta
